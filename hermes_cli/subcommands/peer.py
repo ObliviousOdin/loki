@@ -426,7 +426,7 @@ def build_peer_parser(subparsers) -> None:
 
     parser = subparsers.add_parser(
         "peer", help="Bot-to-bot DMs across machines (compatible peer gateways)",
-        description=literal_help("Register compatible Loki or Hermes gateways as peers and message their agents. "
+        description=literal_help("Register compatible agent gateways as peers and message their agents. "
             "'loki peer dm <peer>[/<agent>] \"...\"' delivers into the remote "
             "agent's canonical Bot Chat over the peer's API server and prints "
             "the reply — the cross-machine twin of 'loki -p <bot> chat'. "

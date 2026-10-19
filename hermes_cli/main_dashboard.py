@@ -695,7 +695,7 @@ def _maybe_setup_dashboard_auth_interactively(args) -> None:
             "the dashboard again:\n"
             "    loki dashboard register\n"
             "  First configure an OAuth registration service/client authorized "
-            "for this Loki project. Hermes's hosted OAuth clients are not included.\n"
+            "for this Loki project. Upstream hosted OAuth clients are not included.\n"
             "  Registration settings are saved in this Loki profile's .env.\n"
             "  Docs: https://hermes-agent.nousresearch.com/docs/"
             "user-guide/features/web-dashboard#authentication-gated-mode"

@@ -89,7 +89,7 @@ def actual_parser():
 @pytest.mark.parametrize(("command", "expected"), [
     ([], "Loki - AI assistant"),
     (["backup"], "entire Loki configuration"),
-    (["import"], "Loki or Hermes backup into your Loki home directory"),
+    (["import"], "Loki-compatible backup into your Loki home directory"),
     (["import-agent"], "another coding agent's setup into Loki"),
     (["console"], "curated Loki command REPL"),
     (["mcp"], "run Loki as an MCP server"),
@@ -97,11 +97,11 @@ def actual_parser():
     (["profile"], "loki profile"),
     (["serve"], "Loki backend server"),
     (["logs"], "loki logs --level WARNING"),
-    (["peer"], "compatible Loki or Hermes gateways"),
+    (["peer"], "compatible agent gateways"),
     (["gui"], "LOKI_DESKTOP_HERMES_ROOT"),
     (["model"], "auth.oauth_clients.nous.client_id"),
     (["verify"], ".loki/environment.json"),
-    (["gateway", "migrate-legacy"], "Hermes or Fabric services"),
+    (["gateway", "migrate-legacy"], "other agent services"),
     (["migrate", "relay"], "LOKI_NEMO_RELAY_PLUGINS_TOML"),
 ])
 def test_actual_recursive_help_uses_loki(actual_parser, capsys, command, expected):
@@ -110,6 +110,8 @@ def test_actual_recursive_help_uses_loki(actual_parser, capsys, command, expecte
     assert exit_info.value.code == 0
     output = " ".join(capsys.readouterr().out.split())
     assert expected in output
+    if command in (["import"], ["peer"], ["gateway", "migrate-legacy"]):
+        assert "Hermes" not in output and "Fabric" not in output
     if command == ["gateway", "migrate-legacy"]:
         assert "loki-agent.service" in output.replace("- ", "-")
         assert "hermes.service" not in output

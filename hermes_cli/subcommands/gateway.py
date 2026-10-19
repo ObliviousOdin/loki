@@ -186,7 +186,7 @@ def build_gateway_parser(
         "migrate-legacy", help="Remove legacy loki-agent.service units from older Loki installs",
         description=literal_help("Stop, disable, and remove owned legacy Loki gateway unit files "
             "(loki-agent.service) left over from older installs. Profile "
-            "units (loki-gateway-<profile>.service), Hermes or Fabric services, "
+            "units (loki-gateway-<profile>.service), other agent services, "
             "and unrelated third-party services are never touched."))
     _flag(gateway_migrate_legacy, "--dry-run", dest="dry_run",
         help="List what would be removed without doing it")
