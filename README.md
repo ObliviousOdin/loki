@@ -8,7 +8,7 @@ This is the **0.1.0-alpha.1 preview candidate**, not a stable or fully qualified
 
 The source lives at [ObliviousOdin/loki](https://github.com/ObliviousOdin/loki). While repository access is private, authenticate with `gh auth login` yourself; do not paste credentials into chat. Public source downloads do not require an account.
 
-The tagged installation below becomes available after publication. For development before publication, use `gh pr checkout 1 --repo ObliviousOdin/loki` from the clone and record `git rev-parse HEAD`. No preview release or tag is implied by these instructions.
+The tagged installation below becomes available after publication. For development before publication, use `gh pr checkout 6 --repo ObliviousOdin/loki` from the clone and record `git rev-parse HEAD`. No preview release or tag is implied by these instructions.
 
 ```bash
 gh repo clone ObliviousOdin/loki

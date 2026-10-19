@@ -4,7 +4,7 @@ Recorded October 19, 2026. Loki is preparing its first public preview. No previe
 
 ## Publication gates
 
-The current private development repository has exhausted its existing CI capacity. Spending limits are unchanged. A public repository can use standard GitHub-hosted runners without minute charges; larger runners and storage have separate billing. The publication candidate uses only standard hosted runners. Public visibility remains pending review of the exact source, reachable history, repository metadata, workflow logs and artifacts.
+Release qualification requires the protected CI gate on the final pull-request head. Loki verification uses standard GitHub-hosted runners. Public-release preparation reviews the exact source, reachable history, repository metadata, workflow logs and artifacts before publication.
 
 Required `Loki verification` protection must remain enforced for administrators. No bypass, fabricated approval or local replacement status is permitted. Every active Loki job must actually succeed on the final PR head before normal merge, merged-commit release builds and publication. The workflow includes the full Linux Python suite, workspace checks/builds, complete desktop UI shards, Electron and packaged validation, plus source installations and applicable native-host tests on Linux, macOS and Windows. A skipped native test does not qualify a platform.
 
@@ -22,7 +22,7 @@ All earlier native candidates are superseded and must not be distributed. The co
 
 Classic CLI first-run startup reached setup; declining setup exited with the expected status 1. A model-configured modern TUI started with 20 tools and 57 skills and exited with status 0 without any provider request. Starting the TUI before selecting a model can report `storage_unavailable`; complete setup first. The same blank-model policy reproduced at the pinned upstream source, and no policy validation was relaxed.
 
-A dedicated provider credential is still being configured locally for actual conversation and resume acceptance. Existing application credentials are not adopted. Provider, messaging, OAuth, hosted-service, wake-word and computer-use acceptance require their own real evidence. Windows native desktop, Linux native desktop, macOS Intel, Android/Termux and Nix execution remain unqualified where no native receipt exists.
+Actual provider conversation and resume acceptance require a separately configured provider credential. Existing application credentials are not adopted. Provider, messaging, OAuth, hosted-service, wake-word and computer-use acceptance require their own real evidence. Windows native desktop, Linux native desktop, macOS Intel, Android/Termux and Nix execution remain unqualified where no native receipt exists.
 
 No Developer ID signature, notarization, Windows signing, Store acceptance or quarantined-download acceptance is claimed. Local ad hoc sealing proves integrity only. Packaged automatic updates remain disabled until an owned authenticated feed and trusted signing are qualified.
 

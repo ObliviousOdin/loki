@@ -187,7 +187,8 @@ def test_source_version_distinguishes_loki_from_the_pinned_upstream(tmp_path, mo
     label = banner.format_banner_version_label()
     assert "Loki v0.1.0a1" in label
     assert "Loki cccccccc" in label
-    assert "Hermes 18c525b6" in label
+    assert "baseline 18c525b6" in label
+    assert "Hermes" not in label
     assert "+?" not in label
 
 

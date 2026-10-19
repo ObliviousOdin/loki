@@ -233,7 +233,7 @@ def format_banner_version_label() -> str:
     if channel != "main":
         base += f" · {channel}"
     local = f" · Loki {info.commit[:8]}" if info.commit else ""
-    return f"{base}{local} · Hermes {UPSTREAM_COMMIT[:8]}"
+    return f"{base}{local} · baseline {UPSTREAM_COMMIT[:8]}"
 
 
 # === Non-blocking update check ===
