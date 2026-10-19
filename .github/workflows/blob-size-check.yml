@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Blob Size Check
 
 # Rejects PRs that add or modify a binary over 500 KiB, or add any new file over 500 KiB.
@@ -25,6 +27,7 @@ permissions:
 
 jobs:
   check-blob-size:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Reject large binaries
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

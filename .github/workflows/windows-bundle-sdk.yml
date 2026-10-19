@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Windows bundle SDK
 # The desktop signing adapter downloads and executes the pinned Windows SDK
 # tools. The vitest halves under js-tests run on Linux and skip every
@@ -22,6 +24,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   windows-bundle-tools:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Cold Windows SDK (${{ matrix.runner }})
     runs-on: ${{ matrix.runner }}
     # Cold ARM64 npm extraction alone can exceed 15 minutes on the hosted runner.

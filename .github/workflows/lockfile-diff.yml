@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Lockfile diff
 
 # Advisory PR comment showing the *semantic* diff of package-lock.json
@@ -39,6 +41,7 @@ concurrency:
 
 jobs:
   diff:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: package-lock.json semantic diff
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: E2E Desktop core
 
 # The core Desktop suite (apps/desktop/e2e/core): a small, deterministic lane
@@ -29,6 +31,7 @@ concurrency:
 
 jobs:
   core:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Desktop core E2E (Linux)
     runs-on: blacksmith-32vcpu-ubuntu-2404
     timeout-minutes: 30

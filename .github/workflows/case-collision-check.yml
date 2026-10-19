@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Case Collision Check
 
 # Rejects PRs that track two files whose paths differ only by case
@@ -29,6 +31,7 @@ permissions:
 
 jobs:
   check-case-collisions:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     steps:

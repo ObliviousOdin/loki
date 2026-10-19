@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Prompt surface diff
 
 # PR comment showing what the change does to the model-facing prompt surface: the system prompt
@@ -39,6 +41,7 @@ concurrency:
 
 jobs:
   diff:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Prompt surface summary
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: auto-fix lint issues & formatting
 
 # On push to main (or manual trigger), run `npm run fix` on each workspace
@@ -56,6 +58,7 @@ concurrency:
 
 jobs:
   generate-patch:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Generate eslint --fix patch
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -133,7 +136,7 @@ jobs:
     needs: generate-patch
     # Skip entirely when generate-patch found no fixes — saves a runner,
     # avoids a redundant checkout/download, and keeps the job graph honest.
-    if: needs.generate-patch.outputs.has-fixes == 'true'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.generate-patch.outputs.has-fixes == 'true') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     environment: trusted-automation

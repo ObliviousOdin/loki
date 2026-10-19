@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Install & Update E2E (reusable)
 
 # Runs ONE {install-method, update-method} combination against ONE starting
@@ -89,11 +91,7 @@ jobs:
     # Desktop-surface methods (+desktop installs,
     # hermes-desktop-app-update) also need the starting tag to ship
     # apps/desktop (their flags shipped with it).
-    if: >-
-      (inputs.install-method == 'installer-script'
-        || (inputs.install-method == 'installer-script+desktop' && inputs.tag-has-desktop))
-      && (contains(fromJSON('["hermes-update", "installer-script"]'), inputs.update-method)
-        || (contains(fromJSON('["installer-script+desktop", "hermes-desktop-app-update"]'), inputs.update-method) && inputs.tag-has-desktop))
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && ((inputs.install-method == 'installer-script' || (inputs.install-method == 'installer-script+desktop' && inputs.tag-has-desktop)) && (contains(fromJSON('["hermes-update", "installer-script"]'), inputs.update-method) || (contains(fromJSON('["installer-script+desktop", "hermes-desktop-app-update"]'), inputs.update-method) && inputs.tag-has-desktop))) }}
     runs-on: ${{ inputs.runner }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
 

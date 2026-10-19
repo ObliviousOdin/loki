@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Profile Artifact Boundary
 
 # A reusable, unconditional guard for the incident class in #92457. Ignore
@@ -17,6 +19,7 @@ permissions:
 
 jobs:
   check-profile-artifacts:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Reject profile archives
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

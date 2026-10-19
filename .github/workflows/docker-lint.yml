@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Docker / shell lint
 
 # Lints the container build inputs: Dockerfile (via hadolint) and any shell
@@ -27,6 +29,7 @@ concurrency:
 
 jobs:
   lint-docker-and-shell:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Lint Dockerfile (hadolint)
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

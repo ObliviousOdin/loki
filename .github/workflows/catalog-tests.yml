@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Catalog tests
 
 # The tests that read plugin-catalog entries and contributor email maps. ci.yaml
@@ -27,6 +29,7 @@ concurrency:
 
 jobs:
   catalog-tests:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Catalog tests
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15

@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Live provider canaries
 
 # Secrets-gated LIVE canary against real LLM provider APIs (tests/e2e/core/live,
@@ -34,7 +36,7 @@ jobs:
   live:
     name: Live provider canaries
     # Forks and PRs never see these secrets; only run where they exist.
-    if: github.repository == 'NousResearch/hermes-agent'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 25
     # Only booleans at job level: the key VALUES are scoped to the one step that

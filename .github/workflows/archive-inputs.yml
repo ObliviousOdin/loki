@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Archive pinned PM inputs
 
 on:
@@ -23,7 +25,7 @@ permissions:
 jobs:
   archive-inputs:
     name: Preserve every pinned HTTP input
-    if: github.event_name != 'pull_request' && github.event_name != 'pull_request_target'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (github.event_name != 'pull_request' && github.event_name != 'pull_request_target') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     timeout-minutes: 60

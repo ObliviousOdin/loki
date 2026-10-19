@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Install & Update E2E red tracker
 
 # Someone hears about a red scheduled matrix. After every scheduled
@@ -39,7 +41,7 @@ concurrency:
 jobs:
   track:
     name: Update the install-e2e-red tracker
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'schedule'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (github.event_name == 'workflow_dispatch' || github.event.workflow_run.event == 'schedule') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     permissions:

@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Skills Index Freshness Check
 
 # Belt-and-suspenders for the twice-daily build_skills_index pipeline.
@@ -22,7 +24,7 @@ permissions:
 
 jobs:
   check-freshness:
-    if: github.repository == 'NousResearch/hermes-agent'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10
     environment: trusted-automation
@@ -175,7 +177,7 @@ jobs:
     # cross-origin. A browser rejects that fetch when any response in the redirect
     # chain lacks Access-Control-Allow-Origin (#136483). The probe above uses
     # curl -L, which never checks CORS, so it stays green while Desktop is blocked.
-    if: github.repository == 'NousResearch/hermes-agent'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
     environment: trusted-automation

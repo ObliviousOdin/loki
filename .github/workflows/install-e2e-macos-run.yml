@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 # Reusable runner for ONE macOS install/update combination.
 #
 # Two driver arms, one runs per dispatch (the other natively skips):
@@ -87,11 +89,7 @@ jobs:
   # ---- arm 1: script installs (the shared OS-agnostic driver) --------------
   e2e:
     name: install & update
-    if: >-
-      (inputs.install-method == 'installer-script'
-        || (inputs.install-method == 'installer-script+desktop' && inputs.tag-has-desktop))
-      && (contains(fromJSON('["hermes-update", "installer-script"]'), inputs.update-method)
-        || (contains(fromJSON('["installer-script+desktop", "hermes-desktop-app-update"]'), inputs.update-method) && inputs.tag-has-desktop))
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && ((inputs.install-method == 'installer-script' || (inputs.install-method == 'installer-script+desktop' && inputs.tag-has-desktop)) && (contains(fromJSON('["hermes-update", "installer-script"]'), inputs.update-method) || (contains(fromJSON('["installer-script+desktop", "hermes-desktop-app-update"]'), inputs.update-method) && inputs.tag-has-desktop))) }}
     uses: ./.github/workflows/install-e2e-run.yml
     with:
       commit: ${{ inputs.commit }}
@@ -109,9 +107,7 @@ jobs:
     # Short static name on purpose: name expressions render UNEXPANDED on
     # skipped jobs.
     name: Hermes-Setup.dmg
-    if: >-
-      inputs.install-method == 'desktop-installer@latest' && inputs.tag-has-desktop
-      && contains(fromJSON('["open-app-update", "hermes-desktop-app-update", "hermes-update", "installer-script", "installer-script+desktop"]'), inputs.update-method)
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.install-method == 'desktop-installer@latest' && inputs.tag-has-desktop && contains(fromJSON('["open-app-update", "hermes-desktop-app-update", "hermes-update", "installer-script", "installer-script+desktop"]'), inputs.update-method)) }}
     runs-on: blacksmith-12vcpu-macos-latest
     timeout-minutes: ${{ inputs.timeout-minutes }}
 
@@ -212,7 +208,7 @@ jobs:
   # run anywhere native coverage would be fake.
   bundled-e2e:
     name: packaged bundle (open-app-update)
-    if: inputs.install-method == 'packaged-app' && inputs.update-method == 'open-app-update'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.install-method == 'packaged-app' && inputs.update-method == 'open-app-update') }}
     runs-on: ${{ inputs.bundle-arch == 'x64' && 'macos-15-intel' || 'macos-15' }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
 

@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: OSV-Scanner
 
 # Scans lockfiles (uv.lock, package-lock.json) against the OSV vulnerability
@@ -36,6 +38,7 @@ permissions:
 
 jobs:
   scan:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Scan lockfiles
     uses: google/osv-scanner-action/.github/workflows/osv-scanner-reusable.yml@9a498708959aeaef5ef730655706c5a1df1edbc2 # v2.3.8
     with:

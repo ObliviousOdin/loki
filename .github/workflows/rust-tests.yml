@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 # .github/workflows/rust-tests.yml
 name: Rust tests
 
@@ -31,6 +33,7 @@ concurrency:
 
 jobs:
   bootstrap-installer:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: cargo test (bootstrap installer)
     # cargo builds codegen units and test binaries in parallel across the
     # cores. This lane also builds the crate from the start when Cargo.toml

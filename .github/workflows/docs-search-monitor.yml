@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Docs Search Monitor
 
 # Live check that search works on hermes-agent.nousresearch.com/docs. Search
@@ -31,7 +33,7 @@ concurrency:
 
 jobs:
   probe:
-    if: github.repository == 'NousResearch/hermes-agent'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

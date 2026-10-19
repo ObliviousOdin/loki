@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Supply Chain Audit
 
 # Narrow, high-signal scanner. Only fires on critical indicators of supply
@@ -54,7 +56,7 @@ permissions:
 jobs:
   scan:
     name: Scan PR for critical supply chain risks
-    if: inputs.scan
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.scan) }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:
@@ -158,7 +160,7 @@ jobs:
 
   dep-bounds:
     name: Check PyPI dependency upper bounds
-    if: inputs.deps
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.deps) }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:
@@ -238,7 +240,7 @@ jobs:
   aggregate:
     name: Aggregate review statuses
     needs: [scan, dep-bounds]
-    if: always()
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always()) }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 15
     outputs:

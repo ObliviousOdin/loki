@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Desktop Bundled Release
 
 # Builds the bundled desktop installer for each (os, arch) target.
@@ -217,6 +219,7 @@ env:
 
 jobs:
   validate:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Pre-build setup
     # One dispatch: in disposable mode the allocation steps run first (the
     # channel pin comes from them), then admission validates the build source.
@@ -455,10 +458,7 @@ jobs:
   # Share execution via anchors, and keep the original IDs as downstream gates.
   build-win32-x64-release:
     name: bundled win32-x64
-    if: >-
-      needs.validate.outputs.win32-x64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && inputs.build_commit == '' && inputs.channel == ''
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.validate.outputs.win32-x64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && inputs.build_commit == '' && inputs.channel == '') }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -761,10 +761,7 @@ jobs:
 
   build-win32-arm64-release:
     name: bundled win32-arm64
-    if: >-
-      needs.validate.outputs.win32-arm64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && inputs.build_commit == '' && inputs.channel == ''
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.validate.outputs.win32-arm64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && inputs.build_commit == '' && inputs.channel == '') }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -781,11 +778,7 @@ jobs:
 
   build-win32-x64-commit:
     name: bundled win32-x64 (commit)
-    if: >-
-      !cancelled() && needs.validate.result == 'success'
-      && needs.validate.outputs.win32-x64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.build_commit != '' || inputs.channel != '')
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.win32-x64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.build_commit != '' || inputs.channel != '')) }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -797,11 +790,7 @@ jobs:
 
   build-win32-arm64-commit:
     name: bundled win32-arm64 (commit)
-    if: >-
-      !cancelled() && needs.validate.result == 'success'
-      && needs.validate.outputs.win32-arm64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.build_commit != '' || inputs.channel != '')
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.win32-arm64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.build_commit != '' || inputs.channel != '')) }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -815,10 +804,7 @@ jobs:
     name: bundled win32-x64 result
     # always() crosses the deliberately skipped trust branch; failed admission
     # still skips this result, just as it skipped the original native builder.
-    if: >-
-      always() && needs.validate.outputs.win32-x64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && needs.validate.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && needs.validate.outputs.win32-x64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && needs.validate.result == 'success') }}
     # The trust-branch legs are read through needs.*.result below, so they must
     # stay in the list — the result job gates on their outcomes, not its own.
     needs: [validate, build-win32-x64-release, build-win32-x64-commit]
@@ -842,10 +828,7 @@ jobs:
     name: bundled win32-arm64 result
     # always() crosses the deliberately skipped trust branch; failed admission
     # still skips this result, just as it skipped the original native builder.
-    if: >-
-      always() && needs.validate.outputs.win32-arm64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && needs.validate.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && needs.validate.outputs.win32-arm64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && needs.validate.result == 'success') }}
     # The trust-branch legs are read through needs.*.result below, so they must
     # stay in the list — the result job gates on their outcomes, not its own.
     needs: [validate, build-win32-arm64-release, build-win32-arm64-commit]
@@ -871,10 +854,7 @@ jobs:
   # pointer last, whole channel green before anything publishes.
   build-darwin-arm64-release:
     name: bundled darwin-arm64
-    if: >-
-      needs.validate.outputs.darwin-arm64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && inputs.build_commit == '' && inputs.channel == ''
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.validate.outputs.darwin-arm64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && inputs.build_commit == '' && inputs.channel == '') }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -1177,10 +1157,7 @@ jobs:
 
   build-darwin-x64-release:
     name: bundled darwin-x64
-    if: >-
-      needs.validate.outputs.darwin-x64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && inputs.build_commit == '' && inputs.channel == ''
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.validate.outputs.darwin-x64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && inputs.build_commit == '' && inputs.channel == '') }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -1197,11 +1174,7 @@ jobs:
 
   build-darwin-arm64-commit:
     name: bundled darwin-arm64 (commit)
-    if: >-
-      !cancelled() && needs.validate.result == 'success'
-      && needs.validate.outputs.darwin-arm64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.build_commit != '' || inputs.channel != '')
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.darwin-arm64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.build_commit != '' || inputs.channel != '')) }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -1213,11 +1186,7 @@ jobs:
 
   build-darwin-x64-commit:
     name: bundled darwin-x64 (commit)
-    if: >-
-      !cancelled() && needs.validate.result == 'success'
-      && needs.validate.outputs.darwin-x64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.build_commit != '' || inputs.channel != '')
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.darwin-x64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.build_commit != '' || inputs.channel != '')) }}
     needs: [validate]
     runs-on: ${{ matrix.target.runner }}
     environment: release-signing
@@ -1231,10 +1200,7 @@ jobs:
     name: bundled darwin-arm64 result
     # always() crosses the deliberately skipped trust branch; failed admission
     # still skips this result, just as it skipped the original native builder.
-    if: >-
-      always() && needs.validate.outputs.darwin-arm64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && needs.validate.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && needs.validate.outputs.darwin-arm64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && needs.validate.result == 'success') }}
     # The trust-branch legs are read through needs.*.result below, so they must
     # stay in the list — the result job gates on their outcomes, not its own.
     needs: [validate, build-darwin-arm64-release, build-darwin-arm64-commit]
@@ -1251,10 +1217,7 @@ jobs:
     name: bundled darwin-x64 result
     # always() crosses the deliberately skipped trust branch; failed admission
     # still skips this result, just as it skipped the original native builder.
-    if: >-
-      always() && needs.validate.outputs.darwin-x64 == 'true'
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && needs.validate.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && needs.validate.outputs.darwin-x64 == 'true' && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && needs.validate.result == 'success') }}
     # The trust-branch legs are read through needs.*.result below, so they must
     # stay in the list — the result job gates on their outcomes, not its own.
     needs: [validate, build-darwin-x64-release, build-darwin-x64-commit]
@@ -1270,7 +1233,7 @@ jobs:
   # ── Linux builders (DISABLED for now) ─────────────────────────────────────
   build-linux-x64:
     name: bundled linux-x64 (disabled for now)
-    if: needs.validate.outputs.linux-x64 == 'true'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.validate.outputs.linux-x64 == 'true') }}
     needs: validate
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -1281,7 +1244,7 @@ jobs:
 
   build-linux-arm64:
     name: bundled linux-arm64 (disabled for now)
-    if: needs.validate.outputs.linux-arm64 == 'true'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.validate.outputs.linux-arm64 == 'true') }}
     needs: validate
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -1296,11 +1259,7 @@ jobs:
     # the install arm may start against bytes whose smoke has not run yet
     # (decision 11); acceptance still blocks publication.
     needs: [validate, build-darwin-arm64]
-    if: >-
-      !cancelled() && inputs.release-phase == 'candidate'
-      && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.validate.outputs.darwin-arm64 == 'true'
-      && needs.build-darwin-arm64.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && inputs.release-phase == 'candidate' && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.validate.outputs.darwin-arm64 == 'true' && needs.build-darwin-arm64.result == 'success') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     timeout-minutes: 15
@@ -1330,11 +1289,7 @@ jobs:
   stage-receipt-darwin-x64:
     name: Stage the darwin-x64 stable receipt
     needs: [validate, build-darwin-x64]
-    if: >-
-      !cancelled() && inputs.release-phase == 'candidate'
-      && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.validate.outputs.darwin-x64 == 'true'
-      && needs.build-darwin-x64.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && inputs.release-phase == 'candidate' && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.validate.outputs.darwin-x64 == 'true' && needs.build-darwin-x64.result == 'success') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     timeout-minutes: 15
@@ -1364,13 +1319,7 @@ jobs:
   smoke-darwin-arm64:
     name: Smoke macOS arm64 dmg/zip
     needs: [validate, build-darwin-arm64, stage-receipt-darwin-arm64]
-    if: >-
-      !cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.build-darwin-arm64.result == 'success' && needs.validate.outputs.darwin-arm64 == 'true'
-      && (inputs.release-phase != 'candidate' || needs.stage-receipt-darwin-arm64.result == 'success')
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '')
-      && inputs.skip-tests != true
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.build-darwin-arm64.result == 'success' && needs.validate.outputs.darwin-arm64 == 'true' && (inputs.release-phase != 'candidate' || needs.stage-receipt-darwin-arm64.result == 'success') && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '') && inputs.skip-tests != true) }}
     permissions:
       contents: read
     strategy:
@@ -1397,13 +1346,7 @@ jobs:
   smoke-darwin-x64:
     name: Smoke macOS x64 dmg/zip
     needs: [validate, build-darwin-x64, stage-receipt-darwin-x64]
-    if: >-
-      !cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.build-darwin-x64.result == 'success' && needs.validate.outputs.darwin-x64 == 'true'
-      && (inputs.release-phase != 'candidate' || needs.stage-receipt-darwin-x64.result == 'success')
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '')
-      && inputs.skip-tests != true
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.build-darwin-x64.result == 'success' && needs.validate.outputs.darwin-x64 == 'true' && (inputs.release-phase != 'candidate' || needs.stage-receipt-darwin-x64.result == 'success') && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '') && inputs.skip-tests != true) }}
     permissions:
       contents: read
     strategy:
@@ -1433,16 +1376,7 @@ jobs:
   smoke-win32-x64:
     name: Smoke Windows x64 MSIX
     needs: [validate, build-win32-x64]
-    if: >-
-      !cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && ((inputs.windows-smokes-with-bundle != true
-           && needs.build-win32-x64.result == 'success' && needs.validate.outputs.win32-x64 == 'true')
-        || (inputs.windows-smokes-with-bundle == true && needs.validate.outputs.win32-bundle == 'true'
-           && (needs.validate.outputs.win32-x64 != 'true' || needs.build-win32-x64.result == 'success')))
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '')
-      && inputs.skip-tests != true
-      && inputs.skip-signed != true
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && ((inputs.windows-smokes-with-bundle != true && needs.build-win32-x64.result == 'success' && needs.validate.outputs.win32-x64 == 'true') || (inputs.windows-smokes-with-bundle == true && needs.validate.outputs.win32-bundle == 'true' && (needs.validate.outputs.win32-x64 != 'true' || needs.build-win32-x64.result == 'success'))) && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '') && inputs.skip-tests != true && inputs.skip-signed != true) }}
     permissions:
       contents: read
     uses: ./.github/workflows/desktop-bundle-smoke.yml
@@ -1465,16 +1399,7 @@ jobs:
   smoke-win32-arm64:
     name: Smoke Windows arm64 MSIX
     needs: [validate, build-win32-arm64]
-    if: >-
-      !cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && ((inputs.windows-smokes-with-bundle != true
-           && needs.build-win32-arm64.result == 'success' && needs.validate.outputs.win32-arm64 == 'true')
-        || (inputs.windows-smokes-with-bundle == true && needs.validate.outputs.win32-bundle == 'true'
-           && (needs.validate.outputs.win32-arm64 != 'true' || needs.build-win32-arm64.result == 'success')))
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '')
-      && inputs.skip-tests != true
-      && inputs.skip-signed != true
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && ((inputs.windows-smokes-with-bundle != true && needs.build-win32-arm64.result == 'success' && needs.validate.outputs.win32-arm64 == 'true') || (inputs.windows-smokes-with-bundle == true && needs.validate.outputs.win32-bundle == 'true' && (needs.validate.outputs.win32-arm64 != 'true' || needs.build-win32-arm64.result == 'success'))) && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '') && inputs.skip-tests != true && inputs.skip-signed != true) }}
     permissions:
       contents: read
     uses: ./.github/workflows/desktop-bundle-smoke.yml
@@ -1502,13 +1427,7 @@ jobs:
   assemble-win32-bundle:
     name: Assemble and stage the Windows universal bundle
     needs: [validate, build-win32-x64, build-win32-arm64]
-    if: >-
-      !cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.validate.outputs.win32-bundle == 'true'
-      && (needs.validate.outputs.win32-x64 != 'true' || needs.build-win32-x64.result == 'success')
-      && (needs.validate.outputs.win32-arm64 != 'true' || needs.build-win32-arm64.result == 'success')
-      && (inputs.release-phase == '' || inputs.release-phase == 'candidate')
-      && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '')
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.validate.outputs.win32-bundle == 'true' && (needs.validate.outputs.win32-x64 != 'true' || needs.build-win32-x64.result == 'success') && (needs.validate.outputs.win32-arm64 != 'true' || needs.build-win32-arm64.result == 'success') && (inputs.release-phase == '' || inputs.release-phase == 'candidate') && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '' || inputs.channel != '')) }}
     runs-on: blacksmith-32vcpu-windows-2025
     environment: release-signing
     cache-mode: read
@@ -1708,16 +1627,7 @@ jobs:
         smoke-win32-arm64,
         smoke-win32-x64
       ]
-    if: >-
-      !cancelled() && needs.validate.outputs.channel-build != '' && needs.validate.result == 'success'
-      && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true'
-      && needs.validate.outputs.win32-arm64 == 'true' && needs.validate.outputs.win32-x64 == 'true'
-      && needs.validate.outputs.win32-bundle == 'true'
-      && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success'
-      && needs.build-win32-arm64.result == 'success' && needs.build-win32-x64.result == 'success'
-      && needs.assemble-win32-bundle.result == 'success'
-      && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success'
-      && needs.smoke-win32-arm64.result == 'success' && needs.smoke-win32-x64.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && needs.validate.outputs.channel-build != '' && needs.validate.result == 'success' && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true' && needs.validate.outputs.win32-arm64 == 'true' && needs.validate.outputs.win32-x64 == 'true' && needs.validate.outputs.win32-bundle == 'true' && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success' && needs.build-win32-arm64.result == 'success' && needs.build-win32-x64.result == 'success' && needs.assemble-win32-bundle.result == 'success' && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success' && needs.smoke-win32-arm64.result == 'success' && needs.smoke-win32-x64.result == 'success') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     cache-mode: read
@@ -1759,14 +1669,7 @@ jobs:
   publish-win32-updater:
     name: Publish the tested Windows canary bundle
     needs: [validate, assemble-win32-bundle, smoke-win32-arm64, smoke-win32-x64]
-    if: >-
-      !cancelled() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true
-      && inputs.release-phase == ''
-      && needs.validate.outputs.win32-arm64 == 'true' && needs.validate.outputs.win32-x64 == 'true'
-      && needs.validate.outputs.win32-bundle == 'true'
-      && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.assemble-win32-bundle.result == 'success'
-      && needs.smoke-win32-arm64.result == 'success' && needs.smoke-win32-x64.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true && inputs.release-phase == '' && needs.validate.outputs.win32-arm64 == 'true' && needs.validate.outputs.win32-x64 == 'true' && needs.validate.outputs.win32-bundle == 'true' && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.assemble-win32-bundle.result == 'success' && needs.smoke-win32-arm64.result == 'success' && needs.smoke-win32-x64.result == 'success') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     timeout-minutes: 15
@@ -1840,13 +1743,7 @@ jobs:
   publish-darwin-updater:
     name: Publish the macOS updater feed
     needs: [validate, build-darwin-arm64, build-darwin-x64, smoke-darwin-arm64, smoke-darwin-x64]
-    if: >-
-      !cancelled() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true
-      && inputs.release-phase == ''
-      && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true'
-      && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success'
-      && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (!cancelled() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true && inputs.release-phase == '' && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true' && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success' && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     timeout-minutes: 15
@@ -1908,7 +1805,7 @@ jobs:
   termux-deb:
     name: Build + publish the termux .deb (aarch64)
     needs: [validate]
-    if: inputs.channel == '' && inputs.disposable_channel == '' && needs.validate.outputs.termux == 'true' && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '')
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.channel == '' && inputs.disposable_channel == '' && needs.validate.outputs.termux == 'true' && (inputs.upload_release == true || inputs.release-phase == 'candidate' || inputs.build_commit != '')) }}
     runs-on: blacksmith-4vcpu-ubuntu-2404-arm
     environment: release-signing
     timeout-minutes: 90
@@ -2279,7 +2176,7 @@ jobs:
     name: Mark the builds table as in progress
     needs: validate
     # Pairs with builds-table: a pending page nothing finalizes must not be written.
-    if: inputs.build_commit == '' && inputs.upload_release == true && needs.validate.outputs.all-jobs == 'true'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.build_commit == '' && inputs.upload_release == true && needs.validate.outputs.all-jobs == 'true') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     steps:
       - uses: useblacksmith/checkout@25227e61ff9dafe400e22fa487b673eac4e4409a  # v1
@@ -2321,10 +2218,7 @@ jobs:
       ]
     # Failed builds still get a per-tag diagnostic page. The renderer only
     # advances the channel landing page when every prerequisite succeeded.
-    if: |
-      always() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true && inputs.release-phase == ''
-      && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.validate.outputs.all-jobs == 'true'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true && inputs.release-phase == '' && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.validate.outputs.all-jobs == 'true') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     steps:
@@ -2379,10 +2273,7 @@ jobs:
         smoke-win32-x64,
         termux-deb
       ]
-    if: |
-      always() && inputs.build_commit != '' && inputs.channel == '' && inputs.disposable_channel == ''
-      && needs.validate.result == 'success' && needs.validate.outputs.sha != ''
-      && needs.validate.outputs.all-jobs == 'true'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && inputs.build_commit != '' && inputs.channel == '' && inputs.disposable_channel == '' && needs.validate.result == 'success' && needs.validate.outputs.sha != '' && needs.validate.outputs.all-jobs == 'true') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     permissions:
@@ -2442,7 +2333,7 @@ jobs:
   stable-publish:
     name: Verify published candidate files
     needs: validate
-    if: inputs.release-phase == 'publish'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.release-phase == 'publish') }}
     runs-on: blacksmith-32vcpu-ubuntu-2404
     environment: release-signing
     timeout-minutes: 90
@@ -2468,7 +2359,7 @@ jobs:
   stable-store:
     name: Submit the verified Store package
     needs: [validate, stable-publish]
-    if: inputs.release-phase == 'publish' && inputs.skip-store != true
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.release-phase == 'publish' && inputs.skip-store != true) }}
     # The Store is not a release gate: a failed submission leaves the release publishable
     # and the summary names the Store package for a manual Partner Center upload.
     continue-on-error: true
@@ -2521,7 +2412,7 @@ jobs:
 
   stable-phase-result:
     name: Stable bundle phase completed
-    if: always() && inputs.release-phase != ''
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && inputs.release-phase != '') }}
     needs:
       [
         validate,
@@ -2584,24 +2475,7 @@ jobs:
         publish-win32-updater,
         publish-darwin-updater
       ]
-    if: |
-      always()
-      && inputs.build_commit == '' && inputs.channel == ''
-      && inputs.upload_release == true
-      && contains(inputs.tag, '+canary.')
-      && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true'
-      && needs.validate.outputs.win32-arm64 == 'true' && needs.validate.outputs.win32-x64 == 'true'
-      && needs.validate.outputs.win32-bundle == 'true'
-      && needs.validate.outputs.linux-x64 == 'true' && needs.validate.outputs.linux-arm64 == 'true'
-      && needs.build-win32-x64.result == 'success' && needs.build-win32-arm64.result == 'success'
-      && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success'
-      && needs.build-linux-x64.result == 'success' && needs.build-linux-arm64.result == 'success'
-      && needs.builds-table.result == 'success'
-      && needs.assemble-win32-bundle.result == 'success'
-      && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success'
-      && needs.smoke-win32-arm64.result == 'success' && needs.smoke-win32-x64.result == 'success'
-      && needs.publish-win32-updater.result == 'success'
-      && needs.publish-darwin-updater.result == 'success'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && inputs.build_commit == '' && inputs.channel == '' && inputs.upload_release == true && contains(inputs.tag, '+canary.') && needs.validate.outputs.darwin-arm64 == 'true' && needs.validate.outputs.darwin-x64 == 'true' && needs.validate.outputs.win32-arm64 == 'true' && needs.validate.outputs.win32-x64 == 'true' && needs.validate.outputs.win32-bundle == 'true' && needs.validate.outputs.linux-x64 == 'true' && needs.validate.outputs.linux-arm64 == 'true' && needs.build-win32-x64.result == 'success' && needs.build-win32-arm64.result == 'success' && needs.build-darwin-arm64.result == 'success' && needs.build-darwin-x64.result == 'success' && needs.build-linux-x64.result == 'success' && needs.build-linux-arm64.result == 'success' && needs.builds-table.result == 'success' && needs.assemble-win32-bundle.result == 'success' && needs.smoke-darwin-arm64.result == 'success' && needs.smoke-darwin-x64.result == 'success' && needs.smoke-win32-arm64.result == 'success' && needs.smoke-win32-x64.result == 'success' && needs.publish-win32-updater.result == 'success' && needs.publish-darwin-updater.result == 'success') }}
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: release-signing
     steps:

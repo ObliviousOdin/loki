@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: PM Bundle
 
 # Stages the self-contained agent payload for each (os, arch) target with
@@ -56,6 +58,7 @@ concurrency:
 
 jobs:
   bundle:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: bundle ${{ matrix.target.label }}
     runs-on: ${{ matrix.target.runner }}
     # Leave time for setup, cache saves and smoke tests around the wheel build.

@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Lazy-deps import guard
 
 # Rejects any tracked production code that imports tools/lazy_deps.py.
@@ -32,6 +34,7 @@ permissions:
 
 jobs:
   lazy-deps-guard:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: No production imports of the tools.lazy_deps stub
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5

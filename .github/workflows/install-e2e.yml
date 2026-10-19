@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Install & Update E2E
 
 # Can a user on a released version get to this commit?
@@ -129,6 +131,7 @@ env:
 
 jobs:
   pick-releases:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Pick release tags
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -193,6 +196,7 @@ jobs:
   # Expand the support matrix against the picked tags: one leg per
   # {os, install-method, update-method, tag}, split into a matrix per OS.
   generate-matrix:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Expand combinations
     needs: pick-releases
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -230,6 +234,7 @@ jobs:
             --format markdown >> "$GITHUB_STEP_SUMMARY"
 
   bundle-inputs:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Validate pinned bundle transitions
     # Bundled legs need dispatch-only manifests.
     runs-on: blacksmith-4vcpu-ubuntu-2404
@@ -254,7 +259,7 @@ jobs:
 
   windows-bundled:
     name: ${{ matrix.name }}
-    if: inputs.windows-bundle-manifest != '' && contains(fromJSON('["all", "bundled", "windows-bundled"]'), inputs.route)
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.windows-bundle-manifest != '' && contains(fromJSON('["all", "bundled", "windows-bundled"]'), inputs.route)) }}
     needs: bundle-inputs
     strategy:
       fail-fast: false
@@ -271,7 +276,7 @@ jobs:
 
   macos-bundled:
     name: ${{ matrix.name }}
-    if: inputs.macos-bundle-manifest != '' && contains(fromJSON('["all", "bundled", "macos-bundled"]'), inputs.route)
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.macos-bundle-manifest != '' && contains(fromJSON('["all", "bundled", "macos-bundled"]'), inputs.route)) }}
     needs: bundle-inputs
     strategy:
       fail-fast: false
@@ -290,7 +295,7 @@ jobs:
     name: ${{ matrix.name }}
     # The generator applies the route; an OS it selected no legs for is skipped
     # (GitHub rejects an empty matrix).
-    if: needs.generate-matrix.outputs.linux-legs != '0'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.generate-matrix.outputs.linux-legs != '0') }}
     needs: generate-matrix
     strategy:
       # One leg breaking is worth knowing about even if another already
@@ -309,7 +314,7 @@ jobs:
 
   windows:
     name: ${{ matrix.name }}
-    if: needs.generate-matrix.outputs.windows-legs != '0'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.generate-matrix.outputs.windows-legs != '0') }}
     needs: generate-matrix
     strategy:
       fail-fast: false
@@ -326,7 +331,7 @@ jobs:
 
   macos:
     name: ${{ matrix.name }}
-    if: needs.generate-matrix.outputs.macos-legs != '0'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (needs.generate-matrix.outputs.macos-legs != '0') }}
     needs: generate-matrix
     strategy:
       fail-fast: false
@@ -351,6 +356,7 @@ jobs:
   # (playback.html), ignoring the name: input -- harmless, the renderer
   # looks it up by that name.
   leg-player:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Upload leg player
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -378,7 +384,7 @@ jobs:
   # the source install/update paths.
   source-gate:
     name: Source matrix gate
-    if: always() && inputs.release == true
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always() && inputs.release == true) }}
     needs: [generate-matrix, linux, windows, macos]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 5
@@ -420,7 +426,7 @@ jobs:
   # the per-OS aggregates.
   report:
     name: Result chart
-    if: always()
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (always()) }}
     needs: [leg-player, pick-releases, linux, windows, macos, bundle-inputs, windows-bundled, macos-bundled]
     runs-on: blacksmith-4vcpu-ubuntu-2404
     timeout-minutes: 10

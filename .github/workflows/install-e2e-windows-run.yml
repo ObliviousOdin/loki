@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 # Reusable runner for ONE Windows install/update combination.
 #
 # One job, two orthogonal axes: tests/install/windows-e2e.ps1 dispatches its
@@ -111,7 +113,7 @@ env:
 jobs:
   bundled-e2e:
     name: packaged bundle (open-app-update)
-    if: inputs.install-method == 'packaged-app' && inputs.update-method == 'open-app-update'
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && (inputs.install-method == 'packaged-app' && inputs.update-method == 'open-app-update') }}
     runs-on: ${{ inputs.bundle-arch == 'arm64' && 'windows-latest-32-arm-core' || 'blacksmith-32vcpu-windows-2025' }}
     timeout-minutes: ${{ inputs.timeout-minutes }}
     steps:
@@ -177,13 +179,7 @@ jobs:
     #     Update button to click, no -IncludeDesktop to pass);
     #   * open-app-update needs an OS entry point, which only the
     #     desktop-bearing installs create.
-    if: >-
-      (inputs.install-method == 'installer-script'
-        || (contains(fromJSON('["installer-script+desktop", "desktop-installer@latest"]'), inputs.install-method) && inputs.tag-has-desktop))
-      && (contains(fromJSON('["hermes-update", "installer-script"]'), inputs.update-method)
-        || (contains(fromJSON('["installer-script+desktop", "hermes-desktop-app-update", "desktop-installer@latest"]'), inputs.update-method) && inputs.tag-has-desktop)
-        || (inputs.update-method == 'open-app-update' && inputs.tag-has-desktop
-            && contains(fromJSON('["desktop-installer@latest", "installer-script+desktop"]'), inputs.install-method)))
+    if: ${{ github.repository == 'NousResearch/hermes-agent' && ((inputs.install-method == 'installer-script' || (contains(fromJSON('["installer-script+desktop", "desktop-installer@latest"]'), inputs.install-method) && inputs.tag-has-desktop)) && (contains(fromJSON('["hermes-update", "installer-script"]'), inputs.update-method) || (contains(fromJSON('["installer-script+desktop", "hermes-desktop-app-update", "desktop-installer@latest"]'), inputs.update-method) && inputs.tag-has-desktop) || (inputs.update-method == 'open-app-update' && inputs.tag-has-desktop && contains(fromJSON('["desktop-installer@latest", "installer-script+desktop"]'), inputs.install-method)))) }}
     runs-on: blacksmith-32vcpu-windows-2025
     timeout-minutes: ${{ inputs.timeout-minutes }}
 

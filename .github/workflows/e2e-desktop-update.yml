@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: E2E Desktop update
 
 # The Desktop install/update suite (apps/desktop/e2e/update): the packaged app
@@ -31,6 +33,7 @@ concurrency:
 
 jobs:
   update:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: Desktop install/update E2E (Linux, ${{ matrix.cell }})
     runs-on: blacksmith-32vcpu-ubuntu-2404
     timeout-minutes: 30

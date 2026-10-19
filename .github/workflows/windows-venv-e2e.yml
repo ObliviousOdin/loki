@@ -1,3 +1,5 @@
+# Upstream reference workflow: every job is locked to the upstream repository.
+# Loki uses loki-ci.yml and loki-preview.yml; no upstream publishing credentials apply.
 name: Windows venv-holder live E2E
 
 # ON-DEMAND ONLY (fleet-update #91277, venv-holder consolidation work).
@@ -41,6 +43,7 @@ concurrency:
 
 jobs:
   venv-holder-e2e:
+    if: ${{ github.repository == 'NousResearch/hermes-agent' }}
     name: venv-holder live E2E (windows-latest)
     runs-on: blacksmith-32vcpu-windows-2025
     timeout-minutes: 25
