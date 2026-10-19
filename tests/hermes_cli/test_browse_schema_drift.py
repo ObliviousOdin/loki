@@ -515,6 +515,7 @@ from fastapi import HTTPException
 from hermes_cli.web_server_sessions import _open_session_db_at_path
 
 phase = sys.argv[2]
+callback_delay = float(sys.argv[3])
 original = ssr.connect_tracked
 
 class SlowConnection:
@@ -528,7 +529,7 @@ class SlowConnection:
         return getattr(self._conn, name)
     def set_progress_handler(self, handler, n):
         def slow():
-            time.sleep(0.01)
+            time.sleep(callback_delay)
             return handler() if handler is not None else 0
         return self._conn.set_progress_handler(slow, 5)
     def close(self):
@@ -563,7 +564,8 @@ except HTTPException as exc:
 
 @pytest.mark.platforms("linux", "macos")
 @pytest.mark.parametrize("phase", ["ddl"])
-def test_slow_browse_reconcile_gives_up_inside_its_budget_and_boot_waits_it_out(tmp_path, phase):
+@pytest.mark.parametrize("callback_delay", [0.01, 0.04], ids=["warm-vm", "cold-vm"])
+def test_slow_browse_reconcile_gives_up_inside_its_budget_and_boot_waits_it_out(tmp_path, phase, callback_delay):
     """R2-2: the busy timeout bounds lock contention, not SQL execution. A slow DDL must be
     interrupted at the browse budget (rolled back, retryable 503), and gateway boot's wait must
     outlast that budget, so a slow browse never turns into a startup refusal. (The integrity scan
@@ -583,26 +585,33 @@ def test_slow_browse_reconcile_gives_up_inside_its_budget_and_boot_waits_it_out(
     home = _profile_home(tmp_path)
     path = _lagging_store_with_history(home, rows=400)
     before = _file_state(path)
-    browse = subprocess.Popen([sys.executable, "-c", _SLOW_BROWSE, str(path), phase], env=os.environ,
+    browse = subprocess.Popen([sys.executable, "-c", _SLOW_BROWSE, str(path), phase, str(callback_delay)], env=os.environ,
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    assert browse.stdout.readline().strip() == "started"
-    assert browse.stdout.readline().strip() == "slowed", "the slow phase never ran under the lock"
-    booting = ProfileOwnership()
     try:
-        bootstrap._reserve_waiting_out_browse_reconcile(booting, [home])  # default wait: must not raise
-        assert booting.owns(home)
+        assert browse.stdout.readline().strip() == "started"
+        assert browse.stdout.readline().strip() == "slowed", "the slow phase never ran under the lock"
+        booting = ProfileOwnership()
+        try:
+            bootstrap._reserve_waiting_out_browse_reconcile(booting, [home])  # default wait: must not raise
+            assert booting.owns(home)
+        finally:
+            booting.close()
+        out = browse.communicate(timeout=60)[0]
+        result = next(line for line in out.splitlines() if line.startswith("RESULT"))
+        _, status, elapsed, *detail = result.split(" ", 3)
+        assert status == "503", out
+        assert float(elapsed) < budget_s + 2, out
+        detail = " ".join(detail)
+        assert "nothing was changed" in detail
+        assert "`loki -p scribe sessions repair`" in detail and "gateway" not in detail.lower()
+        assert _file_state(path) == before
+        assert "last_read_at" not in _session_columns(path)
     finally:
-        booting.close()
-    out = browse.communicate(timeout=60)[0]
-    result = next(line for line in out.splitlines() if line.startswith("RESULT"))
-    _, status, elapsed, *detail = result.split(" ", 3)
-    assert status == "503", out
-    assert float(elapsed) < budget_s + 2, out
-    detail = " ".join(detail)
-    assert "nothing was changed" in detail
-    assert "`loki -p scribe sessions repair`" in detail and "gateway" not in detail.lower()
-    assert _file_state(path) == before
-    assert "last_read_at" not in _session_columns(path)
+        if browse.poll() is None:
+            browse.kill()
+            print(browse.communicate(timeout=10)[0])
+        else:
+            browse.wait(timeout=10)
 
 
 def test_equal_cardinality_corrupt_index_plus_drift_is_not_written(tmp_path):
@@ -1018,14 +1027,23 @@ def test_expired_budget_at_transaction_start_preserves_history_and_names_the_bud
     path = _lagging_store_with_history(_profile_home(tmp_path), rows=10)
     before = _file_state(path)
     original_arm = reconcile._Budget.arm
+    transaction_starts = []
 
     def expire_on_transaction_start(budget, conn):
         original_arm(budget, conn)
-        budget.deadline = 0.0
+
+        def expire_at_begin(statement):
+            if statement == "BEGIN IMMEDIATE":
+                transaction_starts.append(statement)
+                budget.deadline = 0.0
+
+        conn.set_trace_callback(expire_at_begin)
 
     monkeypatch.setattr(reconcile, "_BUDGET_PROGRESS_OPS", 1)
     monkeypatch.setattr(reconcile._Budget, "arm", expire_on_transaction_start)
-    with pytest.raises(reconcile.BrowseBudgetExceeded):
+    with pytest.raises(reconcile.BrowseBudgetExceeded) as caught:
         reconcile._apply_additive_schema(path)
+    assert transaction_starts == ["BEGIN IMMEDIATE"]
+    assert isinstance(caught.value.__cause__, sqlite3.OperationalError)
     assert _file_state(path) == before
     assert "last_read_at" not in _session_columns(path)

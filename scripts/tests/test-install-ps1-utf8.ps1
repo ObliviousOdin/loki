@@ -9,7 +9,11 @@ $repoRoot = Split-Path -Parent (Split-Path -Parent (Split-Path -Parent $MyInvoca
 $installer = Join-Path $repoRoot 'scripts/install.ps1'
 $testRoot = Join-Path ([IO.Path]::GetTempPath()) ('hermes-utf8-' + [guid]::NewGuid())
 $savedEncoding = [Console]::OutputEncoding
-$envNames = @('HERMES_HOME', 'HERMES_RUNTIME_DIR', 'UTF8_PROBE_PYTHON', 'UTF8_PROBE_CALLS', 'UTF8_PROBE_PM', 'UTF8_PROBE_NEEDS_INSTALL', 'UTF8_PROBE_FIND_EXIT')
+$envNames = @(
+    'HERMES_HOME', 'HERMES_RUNTIME_DIR', 'LOKI_HOME', 'LOKI_RUNTIME_DIR', '__LOKI_ENV_BOUND',
+    'UV_CACHE_DIR', 'UV_PYTHON_INSTALL_DIR',
+    'UTF8_PROBE_PYTHON', 'UTF8_PROBE_CALLS', 'UTF8_PROBE_PM', 'UTF8_PROBE_NEEDS_INSTALL', 'UTF8_PROBE_FIND_EXIT'
+)
 $savedEnv = @{}
 foreach ($name in $envNames) { $savedEnv[$name] = [Environment]::GetEnvironmentVariable($name) }
 
@@ -123,6 +127,10 @@ class Fixture {
     $setupScript = Join-Path $testInstallDir 'setup-hermes.ps1'
     Copy-Item -LiteralPath (Join-Path $repoRoot 'setup-hermes.ps1') -Destination $setupScript
     $env:LOKI_RUNTIME_DIR = Join-Path $profileDir 'tools'
+    # Importing helpers is pure; this embedding fixture owns its bound aliases.
+    $env:HERMES_HOME = $env:LOKI_HOME
+    $env:HERMES_RUNTIME_DIR = $env:LOKI_RUNTIME_DIR
+    $env:__LOKI_ENV_BOUND = '1'
     foreach ($arch in @('x64', 'arm64')) {
         $uvEntry = Join-Path $env:LOKI_RUNTIME_DIR "uv-fixture-win32-$arch"
         New-Item -ItemType Directory -Path $uvEntry -Force | Out-Null

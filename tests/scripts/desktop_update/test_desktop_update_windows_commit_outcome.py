@@ -18,6 +18,7 @@ import time
 import pytest
 
 from tests.installation_launcher_fixture import publish_fixture_launcher
+from tests.waiting import wait_until
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
 SCRIPT = ROOT / 'scripts/desktop-update/windows.ps1'
@@ -74,11 +75,13 @@ if __name__ == '__main__':
 """
 
 
-def _handoff(tmp_path: Path, *args: str, verify: str = 'pass\n', timeout: int = 150, prepare=None, **env: str):
+def _handoff(tmp_path: Path, *args: str, verify: str = 'pass\n', timeout: int = 150,
+             prepare=None, observe=None, **env: str):
     install = tmp_path / 'checkout'
     publish_fixture_launcher(install, CLI)
     (install / 'hermes_cli/desktop_update_verify.py').write_text(verify, encoding='utf-8')
     home = tmp_path / 'home'; home.mkdir()
+    deadline = time.monotonic() + timeout
     if prepare is not None:
         prepare(home, install)
     calls = tmp_path / 'calls.jsonl'
@@ -90,11 +93,27 @@ def _handoff(tmp_path: Path, *args: str, verify: str = 'pass\n', timeout: int = 
              'HANDOFF_CALLS': str(calls), 'PYTHONIOENCODING': 'utf-8', **env},
     )
     try:
-        out, _ = proc.communicate(timeout=timeout)
+        if observe is not None:
+            observe(home, proc, deadline)
+        out, _ = proc.communicate(timeout=max(0, deadline - time.monotonic()))
     except subprocess.TimeoutExpired:
         subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)], capture_output=True, check=False)
         out, _ = proc.communicate()
         pytest.fail(f'hand-off did not finish within {timeout}s: {out}')
+    except BaseException:
+        try:
+            if proc.poll() is None:
+                subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)],
+                               capture_output=True, check=False, timeout=10)
+        finally:
+            try:
+                proc.communicate(timeout=10)
+            except subprocess.TimeoutExpired:
+                proc.stdout.close()
+                if proc.poll() is None:
+                    proc.kill()
+                proc.wait(timeout=10)
+        raise
     argv = [json.loads(line) for line in calls.read_text(encoding='utf-8-sig').splitlines()] if calls.exists() else []
     result_path = home / '.hermes-update-result.json'
     result = json.loads(result_path.read_text(encoding='utf-8-sig')) if result_path.is_file() else None
@@ -152,12 +171,19 @@ def test_nonzero_exit_after_the_commit_point_is_installed_with_a_followup(tmp_pa
         assert (result['ok'], result['exit_code']) == (False, 130), result
 
 
-_TIMED_CHECKOUT_HOLDER = """
+_CHECKOUT_HOLDER = """
 import msvcrt, os, sys, time
+from pathlib import Path
 fd = os.open(sys.argv[1], os.O_RDWR | os.O_CREAT | os.O_BINARY, 0o644)
 os.lseek(fd, 1 << 20, os.SEEK_SET)
 msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)   # hermes_cli/update_lock.py::_try_lock's byte
-time.sleep(float(sys.argv[2]))
+Path(sys.argv[2]).write_text('locked', encoding='utf-8')
+assert sys.stdin.readline() == 'release\\n'
+released = int(time.time())
+os.lseek(fd, 1 << 20, os.SEEK_SET)
+msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+os.close(fd)
+Path(sys.argv[3]).write_text(str(released), encoding='utf-8')
 """
 
 
@@ -165,20 +191,58 @@ time.sleep(float(sys.argv[2]))
 def test_result_finished_at_is_stamped_after_the_r6_release_wait(tmp_path: Path) -> None:
     # The relaunched Desktop drops a non-manual result whose finished_at is 30 minutes old; the
     # R6 wait lasts up to 2 h. The result must carry the time the hand-off actually finished.
-    holders = []
+    holder = None
+    ready = tmp_path / 'checkout-holder.ready'
+    released = tmp_path / 'checkout-holder.released'
+    initial = None
 
     def hold_checkout(_home: Path, install: Path) -> None:
-        holders.append((subprocess.Popen([sys.executable, '-c', _TIMED_CHECKOUT_HOLDER,
-                                          str(install / '.hermes-update.lock'), '25']), time.time() + 25))
+        nonlocal holder
+        holder = subprocess.Popen([sys.executable, '-c', _CHECKOUT_HOLDER,
+                                   str(install / '.hermes-update.lock'), str(ready), str(released)],
+                                  stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        wait_until(lambda: ready.exists() or holder.poll() is not None, timeout=10,
+                   what='checkout holder to acquire the real lock')
+        assert ready.exists() and holder.poll() is None, holder.communicate()
+
+    def release_after_r6_wait(home: Path, proc: subprocess.Popen, deadline: float) -> None:
+        nonlocal initial
+        log = home / 'logs/desktop-update-handoff.log'
+
+        def waiting_on_holder() -> bool:
+            assert holder.poll() is None, 'checkout holder exited before controller release'
+            assert proc.poll() is None, 'hand-off exited before reaching the R6 wait'
+            return log.exists() and 'keeping the update marker' in log.read_text(encoding='utf-8-sig')
+
+        wait_until(waiting_on_holder, timeout=max(0, deadline - time.monotonic()),
+                   what='hand-off to enter its real R6 release wait')
+        initial = json.loads((home / '.hermes-update-result.json').read_text(encoding='utf-8-sig'))
+        # Separate the first result's second from release, so omitting the
+        # production re-stamp cannot pass merely because both happened quickly.
+        wait_until(lambda: int(time.time()) > initial['finished_at'],
+                   timeout=max(0, deadline - time.monotonic()), what='clock to pass the pre-wait result')
+        holder.stdin.write(b'release\n')
+        holder.stdin.flush()
+        holder.stdin.close()
+        wait_until(released.exists, timeout=max(0, deadline - time.monotonic()),
+                   what='checkout holder to acknowledge actual unlock')
+        holder.wait(timeout=max(0, deadline - time.monotonic()))
+        assert holder.returncode == 0, holder.stderr.read()
+
     try:
-        code, out, _, result, home = _handoff(tmp_path, '-NoGateway', prepare=hold_checkout)
+        code, out, _, result, home = _handoff(tmp_path, '-NoGateway', prepare=hold_checkout,
+                                             observe=release_after_r6_wait)
     finally:
-        for proc, _ in holders:
-            proc.kill(); proc.wait()
+        if holder is not None:
+            if holder.poll() is None:
+                holder.kill()
+            holder.wait(timeout=10)
     assert code == 0, out
     log = (home / 'logs/desktop-update-handoff.log').read_text(encoding='utf-8-sig')
     assert 'keeping the update marker' in log, log
-    assert result['ok'] is True and result['finished_at'] >= int(holders[0][1]) - 1, result
+    assert initial['ok'] is True, initial
+    assert result['ok'] is True and result['finished_at'] >= int(released.read_text(encoding='utf-8')), result
+    assert result['finished_at'] > initial['finished_at'], (initial, result)
 
 
 @pytest.mark.platforms('windows')

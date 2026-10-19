@@ -55,7 +55,7 @@ def test_installer_runs_runtime_command_from_apostrophe_account_path(tmp_path):
     (install_root / "hermes_bootstrap.py").write_text("", encoding="utf-8")
     helper.write_text(
         "function Get-HermesRuntimeCommand([string]$InstallRoot) {\n"
-        "    $items = $env:HERMES_TEST_RUNTIME_COMMAND | ConvertFrom-Json\n"
+        "    $items = $env:LOKI_TEST_RUNTIME_COMMAND | ConvertFrom-Json\n"
         "    foreach ($item in $items) { Write-Output $item }\n"
         "}\n",
         encoding="utf-8",
