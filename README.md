@@ -7,10 +7,10 @@
 </p>
 
 <p align="center">
-  <a href="#status"><img src="https://img.shields.io/badge/status-0.1.0--alpha_preview-FFBD38?style=for-the-badge&labelColor=041C1C" alt="Status: 0.1.0-alpha preview"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-FFE6CB?style=for-the-badge&labelColor=041C1C" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.11_%E2%80%93_3.14-2F8F84?style=for-the-badge&labelColor=041C1C&logo=python&logoColor=FFE6CB" alt="Python 3.11 to 3.14">
-  <a href="https://github.com/NousResearch/hermes-agent"><img src="https://img.shields.io/badge/fork_of-Hermes_Agent-FFE6CB?style=for-the-badge&labelColor=041C1C" alt="Fork of Hermes Agent"></a>
+  <a href="#status"><img src="https://img.shields.io/badge/status-0.1.0--alpha_preview-8A6428?style=for-the-badge&labelColor=304B42" alt="Status: 0.1.0-alpha preview"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-536D4F?style=for-the-badge&labelColor=304B42" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.11_%E2%80%93_3.14-3F7562?style=for-the-badge&labelColor=304B42&logo=python&logoColor=F5F3EC" alt="Python 3.11 to 3.14">
+  <a href="https://github.com/NousResearch/hermes-agent"><img src="https://img.shields.io/badge/fork_of-Hermes_Agent-526D80?style=for-the-badge&labelColor=304B42" alt="Fork of Hermes Agent"></a>
 </p>
 
 <p align="center">
@@ -84,11 +84,8 @@ Local, Docker, SSH or cloud sandboxes. Add plugins, skills and MCP servers.
 To try the preview from source on macOS or Linux:
 
 ```bash
-gh auth login              # needed while the repository is private
-gh repo clone ObliviousOdin/loki
+git clone --branch codex/loki-preview https://github.com/ObliviousOdin/loki.git
 cd loki
-gh pr checkout 6
-gh auth setup-git
 bash scripts/install.sh --commit "$(git rev-parse HEAD)" --non-interactive
 ```
 
