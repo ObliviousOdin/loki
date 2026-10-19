@@ -53,13 +53,6 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-# Own the installer environment before entering the engine. No inherited Hermes
-# activation, profile, runtime, or secrets are adopted by a new Loki install.
-Get-ChildItem Env: | Where-Object { $_.Name -like 'HERMES_*' -or $_.Name -like '__HERMES_*' } | ForEach-Object { Remove-Item "Env:$($_.Name)" }
-Get-ChildItem Env: | Where-Object { $_.Name -like 'LOKI_*' } | ForEach-Object { Set-Item "Env:HERMES_$($_.Name.Substring(5))" $_.Value }
-$env:__LOKI_ENV_BOUND = '1'
-
-
 # -SkipSetup is the pre-rework spelling of -NonInteractive.
 if ($SkipSetup) { $NonInteractive = $true }
 
@@ -1605,6 +1598,13 @@ if ($script:IsDotSourced) {
     Write-Verbose "[hermes] install.ps1 was dot-sourced; definitions only, no execution"
     return
 }
+
+# Environment binding belongs to real invocations, never an embedding host.
+# Own the installer environment before entering the engine. No inherited Hermes
+# activation, profile, runtime, or secrets are adopted by a new Loki install.
+Get-ChildItem Env: | Where-Object { $_.Name -like 'HERMES_*' -or $_.Name -like '__HERMES_*' } | ForEach-Object { Remove-Item "Env:$($_.Name)" }
+Get-ChildItem Env: | Where-Object { $_.Name -like 'LOKI_*' } | ForEach-Object { Set-Item "Env:HERMES_$($_.Name.Substring(5))" $_.Value }
+$env:__LOKI_ENV_BOUND = '1'
 
 # The normalization prologue runs exactly once per real entry, before any
 # switch is honored, so every contract below sees long-form paths.

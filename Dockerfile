@@ -440,7 +440,7 @@ COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-su
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
 # ---------- Runtime ----------
-ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
+ENV LOKI_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
 # `ui-tui && npm run build`). This makes _make_tui_argv take the prebuilt-bundle
 # fast path (`node --expose-gc /opt/hermes/ui-tui/dist/entry.js`) and skip the
@@ -457,11 +457,10 @@ ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # embedded-chat (/api/pty) connections → ENOTEMPTY → the chat tab dies with a
 # 502 / "[session ended]". Pointing at the prebuilt bundle sidesteps the whole
 # check. (A separate launcher hardening is tracked independently.)
-ENV HERMES_TUI_DIR=/opt/hermes/ui-tui
-ENV HERMES_HOME=/opt/data
+ENV LOKI_TUI_DIR=/opt/hermes/ui-tui
 ENV LOKI_HOME=/opt/data
-ENV __LOKI_ENV_BOUND=1
-ENV HERMES_WRITE_SAFE_ROOT=/opt/data
+ENV LOKI_RUNTIME_DIR=/opt/hermes/tools
+ENV LOKI_WRITE_SAFE_ROOT=/opt/data
 # Opt-in backend SDKs install on first use into PM dependency generations under
 # /opt/data/installs (the sealed /opt/hermes/.venv is never written); stage2
 # re-resolves them against each new image. security.allow_lazy_installs: false
@@ -506,7 +505,7 @@ ENV PATH="/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:${PATH}"
 RUN mkdir -p /opt/data && chmod 0644 /opt/hermes/tools/facts.json && \
     rm -f /opt/hermes/.venv/.lock /opt/hermes/pm-runtime/.lock
 # Build helpers use system Python above; TUI gateway children need the sealed runtime.
-ENV HERMES_PYTHON=/opt/hermes/.venv/bin/python
+ENV LOKI_PYTHON=/opt/hermes/.venv/bin/python
 VOLUME [ "/opt/data" ]
 
 # The image ENTRYPOINT is a tiny dispatcher rather than `/init` directly.
@@ -541,5 +540,7 @@ VOLUME [ "/opt/data" ]
 # supervised PID-1 path and the non-PID-1 fallback path. Without the
 # wrapper-as-ENTRYPOINT, leading-dash args like `--version` would be
 # intercepted by /init's POSIX shell.
-ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
+# This pinned interpreter exists before the application venv is selected. Bind
+# public defaults/overrides before the dispatcher or s6 captures its environment.
+ENTRYPOINT [ "/usr/local/bin/python3", "-I", "-S", "-B", "/opt/hermes/docker/entrypoint-env.py" ]
 CMD [ ]

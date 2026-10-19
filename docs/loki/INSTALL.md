@@ -30,6 +30,8 @@ git checkout v0.1.0-alpha.1
 
 The product home is `%LOCALAPPDATA%\loki`, with commands in its `bin` directory. PowerShell execution policy remains under your control; download and inspect the script before running it. This preview does not register a Microsoft Store identity or reuse a Hermes certificate.
 
+For Desktop SSH, a pending remote update must finish before Loki can connect. If Desktop cannot verify the selected launcher's source checkout, finish the update on that remote host or select its checkout-local `.loki\bin\loki.exe` in the SSH settings, then retry.
+
 ## Optional Honcho memory
 
 `loki plugins install honcho` installs Loki's pinned compatibility copy from this public repository. The normal plugin scan, dependency consent and PM installation remain in effect. Configure it with `loki memory setup honcho` using your own API key or self-hosted server. OAuth additionally requires an application authorized for Loki. The provider uses Loki's `honcho.json` and profile host names; it does not import `~/.honcho` or existing agent memory. Explicit backend, workspace and peer settings remain under your control. This optional integration has local configuration/constructor tests; real Honcho service and OAuth qualification require external configuration.
@@ -51,7 +53,7 @@ Only native artifacts actually listed in the release are available. An unsigned/
 
 Choose the macOS arm64 asset explicitly labeled `UNSIGNED`, verify its SHA-256 against the supplied manifest, then extract the ZIP and copy `Loki.app` into an Applications directory. The preview currently targets a ZIP artifact; no final DMG installation is qualified. The first launch may require your explicit approval in macOS for this unnotarized application; verify its origin and checksum before granting that trust.
 
-The app creates its own `loki` launcher in `~/.local/bin`. Add that directory to your shell PATH if necessary, then run `loki --version` and `loki --help`. A native preview reports `0.1.0-alpha.1` and its embedded source commit; the Python source installation reports the equivalent `0.1.0a1`. Check the commit against the artifact's metadata. Configure a dedicated provider in Loki before starting a real conversation.
+The app creates its own `loki` launcher in `~/.local/bin`. Add that directory to your shell PATH if necessary, then run `loki --version` and `loki --help`. Application metadata reports `0.1.0-alpha.1`. Both the bundled and source Python CLI report the equivalent `0.1.0a1` and their source commit. Check the commit against the artifact's metadata. Configure a dedicated provider in Loki before starting a real conversation.
 
 Earlier native evidence covers an actual ZIP installation and app startup on macOS arm64. Those candidates are superseded. Each distributed native artifact requires fresh exact-commit build and installation receipts, plus verification after downloading its published bytes. Consult the release's attached evidence for its measured scope. Native Windows/Linux packages, signing and notarization require separate qualification.
 

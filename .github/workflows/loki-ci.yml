@@ -198,6 +198,10 @@ jobs:
           if [ "$RUNNER_OS" = macOS ]; then platform=macos; else platform=windows; fi
           python scripts/ci/list_os_marked_tests.py "$platform" > "$RUNNER_TEMP/loki-os-files.txt"
           scripts/run_tests.sh --files-from "$RUNNER_TEMP/loki-os-files.txt" -j 3 --file-timeout 600 -- -m 'platforms and not integration and not live'
+      - name: Exercise Loki remote discovery with native Windows PowerShell
+        if: runner.os == 'Windows'
+        shell: bash
+        run: node --test apps/desktop/electron/windows-remote-lifecycle.native-contract.mjs
       - name: Run Loki identity and persistence behavior on the native host
         shell: bash
         run: scripts/run_tests.sh tests/test_loki_identity.py -j 2
