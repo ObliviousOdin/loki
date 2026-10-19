@@ -1,5 +1,5 @@
 """Memory provider plugin discovery: bundled ``plugins/memory/<name>/``, user
-``$HERMES_HOME/plugins/<name>/``, project ``./.hermes/plugins/<name>/`` (opt-in via
+``$HERMES_HOME/plugins/<name>/``, project ``./.loki/plugins/<name>/`` (opt-in via
 HERMES_ENABLE_PROJECT_PLUGINS), then ``hermes_agent.memory_providers`` entry points.
 Precedence is deliberately the REVERSE of PluginManager's later-source-wins:
 bundled wins, then user, project, entry point — a provider is activated by name
@@ -49,14 +49,14 @@ _get_user_plugins_dir = _loader.user_plugins_dir
 
 
 def _get_project_plugins_dir() -> Optional[Path]:
-    """``./.hermes/plugins/`` or None. Gated on HERMES_ENABLE_PROJECT_PLUGINS like the
+    """``./.loki/plugins/`` or None. Gated on HERMES_ENABLE_PROJECT_PLUGINS like the
     PluginManager scan: a repo you merely ``cd`` into must not offer a memory backend."""
     try:
         from hermes_cli.plugins import _env_enabled
 
         if not _env_enabled("HERMES_ENABLE_PROJECT_PLUGINS"):
             return None
-        d = Path.cwd() / ".hermes" / "plugins"
+        d = Path.cwd() / ".loki" / "plugins"
         return d if d.is_dir() else None
     except Exception:
         return None
@@ -228,7 +228,7 @@ def load_memory_provider(name: str, *, register_skills: Optional[bool] = None) -
     if provider_dir is not None and _explicitly_disabled(name, provider_dir):
         # The Plugins hub / `hermes plugins disable` park a user-installed provider in
         # ``plugins.disabled``; the loader must honour it or "disabled" is a lie in the UI.
-        logger.warning("Memory provider '%s' is disabled via plugins.disabled; run `hermes plugins enable %s` "
+        logger.warning("Memory provider '%s' is disabled via plugins.disabled; run `loki plugins enable %s` "
                        "or change memory.provider.", name, name)
         return None
 

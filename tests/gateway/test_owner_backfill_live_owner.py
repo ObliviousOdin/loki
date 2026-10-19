@@ -4,6 +4,8 @@
 always holds, so every Desktop boot logged a 409 "Exclusive maintenance refused". With a composed
 gateway the idempotent stamp runs on the owner's own store instead.
 """
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import json
 import os
 from pathlib import Path
@@ -34,7 +36,7 @@ def test_owner_backfill_runs_on_the_live_owner(tmp_path):
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED='1')
     with (tmp_path / 'gateway.log').open('w+') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline, descriptor = time.monotonic() + 60, {}

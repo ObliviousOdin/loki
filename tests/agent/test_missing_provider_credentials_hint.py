@@ -12,7 +12,7 @@ from hermes_cli.auth import PROVIDER_REGISTRY
 
 
 @pytest.mark.parametrize("provider, expected, forbidden", [
-    ("minimax-oauth", "hermes auth add minimax-oauth", "MINIMAX-OAUTH_API_KEY"),
+    ("minimax-oauth", "loki auth add minimax-oauth", "MINIMAX-OAUTH_API_KEY"),
     ("alibaba", "Set the DASHSCOPE_API_KEY environment variable", "ALIBABA_API_KEY"),
 ])
 def test_aux_ladder_names_registry_remedy_for_explicit_provider(tmp_path, monkeypatch, provider, expected, forbidden):
@@ -42,7 +42,7 @@ def test_main_init_shares_helper_and_no_registry_provider_gets_an_invented_env_v
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     agent = SimpleNamespace(provider="minimax-oauth", model="m", base_url=None, api_key=None,
                             _fallback_activated=False, _explicit_provider="minimax-oauth")
-    with pytest.raises(RuntimeError, match=r"hermes auth add minimax-oauth"):
+    with pytest.raises(RuntimeError, match=r"loki auth add minimax-oauth"):
         _routed_client_kwargs(agent, None, 60)
 
     for pid, pconfig in PROVIDER_REGISTRY.items():
@@ -99,6 +99,7 @@ def test_exhausted_oauth_pool_reports_cooldown_not_missing_credentials(tmp_path,
     assert "all 2 credentials are cooling down" in message
     assert expected_time in message
     assert "no credentials were found" not in message
+    assert "loki auth add openai-codex" in message and "`loki model`" in message
 
     from agent.auxiliary_client import call_llm
     from agent.auxiliary_unavailable import AuxiliaryClientUnavailable

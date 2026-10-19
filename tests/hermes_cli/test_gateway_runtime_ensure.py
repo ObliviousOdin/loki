@@ -1,4 +1,6 @@
 """Real local-control and subprocess boundaries, never real service mutations."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 import json
 import os
@@ -147,17 +149,17 @@ def test_public_ensure_json_deadline_and_invalid_invocation(tmp_path):
         encoding="utf-8")
     env = {**os.environ, "HERMES_HOME": str(home)}
     result = subprocess.run([sys.executable, "-m", "hermes_cli.main", "gateway", "ensure", "--json"],
-                            env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False)
+                            env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False)
     assert result.returncode == 6, result.stderr
     value = json.loads(result.stdout)
     assert value["state"] == "draining" and value["reason_code"] == "update_paused"
     assert "private-token" not in result.stdout
     result = subprocess.run([sys.executable, "-m", "hermes_cli.main", "gateway", "ensure", "--json", "--timeout", "nan"],
-                            env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False)
+                            env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False)
     assert result.returncode == 2
     assert json.loads(result.stdout)["reason_code"] == "invalid_invocation"
     result = subprocess.run([sys.executable, "-m", "hermes_cli.main", "gateway", "ensure", "--json", "--unknown", "private-value"],
-                            env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False)
+                            env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=15, check=False)
     assert result.returncode == 2
     assert json.loads(result.stdout)["reason_code"] == "invalid_invocation"
     assert "private-value" not in result.stdout
@@ -212,7 +214,7 @@ def test_unmanaged_child_uses_explicit_home_and_survives_launcher_exit(tmp_path,
         "child=spawn_unmanaged_gateway(home, deadline=time.monotonic()+5)\n"
         "print(child.pid, flush=True)\n", encoding="utf-8")
     env = {**os.environ, "PYTHONPATH": str(Path.cwd()), "HERMES_HOME": str(tmp_path / "wrong")}
-    result = subprocess.run([sys.executable, str(launcher)], env=env, stdin=subprocess.DEVNULL,
+    result = subprocess.run([sys.executable, str(launcher)], env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL,
                             capture_output=True, text=True, timeout=10, check=False)
     try:
         assert result.returncode == 0, result.stderr
@@ -342,7 +344,7 @@ def test_unmanaged_root_home_child_ignores_sticky_active_profile(tmp_path, monke
     """Explicit default selection survives the CLI child's own profile bootstrap (F15): with
     active_profile=other sticky, the spawned `gateway run` must still resolve the root home."""
     from hermes_cli import gateway_runtime_start as start
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     (root / "profiles" / "other").mkdir(parents=True)
     (root / "active_profile").write_text("other", encoding="utf-8")
     witness = tmp_path / "resolved.json"
@@ -367,7 +369,7 @@ def test_unmanaged_root_home_child_ignores_sticky_active_profile(tmp_path, monke
             child.wait(timeout=5)
     resolved = json.loads(witness.read_text())
     assert resolved["home"] == str(root), resolved
-    assert resolved["argv"] == ["hermes", "gateway", "run", "--quiet"], resolved
+    assert resolved["argv"] == ["loki", "gateway", "run", "--quiet"], resolved
 
 
 @pytest.mark.parametrize("standalone", [False, True])
@@ -375,7 +377,7 @@ def test_named_profile_without_multiplex_evidence_starts_the_host_gateway(tmp_pa
     """`gateway run` refuses a profiles/<name> home a gateway of its own, so ensure must start the host."""
     from hermes_cli import gateway_runtime as runtime, gateway_runtime_service as service, gateway_runtime_start as start
 
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     home = root / "profiles" / "alpha"
     home.mkdir(parents=True, mode=0o700)
     if standalone:
@@ -397,7 +399,7 @@ def test_cold_start_target_follows_boot_multiplex_policy(tmp_path, monkeypatch, 
     from hermes_cli import gateway_runtime as runtime, gateway_runtime_service as service, gateway_runtime_start as start
 
     monkeypatch.delenv("GATEWAY_MULTIPLEX_PROFILES", raising=False)
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     home = root / "profiles" / "alpha"
     home.mkdir(parents=True, mode=0o700)
     (root / "config.yaml").write_text(f"gateway:\n  multiplex_profiles: {flag}\n", encoding="utf-8")
@@ -420,7 +422,7 @@ def test_reserved_root_never_suppresses_a_standalone_profile_start(tmp_path, mon
     from gateway.runtime_ownership import ProfileOwnership
     from hermes_cli import gateway_runtime as runtime, gateway_runtime_service as service, gateway_runtime_start as start
 
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     home = root / "profiles" / "alpha"
     home.mkdir(parents=True, mode=0o700)
     (root / "config.yaml").write_text("model: {default: m}\n", encoding="utf-8")
@@ -443,7 +445,7 @@ def _standalone_host(tmp_path, monkeypatch, record):
     from hermes_cli import gateway_runtime as runtime, gateway_runtime_discovery as discovery
     from hermes_cli import gateway_runtime_service as service, gateway_runtime_start as start
 
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     home = root / "profiles" / "alpha"
     home.mkdir(parents=True, mode=0o700)
     if record is not None:
@@ -457,7 +459,7 @@ def _standalone_host(tmp_path, monkeypatch, record):
     return home, spawned
 
 
-_REASON = "duplicate Telegram token; run hermes gateway migrate --multiplex"
+_REASON = "duplicate Telegram token; run loki gateway migrate --multiplex"
 
 
 def test_ensure_reports_a_standalone_host_reason_for_an_unserved_named_profile(tmp_path, monkeypatch):

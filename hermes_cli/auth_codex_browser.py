@@ -16,6 +16,8 @@ Derived from #97058 by @astraltrekkin, re-homed after the ``auth_codex.py`` spli
 
 from __future__ import annotations
 
+from hermes_cli.loki_auth_policy import require_oauth_client_id
+
 import hmac
 import logging
 import secrets
@@ -73,14 +75,14 @@ def codex_oauth_login(args: Any) -> dict[str, Any]:
             print(_PORT_BUSY_NOTICE)
             print()
     print("Signing in to OpenAI Codex...")
-    print("(Hermes creates its own session — won't affect Codex CLI or VS Code)")
+    print("(Loki creates its own session — won't affect Codex CLI or VS Code)")
     print()
     return auth_mod._codex_device_code_login()
 
 
 def _codex_browser_authorize_url(*, redirect_uri: str, state: str, code_challenge: str) -> str:
     return f"{CODEX_OAUTH_AUTHORIZE_URL}?" + urlencode({
-        "response_type": "code", "client_id": CODEX_OAUTH_CLIENT_ID, "redirect_uri": redirect_uri,
+        "response_type": "code", "client_id": require_oauth_client_id("openai-codex", CODEX_OAUTH_CLIENT_ID), "redirect_uri": redirect_uri,
         "scope": CODEX_OAUTH_BROWSER_SCOPE, "code_challenge": code_challenge,
         "code_challenge_method": "S256", "id_token_add_organizations": "true", "state": state})
 
@@ -92,7 +94,7 @@ def _codex_browser_exchange_code(code: str, *, redirect_uri: str, code_verifier:
         CODEX_OAUTH_TOKEN_URL,
         data={
             "grant_type": "authorization_code", "code": code, "redirect_uri": redirect_uri,
-            "client_id": CODEX_OAUTH_CLIENT_ID, "code_verifier": code_verifier},
+            "client_id": require_oauth_client_id("openai-codex", CODEX_OAUTH_CLIENT_ID), "code_verifier": code_verifier},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         failure=("Token exchange failed", "token_exchange_failed"))
     if token_resp.status_code == 429:
@@ -128,9 +130,9 @@ def _codex_browser_login(
 
     print()
     print("Signing in to OpenAI Codex (browser authorization)...")
-    print("(Hermes creates its own session — won't affect Codex CLI or VS Code)")
+    print("(Loki creates its own session — won't affect Codex CLI or VS Code)")
     print()
-    print(f"Open this URL to authorize Hermes:\n  {auth_url}\n")
+    print(f"Open this URL to authorize Loki:\n  {auth_url}\n")
     _print_loopback_ssh_hint(redirect_uri)
     if open_browser and _can_open_graphical_browser():
         try:

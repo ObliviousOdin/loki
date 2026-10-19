@@ -93,7 +93,7 @@ def _session_home_dir(session: dict, name: str) -> Path:
     profile_home = session.get("profile_home")
     if name == "attachments" and _profile_attachments_storage(profile_home) == "workspace":
         if workspace := _session_attachments_workspace(session):
-            return workspace / ".hermes" / "attachments"
+            return workspace / ".loki" / "attachments"
     return (Path(profile_home) if profile_home else _hermes_home) / name
 
 

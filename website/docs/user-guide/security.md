@@ -677,6 +677,27 @@ Paths are relative to `~/.hermes/`. Files are mounted to `/root/.hermes/` inside
 
 ### Borrowed CLI logins (Codex CLI, Claude Code) {#borrowed-cli-logins}
 
+Loki defaults `auth.adopt_external_logins` to **false**. It does not read an existing
+Hermes/Fabric home or automatically adopt another CLI's login. The upstream behavior
+described below requires explicitly enabling adoption in Loki's own configuration.
+Loki commands use `loki auth`, and its public environment overrides use `LOKI_*`.
+
+Loki also defaults `auth.hosted_services` to **false**. Upstream hosted trials and
+subscriptions require separately authorized service access; possession of the source
+does not grant an entitlement. Provider OAuth uses `auth.oauth_clients`; set
+`auth.oauth_clients.<provider>.client_id` to an application you are authorized to use.
+No upstream client identity is supplied. API-key and local providers remain available
+without that OAuth application configuration. For example, in Loki's own config:
+
+```yaml
+auth:
+  adopt_external_logins: false
+  hosted_services: false
+  oauth_clients:
+    openai-codex:
+      client_id: "your-authorized-client-id"
+```
+
 When Hermes has no usable login of its own for `openai-codex` or `anthropic`, it can borrow the Codex CLI's `~/.codex/auth.json` and Claude Code's `~/.claude/.credentials.json` (or Keychain entry) and refresh them on your behalf. Both use single-use, rotating refresh tokens: once two programs hold one token family, whichever refreshes first invalidates the other's copy, which shows up as "I logged in once in the terminal and Hermes keeps failing" (or the reverse). If you run those CLIs alongside Hermes, give Hermes its own login and turn adoption off:
 
 ```yaml

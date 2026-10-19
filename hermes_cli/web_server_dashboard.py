@@ -99,8 +99,8 @@ def _render_active_theme_bootstrap_css() -> str:
 _IMMUTABLE_ASSET_CACHE_CONTROL = "public, max-age=31536000, immutable"
 _NO_STORE = {"Cache-Control": "no-store, no-cache, must-revalidate"}
 _HEADLESS_MSG = (
-    "Headless backend (hermes serve): web UI disabled — use "
-    "`hermes dashboard` for the browser UI."
+    "Headless backend (loki serve): web UI disabled — use "
+    "`loki dashboard` for the browser UI."
 )
 
 
@@ -256,8 +256,8 @@ def mount_spa(application: FastAPI):
 
 # Built-in themes — label + description only; colors live in web/src/themes/presets.ts.
 _BUILTIN_DASHBOARD_THEMES = [
-    {"name": "default",       "label": "Hermes Teal",         "description": "Classic dark teal — the canonical Hermes look"},
-    {"name": "default-large", "label": "Hermes Teal (Large)", "description": "Hermes Teal with bigger fonts and roomier spacing"},
+    {"name": "default",       "label": "Loki Teal",         "description": "Classic dark teal — the canonical Loki look"},
+    {"name": "default-large", "label": "Loki Teal (Large)", "description": "Loki Teal with bigger fonts and roomier spacing"},
     {"name": "nous-blue",     "label": "Nous Blue",           "description": "Light mode — vivid Nous-blue accents on cream canvas"},
     {"name": "midnight",      "label": "Midnight",            "description": "Deep blue-violet with cool accents"},
     {"name": "ember",     "label": "Ember",          "description": "Warm crimson and bronze — forge vibes"},
@@ -517,7 +517,7 @@ def _dashboard_plugin_search_dirs() -> list[tuple]:
     # ``true`` / ``yes`` / ``on``) so the gate matches ``hermes_cli/plugins.py`` and the documented user
     # contract.
     if env_var_enabled("HERMES_ENABLE_PROJECT_PLUGINS"):
-        search_dirs.append((Path.cwd() / ".hermes" / "plugins", "project"))
+        search_dirs.append((Path.cwd() / ".loki" / "plugins", "project"))
     return search_dirs
 
 
@@ -649,7 +649,7 @@ def _schedule_check_fn_probe(fn) -> Optional[threading.Thread]:
 def _plugin_login_command(name: str) -> str:
     """A plugin that left core with its own login command (``hermes spotify login``), else ``hermes auth <name>``."""
     from hermes_cli.left_core_migration import LEFT_CORE
-    return next((f"hermes {f.cli} login" for f in LEFT_CORE if f.plugin == name and f.cli), f"hermes auth {name}")
+    return next((f"loki {f.cli} login" for f in LEFT_CORE if f.plugin == name and f.cli), f"loki auth {name}")
 
 
 def _plugin_auth_hint(name: str, provides_tools: list) -> tuple:
@@ -800,7 +800,7 @@ def _plugin_api_mount_skip_reason(plugin: dict[str, Any], enabled_set: set, disa
 
     User plugins must be in ``plugins.enabled`` and not ``plugins.disabled`` before their
     Python runs (GHSA-mcfc-hp25-cjv7); bundled plugins are trusted but respect an explicit
-    disable; project plugins (``./.hermes/plugins/``) ship with the CWD and are
+    disable; project plugins (``./.loki/plugins/``) ship with the CWD and are
     attacker-controlled when opening a malicious repo — never auto-imported (GHSA-5qr3-c538-wm9j).
     """
     source, plugin_name = plugin.get("source"), plugin.get("name", "")
@@ -1003,7 +1003,7 @@ def _mount_plugin_api_routes():
     ``/api/plugins/<name>/``. See ``_plugin_api_mount_skip_reason`` for the trust gates.
 
     Backend import is restricted to ``bundled`` and ``user`` sources. Project plugins
-    (``./.hermes/plugins/``) ship with the CWD and are therefore attacker-controlled in any threat model
+    (``./.loki/plugins/``) ship with the CWD and are therefore attacker-controlled in any threat model
     where the user opens a malicious repo; they can extend the dashboard UI via static JS/CSS but their
     Python ``api`` file is never auto-imported by the web server. See GHSA-5qr3-c538-wm9j (#29156).
     Additionally, user plugins must be explicitly enabled via the ``plugins.enabled`` allow-list in
@@ -1139,11 +1139,12 @@ def _mount_one_plugin_api(app, plugin: dict[str, Any], enabled_set: set, disable
             _mount_hosted_plugin_api(app, plugin, api_file_name)
             return True
     if plugin.get("source") == "project":
+        from hermes_constants import display_hermes_home
         _log.warning(
             "Plugin %s: ignoring backend api=%s (project plugins may "
             "not auto-import Python code; move the plugin to "
-            "~/.hermes/plugins/ if you trust it)",
-            plugin["name"], api_file_name,
+            "%s/plugins/ if you trust it)",
+            plugin["name"], api_file_name, display_hermes_home(),
         )
         return False
     dashboard_dir = Path(plugin["_dir"])

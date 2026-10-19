@@ -10,6 +10,8 @@ so ``hermes_cli.auth.<name>`` patches still intercept (and no import cycle).
 
 from __future__ import annotations
 
+from hermes_cli.loki_auth_policy import require_oauth_client_id
+
 import logging
 import hashlib
 import json
@@ -248,7 +250,7 @@ def _recover_codex_tokens_from_cli(
         if known and _codex_principal_identity(imported["access_token"]) not in (None, known):
             logger.warning(
                 "Codex CLI recovery refused (%s): the Codex CLI login belongs to a different ChatGPT "
-                "workspace than the Hermes credential. Run `%s` to re-authenticate it.",
+                "workspace than the Loki credential. Run `%s` to re-authenticate it.",
                 reason, _codex_relogin_command())
             return None
         logger.info("Codex auth recovered from Codex CLI auth.json (%s).", reason)
@@ -494,7 +496,7 @@ def refresh_codex_oauth_pure(
             CODEX_OAUTH_TOKEN_URL, headers={"Content-Type": "application/x-www-form-urlencoded"},
             data={
                 "grant_type": "refresh_token", "refresh_token": refresh_token,
-                "client_id": CODEX_OAUTH_CLIENT_ID})
+                "client_id": require_oauth_client_id("openai-codex", CODEX_OAUTH_CLIENT_ID)})
     if response.status_code == 429:
         # Quota exhaustion on the token endpoint: the refresh token is still valid and re-auth
         # cannot lift a quota cap, so classify distinctly from auth failures ("retry later").
@@ -960,14 +962,14 @@ def _login_openai_codex(args, pconfig: ProviderConfig, *, force_new_login: bool 
         cli_tokens = _import_codex_cli_tokens()
         if cli_tokens:
             print("Found existing Codex CLI credentials at ~/.codex/auth.json")
-            print("Hermes will create its own session to avoid conflicts with Codex CLI / VS Code.")
+            print("Loki will create its own session to avoid conflicts with Codex CLI / VS Code.")
             if _prompt_yes_no(
                 "Import these credentials? (a separate login is recommended) [y/N]: ", default="n"):
                 _save_codex_tokens(cli_tokens)
                 config_path = _update_config_for_provider("openai-codex", _codex_base_url())
                 print()
                 print("Credentials imported. Note: if Codex CLI refreshes its token,")
-                print("Hermes will keep working independently with its own session.")
+                print("Loki will keep working independently with its own session.")
                 print(f"  Config updated: {config_path} (model.provider=openai-codex)")
                 return
 
@@ -1107,7 +1109,7 @@ def _codex_exchange_authorization_code(
 def _codex_device_code_login() -> dict[str, Any]:
     """Run the OpenAI device code login flow and return credentials dict."""
     from hermes_cli.auth import _utc_now_z
-    issuer, client_id = "https://auth.openai.com", CODEX_OAUTH_CLIENT_ID
+    issuer, client_id = "https://auth.openai.com", require_oauth_client_id("openai-codex", CODEX_OAUTH_CLIENT_ID)
     device_data = _codex_request_device_code(issuer, client_id)
     user_code = device_data["user_code"]
 

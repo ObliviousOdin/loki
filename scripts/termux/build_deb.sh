@@ -9,7 +9,7 @@
 #   --tag <tag>           immutable release tag (vX.Y.Z or vX.Y.Z+canary.<UTC timestamp>)
 #   --payload <dir>       dir containing python/, node/, app/ (git archive of
 #                         the tag) and wheelhouse/ (from termux_build.sh)
-#   --out <dir>           output dir; <out>/hermes-agent_<v>_aarch64.deb lands here
+#   --out <dir>           output dir; <out>/obliviousodin-loki-agent_<v>_aarch64.deb lands here
 #
 # No opt-out flags: the .deb is ALWAYS installed into a fresh run of the
 # pinned termux-docker image (digest pinned in pm/lock.json) and smoke-tested.
@@ -18,8 +18,8 @@
 #
 # Staged payload layout: python/ and node/ are pm-staged termux .deb
 # trees ($PREFIX-shaped: data/data/com.termux/files/usr/...). The
-# installed layout is $PREFIX/lib/hermes-agent/{tools,app,venv,pm-runtime,bin} with
-# exactly one leak: $PREFIX/bin/hermes -> lib/hermes-agent/bin/hermes.
+# installed layout is $PREFIX/lib/loki-agent/{tools,app,venv,pm-runtime,bin} with
+# exactly one leak: $PREFIX/bin/loki -> lib/loki-agent/bin/loki.
 
 set -Eeuo pipefail
 
@@ -110,7 +110,7 @@ PYBIN_REL="data/data/com.termux/files/usr/bin/python3.14"
 NODEBIN_REL="data/data/com.termux/files/usr/bin/node"
 [ -f "$PAYLOAD_ABS/node/$NODEBIN_REL" ] || fail "payload node tree lacks $NODEBIN_REL"
 
-PKG="hermes-agent"
+PKG="obliviousodin-loki-agent"
 
 # [1] Version derivation: tag mode uses the pure function in deb_version.py
 # (tested separately). Commit mode derives it from pyproject above.
@@ -153,14 +153,14 @@ trap restore_assembly_owner EXIT
 # on-device from birth -- a /payload alias would bake container paths in.
 docker run --rm --platform linux/arm64 \
     --user 1000:1000 --network none \
-    -v "$ASSEMBLY:/data/data/com.termux/files/usr/lib/hermes-agent" \
-    -v "$PAYLOAD_ABS/python:/data/data/com.termux/files/usr/lib/hermes-agent/tools/python" \
-    -v "$PAYLOAD_ABS/node:/data/data/com.termux/files/usr/lib/hermes-agent/tools/node" \
-    -v "$PAYLOAD_ABS/uv:/data/data/com.termux/files/usr/lib/hermes-agent/tools/uv" \
-    -v "$PAYLOAD_ABS/runtime-libs:/data/data/com.termux/files/usr/lib/hermes-agent/runtime-libs" \
-    -v "$PAYLOAD_ABS/wheelhouse:/data/data/com.termux/files/usr/lib/hermes-agent/wheelhouse" \
-    -v "$PAYLOAD_ABS/.work:/data/data/com.termux/files/usr/lib/hermes-agent/.work" \
-    -v "$PAYLOAD_ABS/app:/data/data/com.termux/files/usr/lib/hermes-agent/app:ro" \
+    -v "$ASSEMBLY:/data/data/com.termux/files/usr/lib/loki-agent" \
+    -v "$PAYLOAD_ABS/python:/data/data/com.termux/files/usr/lib/loki-agent/tools/python" \
+    -v "$PAYLOAD_ABS/node:/data/data/com.termux/files/usr/lib/loki-agent/tools/node" \
+    -v "$PAYLOAD_ABS/uv:/data/data/com.termux/files/usr/lib/loki-agent/tools/uv" \
+    -v "$PAYLOAD_ABS/runtime-libs:/data/data/com.termux/files/usr/lib/loki-agent/runtime-libs" \
+    -v "$PAYLOAD_ABS/wheelhouse:/data/data/com.termux/files/usr/lib/loki-agent/wheelhouse" \
+    -v "$PAYLOAD_ABS/.work:/data/data/com.termux/files/usr/lib/loki-agent/.work" \
+    -v "$PAYLOAD_ABS/app:/data/data/com.termux/files/usr/lib/loki-agent/app:ro" \
     "$IMAGE" bash -c '
         set -euo pipefail
         export PREFIX=/data/data/com.termux/files/usr
@@ -168,16 +168,17 @@ docker run --rm --platform linux/arm64 \
         # The staged binary is dynamically linked against its OWN tree lib;
         # the container linker needs to be told where it lives (same fix as
         # the wheelhouse container half).
-        export LD_LIBRARY_PATH="$PREFIX/lib/hermes-agent/tools/python$PREFIX/lib:$PREFIX/lib/hermes-agent/tools/node$PREFIX/lib:$PREFIX/lib/hermes-agent/runtime-libs/lib:$PREFIX/lib"
+        export LD_LIBRARY_PATH="$PREFIX/lib/loki-agent/tools/python$PREFIX/lib:$PREFIX/lib/loki-agent/tools/node$PREFIX/lib:$PREFIX/lib/loki-agent/runtime-libs/lib:$PREFIX/lib"
         # The staged tree is mounted at its REAL $PREFIX path so the venv
         # recorded absolute paths are correct on-device from birth.
         mkdir -p "$PREFIX" 2>/dev/null || true
-        PY="$PREFIX/lib/hermes-agent/tools/python$PREFIX/bin/python3.14"
-        ROOT="$PREFIX/lib/hermes-agent"
-        export HERMES_RUNTIME_DIR="$ROOT/tools"
+        PY="$PREFIX/lib/loki-agent/tools/python$PREFIX/bin/python3.14"
+        ROOT="$PREFIX/lib/loki-agent"
+        export LOKI_RUNTIME_DIR="$ROOT/tools"
+        export HERMES_RUNTIME_DIR="$LOKI_RUNTIME_DIR"
         mkdir -p "$PREFIX/tmp"
-        HERMES_HOME="$(mktemp -d "$PREFIX/tmp/hermes-pm-XXXXXX")"
-        export HERMES_HOME
+        LOKI_HOME="$(mktemp -d "$PREFIX/tmp/loki-pm-XXXXXX")"
+        export LOKI_HOME HERMES_HOME="$LOKI_HOME" __LOKI_ENV_BOUND=1
         "$PY" "$ROOT/app/scripts/termux/build_environment.py" assemble \
             --root "$ROOT" --python "$PY" --requirements "$ROOT/.work/resolved-reqs.txt"
     ' || fail "venv assembly failed inside the container (offline wheelhouse install)"
@@ -210,7 +211,7 @@ python3 "$REPO_ABS/scripts/write_install_stamp.py" \
     --source bundle \
     || fail "stamp write failed"
 
-# [5]+[6] Staging dir: DEBIAN/ control + payload under lib/hermes-agent/.
+# [5]+[6] Staging dir: DEBIAN/ control + payload under lib/loki-agent/.
 log "Staging the package tree"
 STAGE="$OUT_ABS/.stage-$DEB_VERSION"
 rm -rf "$STAGE"
@@ -219,7 +220,7 @@ rm -rf "$STAGE"
 # at / and only /data/data is writable -- a ./lib staging would make
 # dpkg try to create /lib and fail on the read-only root.
 ROOT_IN_DEB=data/data/com.termux/files/usr
-DEST="$STAGE/$ROOT_IN_DEB/lib/hermes-agent"
+DEST="$STAGE/$ROOT_IN_DEB/lib/loki-agent"
 mkdir -p "$STAGE/DEBIAN" "$DEST/tools"
 for tool in python node uv npm ffmpeg ripgrep; do
     cp -a "$PAYLOAD_ABS/$tool" "$DEST/tools/"
@@ -233,8 +234,8 @@ cat > "$STAGE/DEBIAN/control" <<EOF
 Package: $PKG
 Version: $DEB_VERSION
 Architecture: aarch64
-Maintainer: Nous Research
-Description: Hermes Agent CLI for Termux (self-contained bundled python/node/venv)
+Maintainer: ObliviousOdin
+Description: Loki CLI (independent Hermes Agent fork) for Termux (self-contained bundled python/node/venv)
 Installed-Size: $(du -sk "$STAGE/$ROOT_IN_DEB" | cut -f1)
 EOF
 # Self-contained: no Depends line at all. Our python, node and venv ship inside.

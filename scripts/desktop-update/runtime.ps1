@@ -48,8 +48,8 @@ function Get-HermesRuntimeCommand {
 
     # The launcher owns interpreter/ABI and generation selection. Never infer
     # PM's store layout or borrow a different installation's PATH command.
-    foreach ($name in @('hermes.exe', 'hermes.cmd')) {
-        $launcher = Join-Path $InstallRoot ".hermes\bin\$name"
+    foreach ($name in @('loki.exe', 'loki.cmd')) {
+        $launcher = Join-Path $InstallRoot ".loki\bin\$name"
         if (Test-Path -LiteralPath $launcher -PathType Leaf) {
             $probe = Invoke-HermesProbe $launcher @('--print-runtime-command', '--module', $Module)
             if ($probe.TimedOut) { throw "Installation launcher did not answer within the probe timeout: $launcher" }
@@ -65,13 +65,11 @@ function Get-HermesRuntimeCommand {
     # Earlier PM installers published only to user-bin. The established
     # --version surface reports the bound source root; never trust PATH alone.
     if (Test-Path -LiteralPath (Join-Path $InstallRoot 'hermes_cli/_launchers.py') -PathType Leaf) {
-        $directories = @(
-            (Join-Path $env:HERMES_HOME 'bin'),
-            (Join-Path (Split-Path -Parent $InstallRoot) 'bin')
-        )
-        if ($env:LOCALAPPDATA) { $directories += Join-Path $env:LOCALAPPDATA 'hermes/bin' }
+        $directories = @((Join-Path (Split-Path -Parent $InstallRoot) 'bin'))
+        if ($env:LOKI_HOME) { $directories += Join-Path $env:LOKI_HOME 'bin' }
+        if ($env:LOCALAPPDATA) { $directories += Join-Path $env:LOCALAPPDATA 'loki/bin' }
         foreach ($directory in ($directories | Select-Object -Unique)) {
-            foreach ($name in @('hermes.exe', 'hermes.cmd')) {
+            foreach ($name in @('loki.exe', 'loki.cmd')) {
                 $legacy = Join-Path $directory $name
                 if (-not (Test-Path -LiteralPath $legacy -PathType Leaf)) { continue }
                 $probe = Invoke-HermesProbe $legacy @('--version')
@@ -95,5 +93,5 @@ function Get-HermesRuntimeCommand {
             if (Test-Path -LiteralPath $python -PathType Leaf) { return @($python, '-m', $Module) }
         }
     }
-    throw "Installation launcher is missing under $InstallRoot\.hermes\bin. Repair this installation."
+    throw "Installation launcher is missing under $InstallRoot\.loki\bin. Repair this installation."
 }

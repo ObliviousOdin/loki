@@ -127,6 +127,8 @@ test.runIf(process.platform !== 'win32')(
       assert.ok(!conn.controlPath.startsWith(process.env.HOME))
       await conn.open()
       const dir = path.dirname(conn.controlPath)
+      assert.equal(dir, `/tmp/loki-ssh-${process.getuid()}`)
+      assert.notEqual(dir, `/tmp/hermes-ssh-${process.getuid()}`)
       const st = fs.lstatSync(dir)
       assert.ok(st.isDirectory() && !st.isSymbolicLink())
       assert.equal(st.uid, process.getuid())

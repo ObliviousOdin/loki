@@ -1,11 +1,25 @@
-# Hermes Plugin Catalog
+# Loki Plugin Catalog
 
-Curated, Nous-approved Hermes plugins. Each YAML file in this directory
+The retained upstream catalog and Loki's reviewed compatibility entries. Each YAML file in this directory
 (except `removed.yaml`) is one catalog entry, discoverable via
-`hermes plugins catalog` / `hermes plugins search` and installable with
-`hermes plugins install <name>`.
+`loki plugins catalog` / `loki plugins search` and installable with
+`loki plugins install <name>`.
 
-## Admission policy
+## Loki memory isolation
+
+The `honcho` entry uses the compatibility source in this private repository,
+pinned to an exact committed tree under `optional-plugins/honcho`. It keeps the
+provider's configuration, defaults and logs within Loki's profile. Installation
+requires authorized Git read access and separately configured Honcho credentials.
+
+The shipped catalog selects this entry even when the live or cached upstream
+catalog is newer or omits it. A missing, invalid or foreign shipped pin makes
+this entry unavailable; there is no fallback to the upstream provider's state
+defaults. Other plugin updates retain the upstream freshness policy. Local and
+remote security removals remain unioned and are enforced by normal admission.
+Updating this compatibility source and its pin requires a reviewed Loki PR.
+
+## Retained upstream admission policy
 
 Presence in this directory **is** the trust signal. The rules that keep it
 meaningful:

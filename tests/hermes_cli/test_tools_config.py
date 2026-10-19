@@ -442,7 +442,7 @@ class TestAgentBrowserPostSetup:
             _run_post_setup("agent_browser")
 
         assert any(str(error) in c.args[0] for c in warn.call_args_list)
-        assert any("hermes tools post-setup agent_browser" in c.args[0] for c in info.call_args_list)
+        assert any("loki tools post-setup agent_browser" in c.args[0] for c in info.call_args_list)
 
 
 class TestBrowserUseCliInstalledForAllNonCamofoxBackends:
@@ -470,7 +470,7 @@ class TestBrowserUseCliInstalledForAllNonCamofoxBackends:
         ensure.assert_not_called()
 
     def test_ensure_helper_missing_harness_is_non_fatal(self):
-        """A missing harness must warn and point at `hermes update`, never raise — the built-in
+        """A missing harness must warn and point at `loki update`, never raise — the built-in
         tools remain available."""
         from hermes_cli.tools_config import _ensure_browser_use_cli
 
@@ -480,7 +480,7 @@ class TestBrowserUseCliInstalledForAllNonCamofoxBackends:
             _ensure_browser_use_cli()  # must not raise
 
         assert any("browser-harness" in c.args[0] for c in warn.call_args_list)
-        assert any("hermes update" in c.args[0] for c in info.call_args_list)
+        assert any("loki update" in c.args[0] for c in info.call_args_list)
 
 
 class TestImagegenBackendRegistry:

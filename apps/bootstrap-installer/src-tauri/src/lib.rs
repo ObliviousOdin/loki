@@ -1,4 +1,4 @@
-//! Hermes Setup — Tauri entrypoint.
+//! Loki Setup — Tauri entrypoint.
 //!
 //! Spawns a single window pointed at the React frontend (apps/bootstrap-installer/src/).
 //! All install-time work lives in `bootstrap.rs` and is invoked through the Tauri
@@ -22,7 +22,7 @@ use tokio::sync::Mutex;
 /// How the installer was invoked. Resolved once from the process args in
 /// `run()` and exposed to the frontend via `get_mode` so it can route to the
 /// install flow (first-run onboarding) or the update flow (driven by the
-/// desktop app handing off via `Hermes-Setup.exe --update`).
+/// desktop app handing off via `Loki-Setup.exe --update`).
 ///
 /// Bare launch (double-click, first-run) => Install.
 /// `--update` (spawned by the desktop's "Update" button) => Update.
@@ -70,7 +70,7 @@ where
 /// The runtime's default activation policy is Regular. Entering it registers
 /// this bootstrap process as a Dock app even when Info.plist sets
 /// `LSUIElement`, and the real desktop is a different bundle id, so that
-/// registration is a second Hermes icon. Update, repair, and non-macOS
+/// registration is a second Loki icon. Update, repair, and non-macOS
 /// launches still build the installer UI. The installed-on-disk check is I/O
 /// and stays with the caller.
 pub fn handoff_before_appkit(is_macos: bool, mode: AppMode, force_setup: bool) -> bool {
@@ -113,10 +113,10 @@ pub fn run() {
 
     let mode = AppMode::from_args(std::env::args().skip(1));
     // Escape hatch: `--reinstall`/`--repair` forces the installer UI even when
-    // Hermes is already installed, so users can re-run setup to repair a broken
+    // Loki is already installed, so users can re-run setup to repair a broken
     // install instead of the launcher fast path silently relaunching the app.
     let force_setup = force_setup_from_args(std::env::args().skip(1));
-    tracing::info!(?mode, force_setup, "Hermes installer starting");
+    tracing::info!(?mode, force_setup, "Loki installer starting");
 
     // Hand off before constructing Tauri/AppKit. The setup callback is too
     // late: by then the process has already been registered as a regular
@@ -189,7 +189,7 @@ pub fn run() {
             paths::open_log_dir,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Hermes Setup");
+        .expect("error while running Loki Setup");
 }
 
 #[cfg(test)]

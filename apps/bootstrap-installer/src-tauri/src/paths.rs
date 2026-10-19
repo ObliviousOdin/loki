@@ -21,9 +21,9 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use tracing_appender::non_blocking::WorkerGuard;
 
-/// Returns the canonical Hermes home directory, respecting $HERMES_HOME if set.
+/// Returns the canonical Loki home directory, respecting $HERMES_HOME if set.
 pub fn hermes_home() -> PathBuf {
-    if let Ok(override_path) = std::env::var("HERMES_HOME") {
+    if let Ok(override_path) = std::env::var("LOKI_HOME") {
         if !override_path.trim().is_empty() {
             return PathBuf::from(override_path);
         }
@@ -38,7 +38,7 @@ pub fn hermes_home() -> PathBuf {
 /// is its own root; unset means the platform default. Host-wide state (the
 /// update marker) must live here, never in a per-profile home.
 pub fn hermes_root() -> PathBuf {
-    let env_home = std::env::var("HERMES_HOME").ok();
+    let env_home = std::env::var("LOKI_HOME").ok();
     hermes_root_from(env_home.as_deref(), &platform_default_home())
 }
 
@@ -62,7 +62,7 @@ fn hermes_root_from(env_home: Option<&str>, native_home: &Path) -> PathBuf {
 }
 
 fn platform_default_home() -> PathBuf {
-    platform_default_home_with(&std::env::var("HERMES_DATA_DIR_SUFFIX").unwrap_or_default())
+    platform_default_home_with(&std::env::var("LOKI_DATA_DIR_SUFFIX").unwrap_or_default())
 }
 
 /// `suffix` is HERMES_DATA_DIR_SUFFIX, appended literally to the leaf exactly as
@@ -74,19 +74,19 @@ fn platform_default_home_with(suffix: &str) -> PathBuf {
     {
         // %LOCALAPPDATA%\hermes — matches scripts/install.ps1's $HermesHome.
         if let Some(local_app_data) = dirs::data_local_dir() {
-            return local_app_data.join(format!("hermes{suffix}"));
+            return local_app_data.join(format!("loki{suffix}"));
         }
     }
 
     // macOS + Linux + fallback: ~/.hermes (matches Python get_hermes_home(),
     // install.sh, and the Electron desktop's resolveHermesHome()).
     if let Some(home) = dirs::home_dir() {
-        return home.join(format!(".hermes{suffix}"));
+        return home.join(format!(".loki{suffix}"));
     }
 
     // Last resort — current dir, almost certainly wrong but at least
     // doesn't panic.
-    PathBuf::from(format!(".hermes{suffix}"))
+    PathBuf::from(format!(".loki{suffix}"))
 }
 
 pub fn log_dir() -> PathBuf {

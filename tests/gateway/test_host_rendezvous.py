@@ -1,5 +1,7 @@
 """Host-wide singleton invariants (multiplex-only): one lock per host, staleness is proved."""
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 import dataclasses
 import json
 import os
@@ -64,7 +66,7 @@ def test_two_homes_take_their_own_per_home_lock_but_only_one_host_lock(host_dir,
 
     env = {**os.environ, "HERMES_HOME": str(home_a), "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")}
     child = subprocess.Popen(
-        [sys.executable, "-c", _CHILD.format(tree=tree)], env=env, cwd=tree,
+        [sys.executable, "-c", _CHILD.format(tree=tree)], env=bind_fixture_child_env(env), cwd=tree,
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     assert child.stdout is not None
     try:
@@ -79,7 +81,7 @@ def test_two_homes_take_their_own_per_home_lock_but_only_one_host_lock(host_dir,
         from gateway import status
 
         assert status.acquire_gateway_runtime_lock() is True, "second home must get its OWN lock"
-        assert hr.claim_host_lock(hr.ROLE_GATEWAY)[0] is hr.HostLockOutcome.HELD_BY_OTHER, \
+        assert hr.claim_host_lock(hr.ROLE_GATEWAY)[0] is hr.HostLockOutcome.HELD_BY_OTHER,\
             "host lock is not per-home"
     finally:
         child.kill()
@@ -189,7 +191,7 @@ def test_live_legacy_owner_survives_a_clock_step_past_its_create_time(host_dir):
 
     env = {**os.environ, "HERMES_HOME": str(host_dir / "home"), "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")}
     child = subprocess.Popen(
-        [sys.executable, "-c", _CHILD.format(tree=_tree())], env=env, cwd=_tree(),
+        [sys.executable, "-c", _CHILD.format(tree=_tree())], env=bind_fixture_child_env(env), cwd=_tree(),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     assert child.stdout is not None
     try:
@@ -251,7 +253,7 @@ def test_sigterm_removes_the_record_and_its_live_session_token(host_dir):
     on disk indefinitely, so the next launch attached to something that was gone."""
     env = {**os.environ, "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")}
     child = subprocess.Popen(
-        [sys.executable, "-c", _SIGTERM_CHILD.format(tree=_tree())], env=env, cwd=_tree(),
+        [sys.executable, "-c", _SIGTERM_CHILD.format(tree=_tree())], env=bind_fixture_child_env(env), cwd=_tree(),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     assert child.stdout is not None
     try:
@@ -334,7 +336,7 @@ def test_relative_xdg_state_home_is_ignored(monkeypatch, tmp_path):
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
 
     assert status._get_lock_dir().is_absolute()
-    assert status._get_lock_dir() == tmp_path / ".local" / "state" / "hermes" / status._LOCKS_DIRNAME
+    assert status._get_lock_dir() == tmp_path / ".local" / "state" / "loki" / status._LOCKS_DIRNAME
 
 
 def _gateway_record(*, pid: int, create_time, start_time, home: str) -> hr.HostRecord:
@@ -484,7 +486,7 @@ def test_another_process_holding_the_host_lock_is_observed_and_its_exit_frees_th
     sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
     holder = subprocess.Popen(
         [sys.executable, "-u", "-c", _HOLDER_CHILD.format(tree=tree)], cwd=tree,
-        env={**os.environ, "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")},
+        env=bind_fixture_child_env({**os.environ, "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")}),
         stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         assert holder.stdout.readline().strip() == "held"
@@ -542,7 +544,7 @@ def test_restart_cleanup_never_deletes_a_gateway_that_claimed_the_lock_mid_clean
     sleeper = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(60)"])
     claimer = subprocess.Popen(
         [sys.executable, "-u", "-c", _CLAIMER_CHILD.format(tree=tree)], cwd=tree,
-        env={**os.environ, "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")},
+        env=bind_fixture_child_env({**os.environ, "HERMES_GATEWAY_LOCK_DIR": str(host_dir / "locks")}),
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     try:
         assert claimer.stdout.readline().strip() == "ready"

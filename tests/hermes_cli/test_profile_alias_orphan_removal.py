@@ -1,4 +1,4 @@
-"""`hermes profile alias <name> --remove` must clean up an ORPHAN alias (#90983).
+"""`loki profile alias <name> --remove` must clean up an ORPHAN alias (#90983).
 
 An orphan alias is a wrapper in ``~/.local/bin`` whose profile no longer exists;
 ``hermes doctor`` lists it together with the remove command. Removal used to die on
@@ -20,9 +20,9 @@ from hermes_cli.profiles import create_wrapper_script
 @pytest.fixture
 def isolated_home(tmp_path, monkeypatch):
     """Isolate the profile root (HERMES_HOME) and the wrapper dir (Path.home())."""
-    (tmp_path / ".hermes").mkdir()
+    (tmp_path / ".loki").mkdir()
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / ".loki"))
     monkeypatch.setattr(hermes_constants, "_default_hermes_root_memo", None)
     monkeypatch.setattr(gateway_migrate, "duplicate_credential_findings", list)
     return tmp_path
@@ -34,7 +34,7 @@ def _alias(profile, *, remove, name=None):
 
 @pytest.mark.platforms("any")  # the wrapper name differs per host (.bat on Windows)
 def test_doctor_names_the_command_that_removes_an_orphan_alias(isolated_home, capsys):
-    keep = isolated_home / ".hermes" / "profiles" / "keep"  # doctor's section needs one live profile
+    keep = isolated_home / ".loki" / "profiles" / "keep"  # doctor's section needs one live profile
     keep.mkdir(parents=True)
     (keep / "config.yaml").write_text("model: m\n", encoding="utf-8")
     wrapper = create_wrapper_script("petcare")
@@ -42,7 +42,7 @@ def test_doctor_names_the_command_that_removes_an_orphan_alias(isolated_home, ca
     report = io.StringIO()
     with redirect_stdout(report):
         doctor_state._check_profiles(False)
-    assert "(remove with: hermes profile alias petcare --remove)" in report.getvalue()
+    assert "(remove with: loki profile alias petcare --remove)" in report.getvalue()
 
     _alias("petcare", remove=True)
 

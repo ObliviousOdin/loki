@@ -6,6 +6,8 @@ Split out of ``hermes_cli/auth.py``; origin helpers are imported lazily per func
 
 from __future__ import annotations
 
+from hermes_cli.loki_auth_policy import require_oauth_client_id
+
 import logging
 import base64
 import hashlib
@@ -177,6 +179,8 @@ def _minimax_oauth_login(*, region: str = "global", open_browser: bool = True, t
     """Run MiniMax OAuth flow, persist tokens, return auth state dict."""
     from hermes_cli.auth import PROVIDER_REGISTRY, _can_open_graphical_browser, _is_remote_session, _minimax_pkce_pair, _minimax_request_user_code, _minimax_save_auth_state, _print_device_code_instructions
     pconfig = PROVIDER_REGISTRY["minimax-oauth"]
+    from dataclasses import replace
+    pconfig = replace(pconfig, client_id=require_oauth_client_id("minimax-oauth", pconfig.client_id))
     if region == "cn":
         portal_base_url = pconfig.extra["cn_portal_base_url"]
         inference_base_url = pconfig.extra["cn_inference_base_url"]
@@ -189,7 +193,7 @@ def _minimax_oauth_login(*, region: str = "global", open_browser: bool = True, t
     if _is_remote_session():
         open_browser = False
 
-    print(f"Starting Hermes login via MiniMax ({region}) OAuth...")
+    print(f"Starting Loki login via MiniMax ({region}) OAuth...")
     print(f"Portal: {portal_base_url}")
 
     with httpx.Client(timeout=httpx.Timeout(timeout_seconds), headers={"Accept": "application/json"},
@@ -309,7 +313,7 @@ def _minimax_fresh_state() -> dict[str, Any]:
         state = get_provider_auth_state("minimax-oauth")
         if not state or not state.get("access_token"):
             raise _minimax_err(
-                "Not logged into MiniMax OAuth. Run `hermes model` and select MiniMax (OAuth).",
+                "Not logged into MiniMax OAuth. Run `loki model` and select MiniMax (OAuth).",
                 "not_logged_in", relogin=True,
             )
         try:

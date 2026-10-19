@@ -37,6 +37,9 @@ def test_plugin_config_json_tolerates_bom(tmp_path, monkeypatch, filename, loade
 
 def test_qwen_cli_tokens_tolerate_bom(tmp_path, monkeypatch):
     import hermes_cli.auth as auth_mod
+    from tests.loki_auth_fixture import configure_auth
+
+    configure_auth(monkeypatch, adopt_external_logins=True)
 
     creds = _write_bom_json(tmp_path / "oauth_creds.json", {"access_token": "tok", "expiry_date": 4102444800000})
     monkeypatch.setattr(auth_mod, "_qwen_cli_auth_path", lambda: creds)

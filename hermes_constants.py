@@ -54,8 +54,8 @@ def _platform_default_hermes_home(environ: Mapping[str, str], user_home: Callabl
     if sys.platform == "win32":
         local_appdata = environ.get("LOCALAPPDATA", "").strip()
         base = Path(local_appdata) if local_appdata else user_home() / "AppData" / "Local"
-        return base / ("hermes" + suffix)
-    return user_home() / (".hermes" + suffix)
+        return base / ("loki" + suffix)
+    return user_home() / (".loki" + suffix)
 
 
 def _get_platform_default_hermes_home() -> Path:
@@ -122,7 +122,7 @@ def sudo_invoker_default_home() -> Path | None:
     import pwd
 
     try:
-        return Path(pwd.getpwnam(sudo_user).pw_dir) / ".hermes"
+        return Path(pwd.getpwnam(sudo_user).pw_dir) / ".loki"
     except KeyError:  # SUDO_USER not in passwd (chroot/container)
         return None
 
@@ -294,7 +294,7 @@ def _is_hermes_profiles_root(profiles_dir: Path) -> bool:
     ``profiles/.deleted`` tombstone dir (only ``profile delete`` creates it), or the default root.
     """
     root = profiles_dir.parent
-    if root.name == ".hermes":
+    if root.name in {".loki", ".hermes"}:
         return True
     try:
         if (profiles_dir / _DELETED_PROFILES_DIR).is_dir() or any(
@@ -320,7 +320,7 @@ def named_profile_home(path: str | Path) -> Path | None:
         if (candidate.parent.name == "profiles" and not candidate.name.startswith(".")
                 and _is_hermes_profiles_root(candidate.parent)):
             return candidate
-        if candidate.name == ".hermes":  # default home: a coincidental profiles/ ancestor is not a root
+        if candidate.name in {".loki", ".hermes"}:  # default home: a coincidental profiles/ ancestor is not a root
             return None
     return None
 
@@ -460,6 +460,11 @@ def get_optional_mcps_dir(default: Path | None = None) -> Path:
 def get_bundled_skills_dir(default: Path | None = None) -> Path:
     """Return the bundled skills directory, honoring package-manager wrappers (``HERMES_BUNDLED_SKILLS``)."""
     return _packaged_dir("HERMES_BUNDLED_SKILLS", default, "skills")
+
+
+def get_bundled_plugin_catalog_dir(default: Path | None = None) -> Path:
+    """Return the declared plugin catalog, honoring package-manager resource bindings."""
+    return _packaged_dir("HERMES_BUNDLED_PLUGIN_CATALOG", default, "plugin-catalog")
 
 
 def get_hermes_dir(new_subpath: str, old_name: str, *, home: Path | None = None) -> Path:
@@ -1388,7 +1393,9 @@ def _venv_installs_checkout(venv: Path, root: Path) -> bool:
 
     from pm.environments import site_packages
 
-    for dist in distributions(name="hermes-agent", path=[str(site_packages(venv))]):
+    from loki_identity import DISTRIBUTION
+
+    for dist in distributions(name=DISTRIBUTION, path=[str(site_packages(venv))]):
         try:
             raw = dist.read_text("direct_url.json")  # windows-footgun: ok — importlib.metadata API, reads utf-8, no encoding=
             url = json.loads(raw or "{}").get("url", "")

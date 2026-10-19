@@ -59,10 +59,10 @@ PREVIEW_FULL_CONNECTORS_ENV = "HERMES_PREVIEW_FULL_CONNECTORS"
 GUEST_MINT_TIMEOUT_SECONDS = 5.0
 # Copy shared by every surface that names the free tier (R-USR-1): never guest / anonymous / account.
 FREE_TIER_LABEL = "Nous · free tier"
-UPGRADE_HINT = "Run `hermes auth upgrade` to sign in with a Nous account, or /login inside a chat."
+UPGRADE_HINT = "Run `loki auth upgrade` to sign in with a Nous account, or /login inside a chat."
 FREE_TIER_NOT_SIGNED_IN = (
-    "You're not signed in. Free inference and connectors are always on. "
-    "Run `hermes auth` to sign in with a Nous account.")
+    "You're not signed in. Available models and connectors depend on your provider configuration. "
+    "Run `loki auth` to sign in with a Nous account.")
 
 
 class AnonCredentialDead(AuthError):
@@ -116,7 +116,7 @@ ANON_UNREACHABLE_CODES = frozenset({ANON_UNREACHABLE, ANON_SERVER_ERROR})
 _SIGNIN_IS_FREE = "Signing in is free."
 ANON_FAILURE_COPY = {
     ANON_GATE_CLOSED: f"This version can't be used without a Nous account. {_SIGNIN_IS_FREE}",
-    ANON_GATE_PAUSED: f"Using Hermes without signing in is paused for a moment. {_SIGNIN_IS_FREE}",
+    ANON_GATE_PAUSED: f"Using Loki without signing in is paused for a moment. {_SIGNIN_IS_FREE}",
     ANON_RATE_LIMITED: "Lots of people are getting started right now. Try again in {wait}. "
                        "Signing in is free and skips the wait.",
     ANON_POW_REQUIRED: "The Nous server asked for a proof of work, but that isn't implemented in your "
@@ -360,6 +360,8 @@ def mint_request_body() -> dict[str, Any]:
 
 def mint_guest(client: httpx.Client, portal_base_url: str) -> dict[str, Any]:
     """``POST /api/anonymous/create`` -> ``{user_id, org_id, token, idle_ttl_days}``. Token shown once."""
+    from hermes_cli.loki_auth_policy import require_hosted_services
+    require_hosted_services()
     response = client.post(
         f"{portal_base_url.rstrip('/')}/api/anonymous/create", headers=_anon_headers(), json=mint_request_body())
     payload = _raise_for_anon_status(response, action="sign-up")
@@ -684,7 +686,8 @@ def ensure_portal_identity(
     """
     if not explicit:
         raise ValueError("ensure_portal_identity: only explicit creators may call this (explicit=True)")
-    if not guest_allowed():
+    from hermes_cli.loki_auth_policy import hosted_services_enabled
+    if not hosted_services_enabled() or not guest_allowed():
         return None
     failure = _mint_failure_for_profile()
     if failure and not force and not current_nous_state() and time.monotonic() < failure.not_before:
@@ -718,7 +721,7 @@ def refresh_guest_state(state: dict[str, Any], client: httpx.Client, *, purpose:
     if purpose == "inference" and not free_inference_active(state):
         # The one place a guest's inference token is minted: only the welcome trial on the desktop's
         # local backend carries one. Not terminal: the guest stays for connectors.
-        raise AuthError("Hermes is not logged into Nous Portal.", provider="nous", code="nous_auth_missing")
+        raise AuthError("Loki is not logged into Nous Portal.", provider="nous", code="nous_auth_missing")
     anon_token = state.get("anon_token")
     if not isinstance(anon_token, str) or not anon_token:
         raise AnonCredentialDead(ANON_FAILURE_COPY[ANON_CREDENTIAL_DEAD], code=ANON_CREDENTIAL_DEAD)
@@ -790,17 +793,17 @@ _WELCOME_ROUTE_COPY = {
     "anon_on_paid_host": "This install is set to use a different Nous server (NOUS_INFERENCE_BASE_URL). "
                          "Unset it to use the free model, or sign in. {signin}",
     "named_on_welcome_host": "This Nous account needs to reconnect. {model_hint}",
-    "tier_disabled": "Using Hermes without signing in is switched off right now. "
+    "tier_disabled": "Using Loki without signing in is switched off right now. "
                      "Sign in to keep chatting, it's free. {signin}",
     # Only reachable when re-exchanging the free credential failed (``turn_recovery._recover_welcome_tier``).
-    "session_expired": "Hermes couldn't renew its connection to the free model. "
+    "session_expired": "Loki couldn't renew its connection to the free model. "
                        "Send your message again, or sign in to keep chatting, it's free. {signin}",
 }
 # The sign-in door, phrased for a chat surface (slash command) and for a terminal.
 _SIGNIN_CHAT = "To sign in: /login."
-_SIGNIN_TERMINAL = "To sign in: `hermes auth upgrade`."
+_SIGNIN_TERMINAL = "To sign in: `loki auth upgrade`."
 _MODEL_HINT_CHAT = "Run /model and pick the Nous row again."
-_MODEL_HINT_TERMINAL = "Run `hermes model` and pick the Nous row again."
+_MODEL_HINT_TERMINAL = "Run `loki model` and pick the Nous row again."
 # Terminal copy for a free-model outage once the retries are spent (5xx, transport failure).
 FREE_TIER_OUTAGE_COPY = ("The free model is having trouble responding right now. "
                          "Try sending your message again in a minute.")
@@ -843,7 +846,7 @@ def welcome_refusal_copy(refusal: dict[str, Any], *, model: str = "", in_chat: b
     wait = friendly_wait(retry) if retry > 0 else "a little while"
     if reason == "model_not_free":
         what = f"{model} isn't" if model else "That model isn't"
-        return (f"{what} available without signing in, so Hermes uses {serves} for now. "
+        return (f"{what} available without signing in, so Loki uses {serves} for now. "
                 f"Sign in for more models. {signin}").rstrip()
     if reason == "feature_not_free":
         return f"That isn't available without signing in. Sign in to use it, it's free. {signin}".rstrip()
@@ -856,7 +859,7 @@ def welcome_refusal_copy(refusal: dict[str, Any], *, model: str = "", in_chat: b
     if reason == "rate_limited":
         return (f"You've used up the allowance for chatting without signing in. It refreshes in {wait}. "
                 f"Sign in for a bigger allowance, it's free. {signin}").rstrip()
-    return f"Hermes couldn't send that without signing in. Signing in is free. {signin}".rstrip()
+    return f"Loki couldn't send that without signing in. Signing in is free. {signin}".rstrip()
 
 
 def welcome_route_refusal(status: Any, message: Any, base_url: Any = None) -> Optional[str]:
@@ -881,7 +884,7 @@ def welcome_route_refusal(status: Any, message: Any, base_url: Any = None) -> Op
 
 
 def welcome_route_refusal_copy(kind: str, *, in_chat: bool = True, door: bool = True) -> str:
-    template = _WELCOME_ROUTE_COPY.get(kind) or "Hermes couldn't reach the free model on this route."
+    template = _WELCOME_ROUTE_COPY.get(kind) or "Loki couldn't reach the free model on this route."
     return template.format(
         host=DEFAULT_NOUS_WELCOME_URL, signin=(_SIGNIN_CHAT if in_chat else _SIGNIN_TERMINAL) if door else "",
         model_hint=_MODEL_HINT_CHAT if in_chat else _MODEL_HINT_TERMINAL).rstrip()

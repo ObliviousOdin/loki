@@ -1,3 +1,5 @@
+import { brandCatalog } from '@hermes/shared/branding'
+
 import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 
 import { enAppTour } from './en_app_tour'
@@ -20,7 +22,7 @@ import { enUninstallSection } from './en_uninstall_section'
 import { enUpdateChannel } from './en_update_channel'
 import type { Translations } from './types'
 
-export const en: Translations = {
+export const en: Translations = brandCatalog<Translations>({
   externalOpenFailed: {
     title: 'Couldn’t open this link',
     message: 'No browser is registered to open this address. Copy the link and open it manually.',
@@ -34,7 +36,6 @@ export const en: Translations = {
   sharedMetrics: enSharedMetrics,
   appTour: enAppTour,
   firstRun: enFirstRun,
-  // English editorial copy stays in the shipped JSONL; other locales override it.
   intro: { stock: {}, custom: () => [] },
   connectors: enConnectorCard,
 
@@ -187,7 +188,6 @@ export const en: Translations = {
       turnOffLocal: 'Turn off the local server',
       providedByPlugin: (plugin: string) => `Provided by plugin ${plugin}`,
       openPlugins: 'Open the Plugins tab',
-      // Verbatim, by decision of the design of record.
       nousLine: 'Nous apps follow your account, not the profile.',
       rulesReadOnly: 'Rules cannot be changed right now.',
       rulesAppOff: (name: string) => `Turn ${name} on to change its tools.`,
@@ -5157,4 +5157,4 @@ export const en: Translations = {
       toggle: open => `${open ? 'Show' : 'Hide'} sidebar`
     }
   }
-}
+})

@@ -12,7 +12,8 @@ from hermes_cli import main, update_cmd, update_cmd_zip
 def test_zip_completion_failure_does_not_run_old_followup(tmp_path, monkeypatch, route):
     monkeypatch.setattr(main, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(update_cmd_zip, "_abort_zip_update_if_dirty_tree", lambda: None)
-    monkeypatch.setattr(update_cmd_zip, "_download_and_swap_zip", lambda *a: None)
+    download = Mock(return_value=None)
+    monkeypatch.setattr(update_cmd_zip, "_download_and_swap_zip", download)
     monkeypatch.setattr(update_cmd, "_should_zip_fallback_on_update_error", lambda exc: True)
     request = {"expected_sha": None, "desktop": True}
     completion = Mock(side_effect=SystemExit(23))
@@ -28,3 +29,4 @@ def test_zip_completion_failure_does_not_run_old_followup(tmp_path, monkeypatch,
                 False, True, completion_request=request)
     assert error.value.code == 23
     completion.assert_called_once_with(request)
+    assert download.call_args.args[1] == "https://github.com/ObliviousOdin/loki/archive/refs/heads/main.zip"

@@ -20,11 +20,13 @@ def test_shell_exec_runs_in_the_session_cwd_behind_the_safety_gates(tmp_path):
     home.mkdir()
     user.mkdir()
     env = child_env()
-    env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home),
+    env.update(HOME=str(user), USERPROFILE=str(user), LOKI_HOME=str(home),
+               HERMES_HOME=str(user / 'foreign-hermes'),
                PYTHONPATH=str(root), PYTHONUNBUFFERED='1')
     result = subprocess.run([sys.executable, str(root / 'tests/gateway/fixtures/shell_exec_peer.py')],
                             cwd=root, env=env, capture_output=True, text=True, timeout=90, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
+    assert not (user / 'foreign-hermes').exists()
     receipt = json.loads((home / 'receipt.json').read_text())
     assert receipt['owner_cwd'] != receipt['session_cwd']
     ran = receipt['ran']

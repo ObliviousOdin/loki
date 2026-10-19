@@ -43,7 +43,7 @@ def _hermes_home() -> Path:
         from hermes_constants import get_hermes_home
         return get_hermes_home()
     except ImportError:
-        return Path(os.environ.get("HERMES_HOME", Path.home() / ".hermes"))
+        return Path(os.environ.get("HERMES_HOME", Path.home() / ".loki"))
 
 
 def _get_sessions_dir() -> Path:

@@ -100,7 +100,7 @@ def setup_qqbot() -> None:
                 _gw().print_success(f"  Allow list set to {user_openid}")
         _gw().save_env_value("QQ_ALLOWED_USERS", allowed)
         _gw().print_success("  DM pairing enabled.")
-        _gw().print_info("  Unknown users can request access; approve with `hermes pairing approve`.")
+        _gw().print_info("  Unknown users can request access; approve with `loki pairing approve`.")
     elif access_idx == 1:
         _save_env_values(QQ_ALLOW_ALL_USERS="true", QQ_ALLOWED_USERS="")
         _gw().print_warning("  Open DM access enabled for QQ Bot.")
@@ -136,7 +136,7 @@ def register(ctx) -> None:
     ctx.register_platform(
         standalone_send=StandaloneSendPolicy(label="QQ Bot", media=True, captionable=True, text_direct=True),
         name="qqbot",
-        dashboard_description="Connect Hermes to a QQ Bot from the QQ Open Platform.",
+        dashboard_description="Connect Loki to a QQ Bot from the QQ Open Platform.",
         docs_url="https://q.qq.com",
         dashboard_env_vars=("QQ_APP_ID", "QQ_CLIENT_SECRET", "QQ_ALLOWED_USERS"),
         label="QQ Bot",

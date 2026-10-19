@@ -237,6 +237,16 @@ def _git_version_info(repo_dir: Path, *, include_untracked: bool = False) -> Ver
     except (OSError, subprocess.SubprocessError):
         dirty = False
 
+    from loki_identity import DISTRIBUTION
+
+    try:
+        project = tomllib.loads((repo_dir / "pyproject.toml").read_text(encoding="utf-8-sig")).get("project", {})
+    except (OSError, ValueError):
+        project = {}
+    if project.get("name") == DISTRIBUTION:
+        version = str(project["version"])
+        return VersionInfo(version, version, 0, commit, branch, "git", dirty, commit_date)
+
     tags = _run_git(repo_dir, "tag", "--merged", "HEAD", "--list", "v[0-9]*")
     releases = [
         tag[1:]

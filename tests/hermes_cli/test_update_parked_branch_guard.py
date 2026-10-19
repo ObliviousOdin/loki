@@ -27,6 +27,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli import main as hermes_main
 from hermes_cli import main_web_build
 from hermes_cli import main_install_repair
@@ -57,6 +59,8 @@ def repo_pair(tmp_path):
     origin = tmp_path / "origin"
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    write_loki_source(origin)
+    _git(origin, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _git(origin, "config", "user.email", "test@example.com")
     _git(origin, "config", "user.name", "Test")
     (origin / "a.txt").write_text("one\n", encoding="utf-8")
@@ -191,6 +195,8 @@ def _treeless_repo_pair(tmp_path, *, promisor_reachable=False):
     origin = tmp_path / "origin"
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    write_loki_source(origin)
+    _git(origin, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _git(origin, "config", "user.email", "test@example.com")
     _git(origin, "config", "user.name", "Test")
     # file:// (not a plain path) plus allowFilter: a local origin that speaks
@@ -646,6 +652,8 @@ def test_update_up_to_date_path_does_not_repark_merged_branch(tmp_path, monkeypa
     origin = tmp_path / "origin"
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    write_loki_source(origin)
+    _git(origin, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _git(origin, "config", "user.email", "test@example.com")
     _git(origin, "config", "user.name", "Test")
     (origin / "a.txt").write_text("one\n", encoding="utf-8")

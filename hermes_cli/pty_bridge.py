@@ -133,9 +133,9 @@ class PtyBridge:
         if not _PTY_AVAILABLE:
             if sys.platform.startswith("win"):
                 raise PtyUnavailableError("Pseudo-terminals are unavailable on this platform. "
-                                          "Hermes Agent supports Windows only via WSL.")
+                                          "Loki's POSIX PTY bridge requires WSL on Windows.")
             raise PtyUnavailableError("The `ptyprocess` package is missing. "  # only other way _PTY_AVAILABLE is False
-                                      "Run hermes pm repair, then restart Hermes.")
+                                      "Run loki pm repair, then restart Loki.")
         # env=None: callers own env policy (process_registry already sanitizes), so inherit via the
         # factory with exact preservation. Backfill TERM when missing/blank — CI often lacks it and
         # probes like `tput cols` then fail before winsize reads; explicit overrides are kept.

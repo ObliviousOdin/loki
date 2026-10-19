@@ -110,7 +110,7 @@ function channelRecord(channel: 'stable' | 'canary', sequence: number): FixtureR
   return {
     schema: 1,
     name: channel,
-    repository: 'NousResearch/hermes-agent',
+    repository: 'ObliviousOdin/loki',
     policy: channel === 'stable' ? 'stable-release' : 'canary-release',
     state: 'active',
     revision: 1,
@@ -160,7 +160,7 @@ function buildManifest(
       schema: 1,
       buildId: id,
       channel,
-      repository: 'NousResearch/hermes-agent',
+      repository: 'ObliviousOdin/loki',
       commit: sha,
       sourceVersion: tag.replace(/^v/, '').split('+')[0],
       releaseTag: tag,
@@ -169,7 +169,7 @@ function buildManifest(
       windowsVersion: `0.0.${sequence}.0`,
       identity,
       bundleEnv: {},
-      publicBase: 'https://hermes-assets.nousresearch.com'
+      publicBase: 'https://updates.loki.example.test'
     },
     packages: [
       {
@@ -258,16 +258,16 @@ it('carries each install channel from Python publication checks into the source 
         })
       )
       responses.set(`/${manifestKey(channel)}`, body)
-      responses.set(`/repos/NousResearch/hermes-agent/releases/tags/${tags[channel]}`, {
+      responses.set(`/repos/ObliviousOdin/loki/releases/tags/${tags[channel]}`, {
         tag_name: tags[channel],
         draft: false,
         prerelease: channel === 'canary'
       })
-      responses.set(`/repos/NousResearch/hermes-agent/commits/${tags[channel]}`, { sha })
+      responses.set(`/repos/ObliviousOdin/loki/commits/${tags[channel]}`, { sha })
     }
 
     // Stable IS the latest published GitHub release; no R2 record is consulted for it.
-    responses.set('/repos/NousResearch/hermes-agent/releases/latest', {
+    responses.set('/repos/ObliviousOdin/loki/releases/latest', {
       tag_name: tags.stable,
       draft: false,
       prerelease: false
@@ -298,7 +298,7 @@ def install():
     passthrough = original_build().open
     def local(request, *args, **kwargs):
         parsed = urlsplit(request.full_url if isinstance(request, urllib.request.Request) else request)
-        assert parsed.hostname in ('hermes-assets.nousresearch.com', 'api.github.com')
+        assert parsed.hostname in ('updates.loki.example.test', 'api.github.com')
         url = 'http://127.0.0.1:${address.port}' + parsed.path + ('?' + parsed.query if parsed.query else '')
         # ChannelReader compares response.geturl() against the ORIGINAL request url:
         # wrap so the redirect detector still sees the un-rewritten authority.
@@ -316,6 +316,8 @@ def install():
 if not getattr(urllib.request, '_hermes_loopback', False):
     urllib.request._hermes_loopback = True
     install()
+from hermes_cli import source_releases
+source_releases._PUBLIC_BASE = 'https://updates.loki.example.test'  # explicitly configured test-owned service
 `
     )
     vi.stubEnv('HERMES_MANAGED', '')
@@ -326,6 +328,7 @@ if not getattr(urllib.request, '_hermes_loopback', False):
 
     const environment: NodeJS.ProcessEnv = {
       ...process.env,
+      LOKI_HOME: home,
       HERMES_HOME: home,
       HERMES_INSTALL_ROOT: root,
       PYTHONPATH: repository,
@@ -405,8 +408,8 @@ if not getattr(urllib.request, '_hermes_loopback', False):
     const script: string = path.join(scriptDirectory, process.platform === 'win32' ? 'windows.ps1' : 'posix.sh')
     fs.mkdirSync(scriptDirectory, { recursive: true })
     fs.writeFileSync(path.join(scriptDirectory, 'runtime.ps1'), '')
-    fs.mkdirSync(path.join(root, '.hermes', 'bin'), { recursive: true })
-    fs.writeFileSync(path.join(root, '.hermes', 'bin', 'hermes.exe'), '')
+    fs.mkdirSync(path.join(root, '.loki', 'bin'), { recursive: true })
+    fs.writeFileSync(path.join(root, '.loki', 'bin', 'loki.exe'), '')
 
     for (const channel of ['stable', 'canary'] as const) {
       await setChannel(channel)
@@ -419,9 +422,9 @@ if not getattr(urllib.request, '_hermes_loopback', False):
         updateAvailable: true
       })
       fs.rmSync(scriptDirectory, { recursive: true, force: true })
-      expect(await strategy.apply()).toMatchObject({ manual: true, command: `hermes update --channel ${channel}` })
+      expect(await strategy.apply()).toMatchObject({ manual: true, command: `loki update --channel ${channel}` })
       deps.resolveUpdaterBinary = (): string => path.join(temporary, 'frozen-updater')
-      expect(await strategy.apply()).toMatchObject({ manual: true, command: `hermes update --channel ${channel}` })
+      expect(await strategy.apply()).toMatchObject({ manual: true, command: `loki update --channel ${channel}` })
       expect(spawned).toHaveLength(0)
       fs.mkdirSync(scriptDirectory, { recursive: true })
       fs.writeFileSync(script, '')
@@ -473,7 +476,7 @@ if not getattr(urllib.request, '_hermes_loopback', False):
     )
     fs.rmSync(markerPath(home), { force: true })
     fs.rmSync(scriptDirectory, { recursive: true, force: true })
-    expect(await strategy.apply()).toMatchObject({ manual: true, command: 'hermes update --branch feature/gui' })
+    expect(await strategy.apply()).toMatchObject({ manual: true, command: 'loki update --branch feature/gui' })
     // main IS the git branch: re-resolving it reads no channel record and makes no
     // GitHub or artifact request, so a WAF that 403s the record can't stop the update.
     expect(requests.slice(count)).toEqual([])

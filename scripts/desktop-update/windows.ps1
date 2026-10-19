@@ -97,8 +97,19 @@ if (-not $SelfTestUi -and -not $SelfTestPipeDrain -and -not $InstallRoot) {
 
 $ErrorActionPreference = "Continue"
 $TempDir = if ($env:TEMP) { $env:TEMP } else { [System.IO.Path]::GetTempPath() }
+# Fresh handoffs bind only public Loki selectors; owned children keep their active profile.
+if ($env:__LOKI_ENV_BOUND -ne '1') {
+    Get-ChildItem Env: | Where-Object { $_.Name -match '^(__)?HERMES_' } | ForEach-Object { Remove-Item "env:$($_.Name)" }
+    Get-ChildItem Env: | Where-Object { $_.Name -match '^LOKI_' } | ForEach-Object { Set-Item "env:HERMES_$($_.Name.Substring(5))" $_.Value }
+    $env:__LOKI_ENV_BOUND = '1'
+}
 $HermesHome = if ($env:HERMES_HOME) { $env:HERMES_HOME } elseif ($InstallRoot) { Split-Path -Parent $InstallRoot } else { $TempDir }
 $env:HERMES_HOME = $HermesHome
+$env:LOKI_HOME = $HermesHome
+if ($InstallRoot) {
+    $env:HERMES_INSTALL_ROOT = $InstallRoot
+    $env:LOKI_INSTALL_ROOT = $InstallRoot
+}
 $MarkerPath = Join-Path $HermesHome ".hermes-update-in-progress"
 $LogDir = Join-Path $HermesHome "logs"
 $LogPath = Join-Path $LogDir "desktop-update-handoff.log"
@@ -196,7 +207,7 @@ try {
     $OutputEncoding = [System.Text.Encoding]::UTF8
 } catch {}
 $script:Ui = $null
-$script:UiStage = "Hermes will open once done."   # until the first gate; matches ui.html
+$script:UiStage = "Loki will open once done."   # until the first gate; matches ui.html
 $script:UiStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
 
 # ── The shim: repo-owned HTML in a chromeless default-browser app window ───
@@ -395,10 +406,10 @@ function Stop-UiServer([switch]$LeaveWindow) {
     try {
         $profileDirs = @()
         if ($script:UiServer.Profile) { $profileDirs += $script:UiServer.Profile }
-        Get-ChildItem -LiteralPath $TempDir -Directory -Filter "hermes-update-ui-*" -ErrorAction SilentlyContinue |
+        Get-ChildItem -LiteralPath $TempDir -Directory -Filter "loki-update-ui-*" -ErrorAction SilentlyContinue |
             ForEach-Object {
                 $owner = 0
-                if ($_.Name -match '^hermes-update-ui-([0-9]+)$' -and [int]::TryParse($Matches[1], [ref]$owner) -and
+                if ($_.Name -match '^loki-update-ui-([0-9]+)$' -and [int]::TryParse($Matches[1], [ref]$owner) -and
                     $owner -ne $PID -and -not (Get-Process -Id $owner -ErrorAction SilentlyContinue)) {
                     $profileDirs += $_.FullName
                 }
@@ -487,7 +498,7 @@ function Show-ProgressWindow {
                 # we own (a default-profile launch delegates to an existing
                 # browser and returns instantly, leaving nothing to close), and
                 # avoids touching the user's real browser profile.
-                $browserProfile = Join-Path $TempDir ("hermes-update-ui-{0}" -f $PID)
+                $browserProfile = Join-Path $TempDir ("loki-update-ui-{0}" -f $PID)
                 $browserArgs = @(
                     "--app=http://127.0.0.1:$($server.Port)/",
                     "--user-data-dir=$browserProfile",
@@ -523,7 +534,7 @@ function Show-ProgressWindow {
             $mute = [System.Drawing.ColorTranslator]::FromHtml("#A8A8A8")
         }
         $form = New-Object System.Windows.Forms.Form
-        $form.Text = "Hermes"
+        $form.Text = "Loki"
         $form.FormBorderStyle = "FixedSingle"
         $form.MaximizeBox = $false
         $form.MinimizeBox = $false
@@ -537,7 +548,7 @@ function Show-ProgressWindow {
         $bar.MarqueeAnimationSpeed = 30
         $bar.SetBounds(60, 128, 160, 8)
         $title = New-Object System.Windows.Forms.Label
-        $title.Text = "Updating Hermes"
+        $title.Text = "Updating Loki"
         $title.Font = New-Object System.Drawing.Font("Segoe UI Semibold", 12)
         $title.ForeColor = $fore
         $title.TextAlign = "MiddleCenter"
@@ -595,7 +606,7 @@ function Show-ErrorFinale([string]$Message) {
         if ($ui.Timer) { $ui.Timer.Stop() }
         $ui.Bar.Visible = $false
         $ui.Title.Text = "Failed to update"
-        $ui.Sub.Text = "Run `"hermes debug share`" in a terminal to send a report."
+        $ui.Sub.Text = "Run `"loki debug share`" in a terminal to send a report."
         $close = New-Object System.Windows.Forms.Button
         $close.Text = "Close"
         $close.SetBounds(100, 252, 80, 28)
@@ -1485,7 +1496,7 @@ try {
         # (or the Desktop that gave up on this hand-off) reports its own.
         $finalCode = 2
         $blocker = if ($script:MarkerBlocker -gt 0) { " (process $($script:MarkerBlocker))" } else { "" }
-        $finalMsg = "Another Hermes update is already running$blocker, or the Desktop gave up on this hand-off. Nothing was changed."
+        $finalMsg = "Another Loki update is already running$blocker, or the Desktop gave up on this hand-off. Nothing was changed."
         Write-HandoffLog $finalMsg
         exit $finalCode
     }
@@ -1550,13 +1561,13 @@ try {
     }
 
     # -- 1. Wait for the Desktop to exit (FAIL CLOSED) ----------------------
-    Publish-UiProgress "Waiting for Hermes to close"
+    Publish-UiProgress "Waiting for Loki to close"
     if ($DesktopPid -gt 0) {
         # Identity, not pid: the Desktop's creation time was pinned at start.
         if (-not (Wait-DesktopExit $script:DesktopExitSeconds)) {
             # The running Desktop still owns application outputs being replaced.
             $finalCode = 4
-            $finalMsg = "Update aborted: the Hermes window (pid $DesktopPid) did not exit within $($script:DesktopExitSeconds)s. Nothing was changed. Close Hermes fully and try again."
+            $finalMsg = "Update aborted: the Loki window (pid $DesktopPid) did not exit within $($script:DesktopExitSeconds)s. Nothing was changed. Close Loki fully and try again."
             Write-HandoffLog $finalMsg
             exit $finalCode
         }
@@ -1593,7 +1604,7 @@ try {
         } elseif ($helpProbe.Output -match "--keep-stash") {
             $updateArgs += "--keep-stash"
         } else {
-            Write-HandoffLog "installed hermes predates --keep-stash; running without it"
+            Write-HandoffLog "installed loki predates --keep-stash; running without it"
         }
     } catch {
         Write-HandoffLog "could not probe update --help; running without --keep-stash"
@@ -1605,7 +1616,7 @@ try {
     Write-HandoffLog ("running: python " + ($updateArgs -join " "))
     Publish-UiProgress "Updating code and dependencies"
     $res = Invoke-HermesStep $pythonExe $updateArgs "update"
-    Write-HandoffLog "hermes update exit code: $($res.Code)"
+    Write-HandoffLog "loki update exit code: $($res.Code)"
     $res = Resolve-HermesUpdateOutcome $res
 
     # Retry only the identified pre-PM update-boundary transition. Current
@@ -1627,7 +1638,7 @@ try {
     if ($res.Code -ne 0 -and $res.Code -ne 2) { $committedAfterExit = Get-CommittedReceiptOutcome }
     if ($res.Code -ne 0 -and -not $committedAfterExit) {
         $finalCode = $res.Code
-        $finalMsg = "Update failed (exit $($res.Code)). Run `hermes debug share` in a terminal to send a report."
+        $finalMsg = "Update failed (exit $($res.Code)). Run `loki debug share` in a terminal to send a report."
         exit $finalCode
     }
 
@@ -1638,23 +1649,23 @@ try {
     $finalCode = 0
     $finalMsg = "Update complete."
     if ($script:UpdateInterrupted) {
-        Add-Followup "post-update steps (gateway resume) were interrupted; run hermes update again" "its post-update steps (gateway resume) were interrupted. Run 'hermes update' again to finish them." -Manual
+        Add-Followup "post-update steps (gateway resume) were interrupted; run loki update again" "its post-update steps (gateway resume) were interrupted. Run 'loki update' again to finish them." -Manual
     }
     if ($committedAfterExit) {
         # Past the commit point with a nonzero exit: installed, with an owed follow-up.
         $sentence = switch ($committedAfterExit) {
-            'partial' { "one step is left for you: your local source changes may still be parked in git stash. Run 'hermes update' in a terminal for the exact commands." }
-            'interrupted' { "its post-update steps were interrupted. The next launch or 'hermes update' finishes them." }
-            default { "'hermes update' exited with code $($res.Code) afterwards. Run 'hermes update' in a terminal to finish any remaining steps." }
+            'partial' { "one step is left for you: your local source changes may still be parked in git stash. Run 'loki update' in a terminal for the exact commands." }
+            'interrupted' { "its post-update steps were interrupted. The next launch or 'loki update' finishes them." }
+            default { "'loki update' exited with code $($res.Code) afterwards. Run 'loki update' in a terminal to finish any remaining steps." }
         }
-        Add-Followup "update: hermes update exited $($res.Code) after the commit point (receipt outcome: $committedAfterExit)" $sentence -Manual
+        Add-Followup "update: loki update exited $($res.Code) after the commit point (receipt outcome: $committedAfterExit)" $sentence -Manual
     }
 
     # Pre-PM updates reported a successful exit with a failed build warning.
     # Keep that historical transition here only; current failures propagate.
     $desktopBuildFailed = $false
     if ($legacyInstall -and $res.Output -match "Desktop build failed") {
-        Write-HandoffLog "hermes update reported a desktop build failure; retrying build"
+        Write-HandoffLog "loki update reported a desktop build failure; retrying build"
         Publish-UiProgress "Rebuilding Desktop"
         $rebuildFailure = $null
         try {
@@ -1668,7 +1679,7 @@ try {
         }
         if ($rebuildFailure) {
             $desktopBuildFailed = $true
-            Add-Followup "desktop rebuild: $rebuildFailure" "the Desktop app rebuild failed, so you may still be running the previous build. Run 'hermes desktop --force-build' in a terminal to retry." -Manual
+            Add-Followup "desktop rebuild: $rebuildFailure" "the Desktop app rebuild failed, so you may still be running the previous build. Run 'loki desktop --force-build' in a terminal to retry." -Manual
         }
     }
 
@@ -1676,7 +1687,7 @@ try {
     # (exit 0); the CLI prints one whole "Desktop app build owed:" line for it. The user is on
     # the new Hermes but this app was not rebuilt: a manual outcome, never plain success.
     if (-not $desktopBuildFailed -and $res.Output -match '(?m)^\s*Desktop app build owed: ') {
-        Add-Followup "build: the Desktop app build is owed by the committed update" "the Desktop app could not be rebuilt, so it still runs its old build. Run 'hermes desktop --force-build' in a terminal to rebuild it; the update log has the build error." -Manual
+        Add-Followup "build: the Desktop app build is owed by the committed update" "the Desktop app could not be rebuilt, so it still runs its old build. Run 'loki desktop --force-build' in a terminal to rebuild it; the update log has the build error." -Manual
     }
 
     # Every other owed follow-up of the committed update (a gateway still on the old code, a
@@ -1685,8 +1696,8 @@ try {
     $owedSteps = @([regex]::Matches(($res.Output -join "`n"), "Update follow-up '([A-Za-z0-9_]+)' did not finish: ") |
         ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique)
     if ($owedSteps.Count -gt 0) {
-        $owedHint = if ($owedSteps -contains 'gateway_restart') { " Run 'hermes gateway restart' to move the messaging gateway onto the new code now." } else { '' }
-        Add-Followup ("followup: owed by the committed update: " + ($owedSteps -join ', ')) ("some follow-up steps did not finish (" + ($owedSteps -join ', ') + "). The next launch or 'hermes update' retries them; the update log has the details." + $owedHint) -Manual
+        $owedHint = if ($owedSteps -contains 'gateway_restart') { " Run 'loki gateway restart' to move the messaging gateway onto the new code now." } else { '' }
+        Add-Followup ("followup: owed by the committed update: " + ($owedSteps -join ', ')) ("some follow-up steps did not finish (" + ($owedSteps -join ', ') + "). The next launch or 'loki update' retries them; the update log has the details." + $owedHint) -Manual
     }
 
     # A zero-exit update is not proof that the runtime survived the update.
@@ -1701,7 +1712,7 @@ try {
             $verifyFailure = $_.Exception.Message
         }
         if ($verifyFailure) {
-            Add-Followup "verify: $verifyFailure" "the new Desktop build could not be verified. Nothing was removed. If Hermes does not start normally, run 'hermes desktop --force-build' in a terminal to rebuild it." -Manual
+            Add-Followup "verify: $verifyFailure" "the new Desktop build could not be verified. Nothing was removed. If Loki does not start normally, run 'loki desktop --force-build' in a terminal to rebuild it." -Manual
         }
     }
 
@@ -1725,7 +1736,7 @@ try {
             $gatewayFailure = $_.Exception.Message
         }
         if ($gatewayFailure) {
-            Add-Followup "gateway start: $gatewayFailure" "it could not restart every messaging gateway. Run `hermes gateway start --all` in a terminal." -Manual
+            Add-Followup "gateway start: $gatewayFailure" "it could not restart every messaging gateway. Run `loki gateway start --all` in a terminal." -Manual
         }
     }
 
@@ -1737,7 +1748,7 @@ try {
     # tree gets its own warning in the finally block.
     Write-HandoffLog "hand-off error: $($_.Exception.Message)"
     if ($script:Committed -and $script:TreeSafeToFinalize) {
-        Add-Followup "hand-off: $($_.Exception.Message)" "a post-update step failed unexpectedly. Run 'hermes update' again to finish it." -Manual
+        Add-Followup "hand-off: $($_.Exception.Message)" "a post-update step failed unexpectedly. Run 'loki update' again to finish it." -Manual
         $finalCode = 0
     }
 } finally {
@@ -1760,14 +1771,14 @@ try {
         if ($script:Committed) {
             # C3: the update landed; only a follow-up step outlived its cancellation.
             $finalCode = 0
-            Add-Followup "follow-up processes could not be stopped" "a follow-up step's processes could not be stopped, so Hermes was not reopened. Reopen Hermes once they finish, or restart Windows first." -Manual
-            $finalMsg = "Hermes was updated, but " + ($script:FollowupText -join " Also, ")
+            Add-Followup "follow-up processes could not be stopped" "a follow-up step's processes could not be stopped, so Loki was not reopened. Reopen Loki once they finish, or restart Windows first." -Manual
+            $finalMsg = "Loki was updated, but " + ($script:FollowupText -join " Also, ")
             Write-Result $true $finalCode $finalMsg $true
             Write-HandoffLog $finalMsg
             Show-ManualFinale $finalMsg
         } else {
             $finalCode = 7
-            $finalMsg = "Update recovery could not stop every updater process. Hermes was not restarted to avoid overlapping the active install. Wait for it to finish or restart Windows, then reopen Hermes."
+            $finalMsg = "Update recovery could not stop every updater process. Loki was not restarted to avoid overlapping the active install. Wait for it to finish or restart Windows, then reopen Loki."
             Write-Result $false $finalCode $finalMsg
             Write-HandoffLog $finalMsg
             Show-ErrorFinale $finalMsg
@@ -1775,7 +1786,7 @@ try {
         Close-ProgressWindow
     } else {
         if ($finalCode -eq 0 -and $script:FollowupText.Count -gt 0) {
-            $finalMsg = "Hermes was updated, but " + ($script:FollowupText -join " Also, ")
+            $finalMsg = "Loki was updated, but " + ($script:FollowupText -join " Also, ")
         }
         $manualAction = $finalCode -eq 0 -and $script:ManualFollowup
         Write-Result ($finalCode -eq 0) $finalCode $finalMsg $manualAction
@@ -1797,12 +1808,12 @@ try {
                 [void](Start-DesktopRelaunch)
             }
         } else {
-            Publish-UiProgress "Opening Hermes"
+            Publish-UiProgress "Opening Loki"
             $cameBack = Start-DesktopRelaunch
             if (-not $cameBack -and $RelaunchExe) {
                 # Launch was due and did not verifiably land: truthful result
                 # for the next boot, manual state held on screen now.
-                $finalMsg = "Update complete. Reopen Hermes to finish (it could not restart itself)."
+                $finalMsg = "Update complete. Reopen Loki to finish (it could not restart itself)."
                 Write-Result $true 0 $finalMsg $true
                 Show-ManualFinale $finalMsg
             }

@@ -108,7 +108,7 @@ class TestScopedLockTakeoverReapsChildren:
         target_home.mkdir(parents=True, exist_ok=True)
         record = {
             "pid": pid,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "start_time": start_time,
             "hermes_home": str(target_home),
@@ -215,7 +215,7 @@ async def test_start_gateway_replace_reaps_old_gateway_children_posix(
         "gateway.status._read_pid_record",
         lambda path=None: {
             "pid": 42,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "start_time": 0,
             "hermes_home": str(tmp_path),

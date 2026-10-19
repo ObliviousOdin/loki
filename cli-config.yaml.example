@@ -1,5 +1,7 @@
-# Hermes Agent CLI Configuration
-# Copy settings from this example into ~/.hermes/config.yaml, or use
+# Loki CLI Configuration
+# Engine module and schema names remain upstream-compatible. Loki uses ~/.loki.
+# See docs/loki/INSTALL.md before enabling optional services.
+# Copy settings from this example into ~/.loki/config.yaml, or use
 # `hermes config set <section.key> <value>` to update the active profile.
 # This file configures CLI behavior; only documented secret environment
 # variables in .env take precedence over their corresponding settings.
@@ -481,7 +483,7 @@ terminal:
 #   # chosen docker_image expects to start as root.
 #   docker_run_as_host_user: true
 #   # Optional: explicitly forward selected env vars into Docker.
-#   # These values come from your current shell first, then ~/.hermes/.env.
+#   # These values come from your current shell first, then ~/.loki/.env.
 #   # Warning: anything forwarded here is visible to commands run in the container.
 #   docker_forward_env:
 #     - "GITHUB_TOKEN"
@@ -1052,7 +1054,7 @@ group_sessions_per_user: true
 # =============================================================================
 # Session Storage Retention (state.db)
 # =============================================================================
-# ~/.hermes/state.db keeps every session, message, and tool call, plus the
+# ~/.loki/state.db keeps every session, message, and tool call, plus the
 # FTS5 search indexes. Auto-pruning is OFF by default; when enabled, at
 # CLI/gateway/cron startup (at most once per min_interval_hours) Hermes deletes
 # ENDED sessions whose last activity is older than retention_days. While
@@ -1170,9 +1172,9 @@ skills:
   creation_nudge_interval: 15
 
   # External skill directories — share skills across tools/agents without
-  # copying them into ~/.hermes/skills/.  Each path is expanded (~ and ${VAR})
+  # copying them into ~/.loki/skills/.  Each path is expanded (~ and ${VAR})
   # and resolved to an absolute path.  External dirs are read-only: skill
-  # creation always writes to ~/.hermes/skills/.  Local skills take precedence
+  # creation always writes to ~/.loki/skills/.  Local skills take precedence
   # when names collide.
   # external_dirs:
   #   - ~/.agents/skills
@@ -1627,7 +1629,7 @@ platform_toolsets:
 # =============================================================================
 # Text-to-Speech
 # =============================================================================
-# TTS defaults to Edge TTS unless changed in ~/.hermes/config.yaml.
+# TTS defaults to Edge TTS unless changed in ~/.loki/config.yaml.
 # Gemini TTS supports persona/director prompt files, and Gemini 3.1 Flash TTS
 # can use a hidden auxiliary rewrite pass to insert expressive square-bracket
 # audio tags into the TTS script without showing tags in chat.
@@ -1646,7 +1648,7 @@ platform_toolsets:
 #     model: "gemini-3.1-flash-tts-preview"
 #     voice: "Kore"
 #     audio_tags: false
-#     persona_prompt_file: ""  # e.g. ~/.hermes/tts/radio-host.md
+#     persona_prompt_file: ""  # e.g. ~/.loki/tts/radio-host.md
 #   xai:
 #     voice_id: "eve"       # built-in or custom voice ID from xAI Console
 #     language: "en"        # BCP-47 code ("en", "pt-BR") or "auto"
@@ -1856,7 +1858,7 @@ delegation:
 #
 # Requires: hermes plugins install honcho (Plastic Labs' plugin from the catalog)
 # Config: ~/.honcho/config.json (shared with Claude Code, Cursor, etc.)
-# API key: HONCHO_API_KEY in ~/.hermes/.env or ~/.honcho/config.json
+# API key: HONCHO_API_KEY in ~/.loki/.env or ~/.honcho/config.json
 #
 # Hermes-specific overrides (optional — most config comes from ~/.honcho/config.json):
 # honcho: {}
@@ -1875,7 +1877,7 @@ display:
   #   new:     Show a tool indicator only when the tool changes (skip repeats)
   #   all:     Show every tool call with a short preview (default)
   #   verbose: Full args, results, and debug logs (same as /verbose)
-  #   log:     Silent in chat; append every tool call to ~/.hermes/logs/tool_calls.log (gateway only)
+  #   log:     Silent in chat; append every tool call to ~/.loki/logs/tool_calls.log (gateway only)
   # Toggle at runtime with /verbose in the CLI
   # Independent of show_reasoning: hiding reasoning never hides tool rows.
   # Answer-only (just the final response) is show_reasoning: false plus
@@ -2020,7 +2022,7 @@ display:
   #   sisyphus       — Earthy stone-and-moss theme
   #   charizard      — Fiery orange dragon theme
   #
-  # Custom skins: drop a YAML file in ~/.hermes/skins/<name>.yaml
+  # Custom skins: drop a YAML file in ~/.loki/skins/<name>.yaml
   # Schema (all fields optional, missing values inherit from default):
   #
   #   name: my-theme
@@ -2107,7 +2109,7 @@ display:
 #   on_session_finalize, on_session_reset, subagent_stop
 #
 # First-use consent: each (event, command) pair prompts once on a TTY, then
-# is persisted to ~/.hermes/shell-hooks-allowlist.json.  Non-interactive
+# is persisted to ~/.loki/shell-hooks-allowlist.json.  Non-interactive
 # runs (gateway, cron) need --accept-hooks, HERMES_ACCEPT_HOOKS=1, or the
 # hooks_auto_accept key below.
 #
@@ -2117,15 +2119,15 @@ display:
 # hooks:
 #   pre_tool_call:
 #     - matcher: "terminal"
-#       command: "~/.hermes/agent-hooks/block-rm-rf.sh"
+#       command: "~/.loki/agent-hooks/block-rm-rf.sh"
 #       timeout: 10
 #   post_tool_call:
 #     - matcher: "write_file|patch"
-#       command: "~/.hermes/agent-hooks/auto-format.sh"
+#       command: "~/.loki/agent-hooks/auto-format.sh"
 #   pre_llm_call:
-#     - command: "~/.hermes/agent-hooks/inject-cwd-context.sh"
+#     - command: "~/.loki/agent-hooks/inject-cwd-context.sh"
 #   subagent_stop:
-#     - command: "~/.hermes/agent-hooks/log-orchestration.sh"
+#     - command: "~/.loki/agent-hooks/log-orchestration.sh"
 #
 # hooks_auto_accept: false
 
@@ -2159,17 +2161,18 @@ telemetry:
   shared_metrics:
     enabled: false
     send: false
-    # endpoint: https://telemetry.nousresearch.com/v1/telemetry
+    # endpoint: https://your-loki-endpoint.example/v1/telemetry
 
 
 # =============================================================================
 # Login Policy (credentials themselves live in auth.json / .env)
 # =============================================================================
 auth:
+  hosted_services: false  # Requires separately owned and configured service credentials.
   # Borrow and refresh the Codex CLI (~/.codex/auth.json) and Claude Code logins when Hermes has
   # no usable login of its own. Their refresh tokens are single-use, so two programs on one login
   # can log each other out; set false to make Hermes use only its own logins.
-  adopt_external_logins: true
+  adopt_external_logins: false
   # How `hermes auth add openai-codex` / `hermes model` sign in to OpenAI Codex.
   #   device_code (default) — open a URL and enter a code.
   #   browser — authorization-code + PKCE on http://localhost:1455/auth/callback (the redirect
@@ -2187,7 +2190,7 @@ updates:
   # Explicit `hermes update --check` and `hermes update` remain available.
   check: true
   # Create a full HERMES_HOME zip before every `hermes update`.
-  # Backups land in ~/.hermes/backups/ and can be restored with `hermes import`.
+  # Backups land in ~/.loki/backups/ and can be restored with `hermes import`.
   # Off by default because large homes can add minutes to every update.
   pre_update_backup: false
 
@@ -2220,7 +2223,7 @@ updates:
 # so a provisioned-but-not-populated secret can't shadow a valid entry here.
 #
 # Local dev / on-prem deploys should typically set these via config.yaml
-# (the ~/.hermes/.env file is reserved for API keys and secrets).
+# (the ~/.loki/.env file is reserved for API keys and secrets).
 #
 # dashboard:
 #   oauth:
@@ -2282,14 +2285,14 @@ updates:
 #       # (PKCE-only) client — the common case.
 #       #
 #       # This is a CREDENTIAL: prefer setting HERMES_DASHBOARD_OIDC_CLIENT_SECRET
-#       # in ~/.hermes/.env over putting it here in config.yaml.
+#       # in ~/.loki/.env over putting it here in config.yaml.
 #       #   client_secret: ""
 
 # =============================================================================
 # External secret sources
 # =============================================================================
 # Pull provider credentials from external secret managers at process startup
-# instead of storing them in ~/.hermes/.env. Only the manager's bootstrap
+# instead of storing them in ~/.loki/.env. Only the manager's bootstrap
 # credential (e.g. BWS_ACCESS_TOKEN / OP_SERVICE_ACCOUNT_TOKEN) lives in .env
 # (or your shell / desktop session); everything else rotates centrally.
 # Failures never block startup — Hermes warns once and continues with
@@ -2319,7 +2322,7 @@ updates:
 #       enabled: false
 #       max_stale_seconds: 0               # 0 disables stale fallback
 #     override_existing: true              # BSM values win over existing env
-#     auto_install: true                   # lazy-download bws into ~/.hermes/bin
+#     auto_install: true                   # lazy-download bws into ~/.loki/bin
 #
 #   # ---- 1Password (op CLI) -------------------------------------------------
 #   onepassword:

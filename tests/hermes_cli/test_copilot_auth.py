@@ -1,5 +1,7 @@
 """Tests for hermes_cli.copilot_auth — Copilot token validation and resolution."""
 
+from loki_identity import CLIENT_USER_AGENT
+
 import pytest
 from unittest.mock import patch
 
@@ -123,7 +125,7 @@ class TestRequestHeaders:
         from hermes_cli.copilot_auth import copilot_request_headers
         headers = copilot_request_headers()
         assert headers["Openai-Intent"] == "conversation-edits"
-        assert headers["User-Agent"] == "HermesAgent/1.0"
+        assert headers["User-Agent"] == CLIENT_USER_AGENT
         assert "Editor-Version" in headers
 
 

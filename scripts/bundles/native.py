@@ -52,12 +52,17 @@ def _arch_guard(store_dir: Path) -> list[str]:
 
 
 
-from pm.uv_cache_prune import lock_package_names, prune_uv_cache_to_lock
+from pm.uv_cache_prune import (
+    archive_package_name,
+    lock_package_names,
+    project_package_name,
+    prune_uv_cache_to_lock,
+)
 
 __all__ = ["lock_package_names", "prune_uv_cache_to_lock", "stage_uv_cache"]
 
 
-def stage_uv_cache(source: Path, destination: Path) -> None:
+def stage_uv_cache(source: Path, destination: Path, *, source_repo: Path | None = None) -> None:
     """Ship everything a per-install venv rebuild resolves from offline.
 
     sdist source trees (including Rust target/ outputs) are build-only bulk —
@@ -65,12 +70,22 @@ def stage_uv_cache(source: Path, destination: Path) -> None:
     source — so they stay out. Built wheel ZIPs (including the copies uv keeps
     beside sdist metadata.msgpack shards) ship: without them an offline
     rebuild falls back to wanting the sdist download and fails closed.
+    Interpreter probes and editable source builds describe the build machine,
+    not dependency wheels. The native source tree is assembled separately.
     """
+    project = project_package_name(source_repo) if source_repo is not None else None
+
     def ignore(directory: str, names: list[str]) -> set[str]:
         path = Path(directory)
         parts = path.relative_to(source).parts
-        if not parts or not parts[0].startswith("sdists-v"):
+        if not parts:
+            return {name for name in names if name.startswith("interpreter-v")}
+        if parts == ("archive-v0",) and project is not None:
+            return {name for name in names if archive_package_name(path / name) == project}
+        if not parts[0].startswith("sdists-v"):
             return set()
+        if len(parts) == 1:
+            return {"editable"} & set(names)
         # Source trees live under a revision selected by a sibling pointer.
         if "src" in names and (path / "src").is_dir() and any(
             (path.parent / pointer).is_file() for pointer in ("revision.http", "revision.rev")
@@ -79,6 +94,22 @@ def stage_uv_cache(source: Path, destination: Path) -> None:
         return set()
 
     shutil.copytree(source, destination, ignore=ignore)
+
+
+def stage_dependency_cache(cache: Path, out: Path, repo: Path) -> Path:
+    """Copy offline wheel inputs; only the disposable payload copy is pruned."""
+    from pm.package import InstallError
+
+    destination = out / "uv-cache"
+    if destination.exists():
+        shutil.rmtree(destination)
+    if not cache.is_dir():
+        raise InstallError("uv-cache", "runtime dependency cache is missing")
+    print(f"  uv-cache: copying {cache} → payload...", flush=True)
+    stage_uv_cache(cache, destination, source_repo=repo)
+    pruned = prune_uv_cache_to_lock(destination, repo, exclude_project=True)
+    print(f"✓ uv-cache (lock-scoped: pruned {pruned} stale entries; offline rebuilds resolve from shipped wheels)", flush=True)
+    return destination
 
 
 def stage_pm_runtime(root: Path, python: Path, repo: Path, *, offline: bool = False,
@@ -215,8 +246,9 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
     stage_pm_runtime(out, python_bin, repo_dir, cache=cache)
     print("✓ pm-runtime (independent locked dependencies)", flush=True)
 
-    # Build + sync INSIDE the staged repo: the editable project install
-    # must point at the payload's own tree, not this checkout.
+    # The assembler publishes the source tree, its metadata and a relative
+    # PTH. Only dependencies belong in this environment: an editable root
+    # install would capture this temporary build path in generated files.
     venv_dir = out / "venv"
     if venv_dir.exists():
         shutil.rmtree(venv_dir)
@@ -226,6 +258,7 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
     # Cold native wheels need a larger budget than interactive installs.
     build_environment(source=repo_dir, python=python_bin, out=venv_dir,
                       env=env, cache=cache, all_extras=True, sealed=True, explicit=True,
+                      no_install_project=True,
                       timeout=2 * 60 * 60)
     print("✓ venv (all extras, on the staged interpreter)")
 
@@ -243,21 +276,8 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
     facts.record_state("venv", Venv(repo_dir).expected_stamp(features, plugin_dirs=[]), features)
     print(f"✓ enabled-features.json ({len(features)} extras recorded)")
 
-    # Ship the full uv cache (build-only sdist sources and wheel ZIPs are
-    # already excluded by stage_uv_cache). Any per-install venv rebuild —
-    # plugin extras, feature changes — resolves entirely from the shipped
-    # wheels with zero network access, on every profile of this install.
-    payload_cache = out / "uv-cache"
-    if payload_cache.exists():
-        shutil.rmtree(payload_cache, ignore_errors=True)
-    src_cache = cache
-    if src_cache.is_dir():
-        print(f"  uv-cache: copying {src_cache} → payload...", flush=True)
-        stage_uv_cache(src_cache, payload_cache)
-        pruned = prune_uv_cache_to_lock(payload_cache, repo_dir)
-        print(f"✓ uv-cache (lock-scoped: pruned {pruned} stale entries; offline rebuilds resolve from shipped wheels)", flush=True)
-    else:
-        raise InstallError("uv-cache", "runtime dependency cache is missing")
+    # A later per-install rebuild resolves from these cached dependency wheels.
+    stage_dependency_cache(cache, out, repo_dir)
 
     bad = _arch_guard(store_dir)
     for line in bad:
@@ -266,18 +286,24 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
         raise InstallError("tools", "native architecture verification failed")
     from scripts.bundles.payload import record_tools
     recorded = {name: fact["entry"] for name in names if (fact := facts.get(name)) and "entry" in fact}
-    record_tools(out, paths.lockfile_path(), current_target(), recorded)
     from scripts.build.inputs import AgentInputs, RESOURCE_ENV, dependency_site
     from scripts.bundles.native_prepared import publish_prepared
 
     site = dependency_site(venv_dir, python_fact["version"], current_target())
     (site / "hermes-agent.pth").write_text(
         Path(os.path.relpath(repo_dir, site)).as_posix() + "\n", encoding="utf-8")
-    from scripts.bundles.payload import relativize_links
+    from scripts.bundles.payload import relativize_links, seal_environment_config
+    seal_environment_config(out, python_bin, "venv")
     relativize_links(out)
+    from scripts.bundles.native_symbols import strip_macho_debug_symbols
+    normalized = strip_macho_debug_symbols(out)
+    print(f"✓ native codec provenance ({normalized['libraries']} libraries, {normalized['wheels']} cached wheels)")
     from scripts.bundles.bytecode import bake_bytecode
     baked = bake_bytecode(out, python_bin)
     print(f"✓ baked bytecode ({baked['modules']} modules, unchecked-hash, read-only caches)")
+    # The compiler also normalizes the selected interpreter's stdlib pycs.
+    # Record tool identity only after every staged-byte transformation.
+    record_tools(out, paths.lockfile_path(), current_target(), recorded)
     inputs = AgentInputs(
         project=repo_dir / "pyproject.toml", code=repo_dir, repo="hermes-agent",
         placement="contained", target=current_target(), python=python_bin,

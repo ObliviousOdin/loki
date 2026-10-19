@@ -27,6 +27,8 @@ and the pool quarantine; this file covers what resolution does afterwards.
 
 from __future__ import annotations
 
+from tests.loki_auth_fixture import write_auth_config
+
 import json
 import os
 import time
@@ -70,6 +72,7 @@ def hermes_home(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "hermes_cli.auth.is_provider_explicitly_configured", lambda pid: True
     )
+    write_auth_config(home, clients=("anthropic",), adopt_external_logins=True)
     return home
 
 

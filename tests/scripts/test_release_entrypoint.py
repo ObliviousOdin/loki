@@ -587,7 +587,7 @@ def test_changelog_prints_the_notes_a_draft_would_carry_and_claims_nothing(sourc
     monkeypatch.setattr(release_script.sys, "argv",
                         ["release.py", "changelog", "--commit", commit, "--remote", "origin"])
 
-    release_script.main()
+    release_script._upstream_reference_main()
 
     out = capsys.readouterr().out
     assert out.startswith("# Hermes Agent v0.21.5 (rc.1-v0.21.5)")
@@ -612,7 +612,7 @@ def test_release_command_accepts_no_changelog(argv, monkeypatch):
     monkeypatch.setattr(entrypoint, "cmd_release", lambda args: seen.setdefault("args", args))
     monkeypatch.setattr(release_script.sys, "argv", ["release.py", *argv])
 
-    release_script.main()
+    release_script._upstream_reference_main()
 
     assert seen["args"].no_changelog is True
 
@@ -1071,14 +1071,14 @@ def test_a_concurrent_cut_of_another_version_is_stopped_before_dispatch(
 
 def test_release_refuses_an_unknown_lane_before_touching_git(tmp_path):
     ran = subprocess.run(
-        [sys.executable, "scripts/release.py", "release", "--commit", "HEAD", "--with", "macos-intell"],
+        [sys.executable, "-c", "import runpy; runpy.run_path('scripts/release.py', run_name='retained_reference')['_upstream_reference_main']()", "release", "--commit", "HEAD", "--with", "macos-intell"],
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False)
     assert ran.returncode != 0
     assert "unknown lane macos-intell" in ran.stderr and "macos-intel" in ran.stderr
     both = subprocess.run(
-        [sys.executable, "scripts/release.py", "release", "--commit", "HEAD", "--with", "ci", "--without", "ci"],
+        [sys.executable, "-c", "import runpy; runpy.run_path('scripts/release.py', run_name='retained_reference')['_upstream_reference_main']()", "release", "--commit", "HEAD", "--with", "ci", "--without", "ci"],
         cwd=ROOT, capture_output=True, text=True, encoding="utf-8", check=False)
     assert "--with and --without both name ci" in both.stderr
-    helped = subprocess.run([sys.executable, "scripts/release.py", "release", "--help"], cwd=ROOT,
+    helped = subprocess.run([sys.executable, "-c", "import runpy; runpy.run_path('scripts/release.py', run_name='retained_reference')['_upstream_reference_main']()", "release", "--help"], cwd=ROOT,
                             capture_output=True, text=True, encoding="utf-8", check=False)
     assert "macos-intel (off)" in helped.stdout and "docker-tests" in helped.stdout

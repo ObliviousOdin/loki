@@ -1,3 +1,4 @@
+import { brandCatalog } from "@hermes/shared/branding";
 import { applyDocumentLocale, LOCALE_ENDONYMS } from "@hermes/shared/i18n";
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
 import type { Locale, Translations } from "./types";
@@ -19,7 +20,7 @@ import { ru } from "./ru";
 import { hu } from "./hu";
 import { ar } from "./ar";
 
-const TRANSLATIONS: Record<Locale, Translations> = {
+const TRANSLATIONS: Record<Locale, Translations> = brandCatalog({
   en,
   zh,
   "zh-hant": zhHant,
@@ -37,7 +38,7 @@ const TRANSLATIONS: Record<Locale, Translations> = {
   ru,
   hu,
   ar,
-};
+});
 
 const SUPPORTED_LOCALES = Object.keys(TRANSLATIONS) as Locale[];
 
@@ -47,7 +48,7 @@ export const LOCALE_META: Record<Locale, { name: string }> = Object.fromEntries(
   SUPPORTED_LOCALES.map((id) => [id, { name: LOCALE_ENDONYMS[id] }]),
 ) as Record<Locale, { name: string }>;
 
-const STORAGE_KEY = "hermes-locale";
+const STORAGE_KEY = "loki-locale";
 
 function isLocale(value: string): value is Locale {
   return (SUPPORTED_LOCALES as string[]).includes(value);

@@ -41,7 +41,7 @@ class ForeignRoot(ValueError):
 def _install_root(home: Path) -> Path:
     # <root>/.hermes or <root>/.hermes/profiles/<name>: the root is the HOME that anchors it.
     parts = home.parts
-    if len(parts) >= 3 and parts[-3] == ".hermes" and parts[-2] == "profiles":
+    if len(parts) >= 3 and parts[-3] == ".loki" and parts[-2] == "profiles":
         return home.parents[2]
     return home.parent
 
@@ -63,7 +63,7 @@ def _own_store_launcher(executable: str) -> bool:
     """Whether ``executable`` is the store launcher ``installation_command`` writes for THIS install
     root (``<root>/.hermes/bin/hermes``, root = gateway.PROJECT_ROOT), never another checkout's."""
     from hermes_cli import gateway
-    launcher = Path(gateway.PROJECT_ROOT).resolve() / ".hermes" / "bin" / "hermes"
+    launcher = Path(gateway.PROJECT_ROOT).resolve() / ".loki" / "bin" / "loki"
     return os.path.normcase(str(Path(executable).resolve())) == os.path.normcase(str(launcher))
 
 
@@ -113,7 +113,7 @@ def verify_gateway_argv(argv: list[str], home: Path, *, wrapped: bool = False) -
         if entry is None or entry[0] != "hermes_cli.main":
             _unverified()
         args = entry[1]
-    elif executable in {"hermes", "hermes.exe"} and (not own_launcher_only or _own_store_launcher(argv[0])):
+    elif executable in {"loki", "loki.exe"} and (not own_launcher_only or _own_store_launcher(argv[0])):
         args = argv[1:]
     else:
         _unverified()
@@ -167,6 +167,20 @@ def environment_pairs(value: str) -> dict[str, str]:
     return result
 
 
+def _bound_service_environment(env: dict[str, str]) -> dict[str, str]:
+    """Judge the same selectors a fresh Loki process will actually retain.
+
+    Explicitly bound owned children keep the internal profile protocol. Fresh
+    supervisor launches ignore ambient Hermes selectors and translate Loki's.
+    Leave an absent home unset so systemd's account/HOME fallback stays exact.
+    """
+    if env.get("__LOKI_ENV_BOUND") == "1":
+        return dict(env)
+    bound = {key: value for key, value in env.items() if not key.startswith(("HERMES_", "__HERMES_"))}
+    bound.update({"HERMES_" + key[5:]: value for key, value in env.items() if key.startswith("LOKI_")})
+    return bound
+
+
 def verify_systemd(props: dict[str, str], manager_env: str, home: Path, *, system: bool) -> None:
     import pwd
 
@@ -199,9 +213,10 @@ def verify_systemd(props: dict[str, str], manager_env: str, home: Path, *, syste
         key, sep, value = item.partition("=")
         if not sep or env.get(key) == value:
             env.pop(key, None)
+    env = _bound_service_environment(env)
     configured = env.get("HERMES_HOME", "").strip()
     if not configured:
-        configured = str(_absolute(env.get("HOME") or pwd.getpwuid(uid).pw_dir) / ".hermes")
+        configured = str(_absolute(env.get("HOME") or pwd.getpwuid(uid).pw_dir) / ".loki")
     verify_home(home, configured)
     match = re.fullmatch(r"\{ path=(.*?) ; argv\[\]=(.*?) ; ignore_errors=(?:yes|no) ;(?:.*?)\}", props["ExecStart"])
     if not match or any(char in match[2] for char in ("$", "\\", "{", "}")):
@@ -261,6 +276,7 @@ def verify_launchd_loaded(output: str, home: Path, *, uid: int, username: str) -
         if not sep or key in env:
             _unverified()
         env[key] = value
+    env = _bound_service_environment(env)
     verify_home(home, env.get("HERMES_HOME", ""))
     if home.parent.name != "profiles" and not env.get("HERMES_SUPERVISED_CHILD"):
         _unverified()
@@ -281,6 +297,7 @@ def verify_launchd_plist(definition: dict, label: str, home: Path) -> None:
     env = definition.get("EnvironmentVariables", {})
     if not isinstance(env, dict):
         _unverified()
+    env = _bound_service_environment(env)
     verify_home(home, env.get("HERMES_HOME", ""))
     argv = definition.get("ProgramArguments")
     if not isinstance(argv, list) or not all(isinstance(arg, str) for arg in argv):
@@ -323,10 +340,11 @@ def _vbs_identity(script: str) -> tuple[str, list[str]]:
         match = re.fullmatch(r'env.Item\("([A-Z_]+)"\) = (' + literal + ')', lines[index])
         if not match:
             break
-        if match[1] not in {"HERMES_HOME", "HERMES_SUPERVISED_CHILD", "HERMES_GATEWAY_DETACHED", "PYTHONIOENCODING", "VIRTUAL_ENV"} or match[1] in env:
+        if match[1] not in {"LOKI_HOME", "LOKI_SUPERVISED_CHILD", "LOKI_GATEWAY_DETACHED", "HERMES_HOME", "HERMES_SUPERVISED_CHILD", "HERMES_GATEWAY_DETACHED", "__LOKI_ENV_BOUND", "PYTHONIOENCODING", "VIRTUAL_ENV"} or match[1] in env:
             _unverified()
         env[match[1]] = match[2][1:-1].replace('""', '"')
         index += 1
+    env = _bound_service_environment(env)
     tail = lines[index:]
     if len(tail) != 8 or tail[:2] != ['existing_pp = env.Item("PYTHONPATH")', 'If Len(existing_pp) > 0 Then'] or tail[3] != 'Else' or tail[5] != 'End If':
         _unverified()

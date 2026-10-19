@@ -136,6 +136,8 @@ def test_import_and_startup_exclude_each_other_before_publication(tmp_path, monk
         root = Path(__file__).resolve().parents[2]
         env = {k: os.environ[k] for k in ('PATH', 'LANG', 'TZ', 'TIRITH_ENABLED') if k in os.environ}
         env.update(HOME=str(tmp_path / 'user'), HERMES_HOME=str(home), PYTHONPATH=str(root))
+        from tests.loki_child_fixture import bind_fixture_child_env
+        env = bind_fixture_child_env(env)
         contender = subprocess.run([sys.executable, '-c',
             "import logging, runpy; logging.basicConfig(level=logging.INFO); runpy.run_module('gateway.run', run_name='__main__')"], cwd=root, env=env,
                                    stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=25, check=False)

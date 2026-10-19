@@ -44,13 +44,13 @@ Easiest path — run the built-in installer:
 
 ```bash
 hermes plugins enable google_meet
-hermes meet install                 # PM dependencies + Chromium (transcribe only)
-hermes meet install --realtime      # + pulseaudio-utils / brew blackhole+ffmpeg
-hermes meet auth                    # optional; skips guest-lobby wait
-hermes meet setup                   # preflight checks
+loki meet install                 # PM dependencies + Chromium (transcribe only)
+loki meet install --realtime      # + pulseaudio-utils / brew blackhole+ffmpeg
+loki meet auth                    # optional; skips guest-lobby wait
+loki meet setup                   # preflight checks
 ```
 
-`hermes meet install --realtime` prompts before running `sudo apt-get` (Linux)
+`loki meet install --realtime` prompts before running `sudo apt-get` (Linux)
 or `brew install` (macOS). Pass `--yes` to skip the prompt. It will NOT touch
 your macOS default-input setting — you have to select BlackHole 2ch in
 System Settings yourself before starting a realtime meeting.
@@ -67,21 +67,21 @@ For a remote node:
 ```bash
 # on the user's Mac (where Chrome is signed in):
 hermes plugins enable google_meet
-hermes meet install
-hermes meet node run --display-name my-mac    # persistent server
+loki meet install
+loki meet node run --display-name my-mac    # persistent server
 # copy the printed token
 
 # on the gateway:
-hermes meet node approve my-mac ws://<mac-ip>:18789 <token>
-hermes meet node ping my-mac                   # confirm reachable
+loki meet node approve my-mac ws://<mac-ip>:18789 <token>
+loki meet node ping my-mac                   # confirm reachable
 ```
 
-Run `hermes meet setup` to preflight local prereqs.
+Run `loki meet setup` to preflight local prereqs.
 
 ## Flow
 
 1. **Join** — call `meet_join(url=..., mode=..., node=...)`. Returns immediately.
-2. **Announce yourself** — no auto-consent. Say (in whatever channel the user is watching): "A Hermes agent bot is in this call taking notes."
+2. **Announce yourself** — no auto-consent. Say (in whatever channel the user is watching): "A Loki agent bot is in this call taking notes."
 3. **Poll** — `meet_status()` for liveness, `meet_transcript(last=20)` for recent captions. Don't re-read the whole transcript every turn.
 4. **Speak (realtime only)** — `meet_say(text="...")` queues text for TTS. The speech lags by ~2s. Don't spam it.
 5. **Leave** — `meet_leave()` when done, or set `duration="30m"` on `meet_join` for auto-leave.
@@ -102,7 +102,7 @@ Run `hermes meet setup` to preflight local prereqs.
 ## Important limits
 
 - Captions are only as good as Google Meet's live captions. English-biased, lossy on overlapping speakers.
-- Guest mode sits in the lobby until a host admits. Warn the user; `hermes meet auth` avoids this.
+- Guest mode sits in the lobby until a host admits. Warn the user; `loki meet auth` avoids this.
 - **Lobby timeout**: if the host doesn't admit the bot within 5 minutes (configurable via `HERMES_MEET_LOBBY_TIMEOUT` env), the bot leaves and `meet_status` reports `leaveReason: "lobby_timeout"`.
 - **One active meeting per install per location.** A second `meet_join` leaves the first.
 - **Windows not supported.**
@@ -122,7 +122,7 @@ Run `hermes meet setup` to preflight local prereqs.
 | `captioning` | Caption observer is installed. |
 | `transcriptLines` / `lastCaptionAt` | Transcript progress. |
 | `realtime` / `realtimeReady` | Realtime mode provisioned / WS connected. |
-| `realtimeDevice` | Audio device name the bot is feeding (e.g. `hermes_meet_src`). |
+| `realtimeDevice` | Audio device name the bot is feeding (e.g. `loki_meet_src`). |
 | `audioBytesOut` / `lastAudioOutAt` | How much PCM the OpenAI session has produced. |
 | `lastBargeInAt` | Timestamp of the most recent `response.cancel` sent. |
 | `leaveReason` | `duration_expired`, `lobby_timeout`, `denied`, `page_closed`, or null. |
@@ -141,5 +141,5 @@ Remote node: transcript lives on the node host's disk. Use `meet_transcript(node
 
 - URL regex: only `https://meet.google.com/...` URLs pass.
 - No calendar scanning. No auto-dial.
-- Remote nodes use bearer-token auth; tokens are generated on the node (32 hex chars, persisted in `$HERMES_HOME/workspace/meetings/node_token.json`) and must be copied to the gateway via `hermes meet node approve`.
+- Remote nodes use bearer-token auth; tokens are generated on the node (32 hex chars, persisted in `$LOKI_HOME/workspace/meetings/node_token.json`) and must be copied to the gateway via `loki meet node approve`.
 - `meet_say` text is rate-limited by the OpenAI Realtime session; spam-protection is the bot's problem, not yours, but still — don't queue hundreds of lines.

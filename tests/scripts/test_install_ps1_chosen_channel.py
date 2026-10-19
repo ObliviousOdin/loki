@@ -26,7 +26,7 @@ def test_installer_reads_the_channel_hermes_recorded(tmp_path, monkeypatch, chan
     install.mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
     set_install_channel(channel, install)
-    script = (f". '{ROOT / 'scripts' / 'install.ps1'}' -InstallDir '{install}' -HermesHome '{home}'\n"
+    script = (f". '{ROOT / 'scripts' / 'install.ps1'}' -InstallDir '{install}' -LokiHome '{home}'\n"
               "Write-Output \"channel=$(Get-ChosenChannel)\"\n")
     wrapper = tmp_path / "read.ps1"
     wrapper.write_text(script, encoding="utf-8")

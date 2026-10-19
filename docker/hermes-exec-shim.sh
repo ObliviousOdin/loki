@@ -40,7 +40,7 @@
 
 set -e
 
-REAL=/opt/hermes/.venv/bin/hermes
+REAL=/opt/hermes/.venv/bin/loki
 
 # Defensive: if the venv binary is missing (corrupted image, partial
 # install), fail loudly rather than silently masking it.

@@ -308,7 +308,7 @@ class TestFileSync:
         uploaded = vercel_sdk.current.write_files_calls[0]
         assert uploaded == [
             {
-                "path": "/home/vercel/.hermes/credentials/token.txt",
+                "path": "/home/vercel/.loki/credentials/token.txt",
                 "content": b"secret-token",
             }
         ]
@@ -341,7 +341,7 @@ class TestFileSync:
         assert result["returncode"] == 0
         assert vercel_sdk.current.write_files_calls[-1] == [
             {
-                "path": "/home/vercel/.hermes/credentials/token.txt",
+                "path": "/home/vercel/.loki/credentials/token.txt",
                 "content": b"updated-secret-token",
             }
         ]
@@ -375,9 +375,9 @@ class TestFileSync:
         sandbox.snapshot_id = "snap_cleanup"
         vercel_sdk.current.download_file_content = _tar_bytes(
             {
-                "home/vercel/.hermes/credentials/token.txt": b"remote-token",
-                "home/vercel/.hermes/credentials/new.txt": b"new-remote",
-                "home/vercel/.hermes/unmapped/skip.txt": b"skip",
+                "home/vercel/.loki/credentials/token.txt": b"remote-token",
+                "home/vercel/.loki/credentials/new.txt": b"new-remote",
+                "home/vercel/.loki/unmapped/skip.txt": b"skip",
             }
         )
 

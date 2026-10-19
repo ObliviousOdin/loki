@@ -106,7 +106,7 @@ def test_runtime_status_running_pid_validates_live_gateway_record(monkeypatch):
 
     runtime = {
         "pid": 12345,
-        "kind": "hermes-gateway",
+        "kind": "loki-gateway",
         "argv": ["/opt/hermes/hermes_cli/main.py", "gateway", "run", "--replace"],
         "start_time": None,
         "gateway_state": "running",

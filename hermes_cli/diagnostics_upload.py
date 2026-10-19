@@ -10,10 +10,10 @@ import urllib.request
 from hermes_cli.debug_redaction import redact_debug_support_text
 
 # Overridable via env so the feature can be pointed at staging / a local dev NAS instance.
-NAS_BASE = os.environ.get("HERMES_DIAGNOSTICS_BASE_URL", "https://portal.nousresearch.com")
+NAS_BASE = ""  # Explicit test/integration seam; the launch environment is resolved per request.
 _REQUEST_TIMEOUT = 30
 _UPLOAD_TIMEOUT = 120  # the PUT carries the gzipped log bundle, so a more generous window
-_USER_AGENT = "hermes-agent/debug-share"
+_USER_AGENT = "loki/debug-share"
 
 
 def _urlopen_checked(url: str, data: bytes, method: str, headers: dict, *, timeout: int, what: str):
@@ -30,11 +30,15 @@ def _urlopen_checked(url: str, data: bytes, method: str, headers: dict, *, timeo
 def request_upload_url(content_type: str = "application/gzip", size_bytes: int | None = None) -> dict:
     """Ask NAS to mint a presigned PUT URL for a diagnostics bundle. Returns the parsed JSON, expected to
     carry at least ``uploadUrl``, ``viewUrl`` and ``id``. Raises on non-2xx responses or unparseable JSON."""
+    base = os.environ.get("HERMES_DIAGNOSTICS_BASE_URL", "").strip() or NAS_BASE
+    if not base:
+        raise RuntimeError("Loki diagnostics upload is not configured. Set LOKI_DIAGNOSTICS_BASE_URL "
+                           "to your authorized diagnostics service, or save the report locally.")
     payload: dict = {"contentType": content_type}
     if size_bytes is not None:
         payload["sizeBytes"] = int(size_bytes)
     body = _urlopen_checked(
-        f"{NAS_BASE}/api/diagnostics/upload-url", json.dumps(payload).encode("utf-8"), "POST",
+        f"{base}/api/diagnostics/upload-url", json.dumps(payload).encode("utf-8"), "POST",
         {"Content-Type": "application/json", "Accept": "application/json"},
         timeout=_REQUEST_TIMEOUT, what="diagnostics upload-url request").decode("utf-8")
     try:

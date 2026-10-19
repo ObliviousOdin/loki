@@ -21,6 +21,8 @@ hermesNpmLib.buildNpmPackage {
     runHook preInstall
     mkdir -p $out
     cp -r "$TMPDIR/web-product/." $out/
+    # The local freshness receipt contains prepared build paths.
+    rm -f $out/hermes-build.json
     runHook postInstall
   '';
 }

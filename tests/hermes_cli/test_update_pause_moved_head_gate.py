@@ -16,6 +16,8 @@ import subprocess
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli import update_cmd
 from hermes_cli import update_pause_record as pause_record
 
@@ -45,6 +47,8 @@ def parked(tmp_path, monkeypatch):
     root = tmp_path / "checkout"
     root.mkdir()
     git(root, "init", "-q", "-b", "main")
+    write_loki_source(root)
+    git(root, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     git(root, "config", "user.name", "Fixture")
     git(root, "config", "user.email", "fixture@example.com")
     monkeypatch.setattr(update_cmd._m(), "PROJECT_ROOT", root)

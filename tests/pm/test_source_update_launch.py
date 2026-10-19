@@ -120,7 +120,7 @@ def test_source_python_pin_update_survives_real_gc(source_launch, tmp_path, monk
     pm.sync_venv(explicit=True, project_root=root)
     # Initial installation is allowed to publish. No explicit writer is called
     # after replacement: the source-update owner must refresh this same command.
-    _launchers.ensure_install_launchers(root, root / ".hermes" / "bin")
+    _launchers.ensure_install_launchers(root, root / ".loki" / "bin")
     command = _launchers.installation_command(root, module="source_probe")
     (site_packages(selected_venv(root)) / "selected_probe.py").write_text("VALUE = 'A'\n")
     child_env = {**os.environ, "HERMES_DISABLE_LAZY_INSTALLS": "1"}
@@ -193,7 +193,7 @@ def test_launcher_publication_failure_retries_without_rebuilding_dependencies(so
     committed = runtime_facts_path(root).read_bytes()
     assert venv_sync.prepare_launch(root, []) == store_python
     assert runtime_facts_path(root).read_bytes() == committed
-    assert (root / ".hermes" / "bin" / "hermes").is_file()
+    assert (root / ".loki" / "bin" / "loki").is_file()
 
 
 @pytest.mark.platforms("posix")
@@ -205,7 +205,7 @@ def test_source_publication_leaves_external_install_launchers_alone(source_launc
     )
     if not checkout:
         (root / ".git").rmdir()
-    launcher = root / ".hermes" / "bin" / "hermes"
+    launcher = root / ".loki" / "bin" / "loki"
     launcher.parent.mkdir(parents=True)
     launcher.write_text("externally owned launcher\n", encoding="utf-8")
     assert venv_sync.sync(root)["ok"]
@@ -370,6 +370,7 @@ def test_real_bootstrap_reexecs_before_app_imports(source_launch, tmp_path, isol
     # Copy the real bootstrap so it owns this disposable source install. The
     # other modules remain real checkout imports; only acquisition is injected.
     shutil.copy2(repository / "hermes_bootstrap.py", root / "hermes_bootstrap.py")
+    shutil.copy2(repository / "loki_identity.py", root / "loki_identity.py")
     (root / "launch_test_tools.py").write_text(
         "import sys\n"
         "from pathlib import Path\n"
@@ -461,6 +462,7 @@ def test_failed_launch_completion_degrades_to_a_warning(source_launch, tmp_path,
     root, _store_python, worker_command = source_launch
     repository = Path(__file__).resolve().parents[2]
     shutil.copy2(repository / "hermes_bootstrap.py", root / "hermes_bootstrap.py")
+    shutil.copy2(repository / "loki_identity.py", root / "loki_identity.py")
     (root / "launch_test_tools.py").write_text(
         "import sys\n"
         "from pathlib import Path\n"
@@ -500,7 +502,7 @@ def test_failed_launch_completion_degrades_to_a_warning(source_launch, tmp_path,
         assert _receipts(tmp_path) == before_receipts, "a metadata query attempted a dependency sync"
     else:
         assert "source-update completion failed" in result.stderr
-        assert "hermes update" in result.stderr
+        assert "loki update" in result.stderr
 
 
 @pytest.mark.platforms("posix")
@@ -565,7 +567,7 @@ def test_capped_completion_attempts_leave_marker_for_explicit_update(source_laun
     assert venv_sync.prepare_launch(root, []) == store_python
     out = capsys.readouterr().err
     assert "could not be finished automatically" in out
-    assert "hermes update" in out
+    assert "loki update" in out
     assert completion_pending_path(root).is_file(), "the owed completion is still recorded"
     assert not (tmp_path / "completion-calls").exists(), "a capped launch re-ran the tail"
 

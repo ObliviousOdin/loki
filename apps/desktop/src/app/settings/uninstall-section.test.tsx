@@ -65,7 +65,7 @@ it.each(['missing-policy', 'probe-failed', 'loading'] as const)(
       render(<UninstallSection />)
     })
     expect(getSummary).toHaveBeenCalledOnce()
-    expect(screen.queryByText('Uninstall Hermes')).toBeNull()
+    expect(screen.queryByText('Uninstall Loki')).toBeNull()
     expect(screen.queryByRole('button', { name: /Uninstall/ })).toBeNull()
     expect(screen.queryByText('Danger zone')).toBeNull()
     expect(run).not.toHaveBeenCalled()

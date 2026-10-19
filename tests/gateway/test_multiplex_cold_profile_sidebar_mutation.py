@@ -9,10 +9,12 @@ routing metadata (``?profile=`` and ``body.profile``, exactly what
 ``apps/desktop/src/api/sessions.ts::mutateSessionHttp`` sends) lands on that profile's
 authority, while another served profile holds a live interactive attachment.
 
-The Desktop's endpoint for a served secondary comes from ``hermes -p <name> gateway ensure``
+The Desktop's endpoint for a served secondary comes from ``loki -p <name> gateway ensure``
 and its ticket is minted through the endpoint's ``control_home`` (the multiplexer root),
 so this test uses that exact discovery + mint path rather than a hand-built socket call.
 """
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 from contextlib import contextmanager
 import json
@@ -53,7 +55,7 @@ def multiplex_daemon(tmp_path, profiles=('warm', 'cold')):
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED='1')
     with (tmp_path / 'gateway.log').open('w+') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 60
@@ -80,10 +82,10 @@ def multiplex_daemon(tmp_path, profiles=('warm', 'cold')):
 
 
 def desktop_ensure(env, root, profile):
-    """The exact child the Desktop spawns: ``hermes --profile <p> gateway ensure --json``."""
+    """The exact child the Desktop spawns: ``loki --profile <p> gateway ensure --json``."""
     result = subprocess.run([sys.executable, '-m', 'hermes_cli.main', '--profile', profile,
                              'gateway', 'ensure', '--json', '--timeout', '30'],
-                            cwd=root, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, check=False)
+                            cwd=root, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, check=False)
     payload = json.loads(result.stdout)
     assert result.returncode == 0 and payload['state'] == 'ready', (result.returncode, payload, result.stderr[-500:])
     return payload['endpoint']
@@ -129,7 +131,7 @@ def desktop_sidebar_patch(client, endpoint, profile, sid, payload, request_id):
 
 @pytest.mark.platforms("linux")
 def test_cold_profile_archive_unarchive_while_another_profile_is_attached(tmp_path):
-    with multiplex_daemon(tmp_path) as (home, descriptor, env), \
+    with multiplex_daemon(tmp_path) as (home, descriptor, env),\
             httpx.Client(base_url=descriptor['api_origin'], trust_env=False, timeout=30) as client:
         root = Path(__file__).resolve().parents[2]
         served = {p['profile_id'] for p in descriptor['served_profiles']}

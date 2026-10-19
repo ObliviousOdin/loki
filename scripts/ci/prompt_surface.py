@@ -27,6 +27,7 @@ import difflib
 import json
 import logging
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -79,7 +80,6 @@ def _pin_environment() -> None:
     socket.socket.connect = refuse  # type: ignore[method-assign]
     socket.create_connection = refuse  # type: ignore[assignment]
     socket.getaddrinfo = refuse  # type: ignore[assignment]
-    sys.platform = "linux"  # skills index ``platforms:`` gate
 
     import hermes_time
     hermes_time.now = lambda: FIXED_NOW  # type: ignore[assignment]
@@ -88,6 +88,10 @@ def _pin_environment() -> None:
     import tools.registry as registry_module
     registry_module._check_fn_cached = lambda _fn: True  # type: ignore[assignment]
     from agent import skill_utils
+    # Pin the skill-index data, not the interpreter's native OS. Mutating
+    # sys.platform breaks native stdlib/psutil imports on macOS and Windows.
+    matches_platform = skill_utils.skill_matches_platform_list
+    skill_utils.skill_matches_platform_list = lambda platforms: matches_platform(platforms, current="linux")
     skill_utils._ENV_DETECT_CACHE.update({"docker": False, "s6": False})
     # The toolchain probe line reports the host's python/node/pip; it is environment, not code.
     from tools import env_probe
@@ -108,12 +112,12 @@ class _ImportFailures(logging.Handler):
 def _scrub(text: str, home: Path) -> str:
     import platform as _platform
     for raw, token in sorted({
-        str(home / ".hermes"): "<HERMES_HOME>",
+        str(home / ".loki"): "<HERMES_HOME>",
         str(home): "<HOME>",
         f"{_platform.system()} ({_platform.release()})": "<HOST_OS>",
     }.items(), key=lambda kv: -len(kv[0])):
         text = text.replace(raw, token)
-    return text
+    return re.sub(r"(?m)^Host: .*$", "Host: <HOST_OS>", text)
 
 
 def _enabled_toolsets(platform: str) -> list[str]:
@@ -198,17 +202,17 @@ def render(out: Path) -> int:
     """Render into *out* from a fresh child process and home, so nothing from the caller's
     environment, config or imported modules reaches the bytes."""
     with tempfile.TemporaryDirectory(prefix="prompt-surface-") as tmp:
-        home = Path(tmp) / "home"
+        home = (Path(tmp) / "home").resolve()
         home.mkdir()
         staging = Path(tmp) / "out"
         env = {
-            "PATH": os.environ.get("PATH", ""), "HOME": str(home), "HERMES_HOME": str(home / ".hermes"),
+            "PATH": os.environ.get("PATH", ""), "HOME": str(home), "LOKI_HOME": str(home / ".loki"),
             "TZ": "UTC", "LANG": "C.UTF-8", "PYTHONHASHSEED": "0", "PYTHONPATH": str(ROOT),
             "TMPDIR": tmp, "PYTHONDONTWRITEBYTECODE": "1",
         }
         for key in ("HERMES_RUNTIME_DIR", "SYSTEMROOT"):
             if os.environ.get(key):
-                env[key] = os.environ[key]
+                env["LOKI_RUNTIME_DIR" if key == "HERMES_RUNTIME_DIR" else key] = os.environ[key]
         proc = subprocess.run(
             [sys.executable, str(Path(__file__).resolve()), "_child", str(staging)],
             env=env, cwd=tmp, capture_output=True, text=True, encoding="utf-8", timeout=600, check=False,

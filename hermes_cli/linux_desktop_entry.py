@@ -27,12 +27,12 @@ from typing import Callable, Mapping, Optional
 # verbatim (Wayland app_id, CHROME_DESKTOP). GNOME links a window to a launcher by StartupWMClass
 # or by a `<app_id>.desktop` file name, so the entry has to carry the same id — under the old
 # "hermes.desktop" name a packaged launch matches neither rung and lands on the placeholder icon.
-APP_ID = "com.nousresearch.hermes"
+APP_ID = "com.obliviousodin.loki"
 DESKTOP_ENTRY_NAME = f"{APP_ID}.desktop"
 
 # Entry name written before the app-id rename; a successful install converts it into a hidden
 # alias (NoDisplay=true) so pre-rename taskbar pins keep resolving (see _alias_legacy_desktop_entry).
-LEGACY_DESKTOP_ENTRY_NAME = "hermes.desktop"
+LEGACY_DESKTOP_ENTRY_NAME = "loki.desktop"
 
 # XDG startup notification: set by an app-grid / menu launch, absent for terminal and detached
 # (updater relaunch) launches. See launched_from_shell().
@@ -160,7 +160,7 @@ def _desktop_argv_tail(project_root: Optional[Path]) -> list[str]:
     packaged = any(
         (release / dist / name).exists()
         for dist in ("linux-unpacked", "linux-arm64-unpacked")
-        for name in ("hermes", "Hermes")
+        for name in ("loki", "Loki")
     )
     return ["desktop", "--skip-build"] if packaged else ["desktop"]
 
@@ -510,10 +510,10 @@ def _known_wrapper_candidates():
     candidates = []
     prefix = os.environ.get("PREFIX")
     if prefix:
-        candidates.append(Path(prefix) / "bin" / "hermes")
+        candidates.append(Path(prefix) / "bin" / "loki")
     if hasattr(os, "geteuid") and os.geteuid() == 0:
-        candidates.append(Path("/usr/local/bin/hermes"))
-    candidates.append(Path.home() / ".local" / "bin" / "hermes")
+        candidates.append(Path("/usr/local/bin/loki"))
+    candidates.append(Path.home() / ".local" / "bin" / "loki")
     return candidates
 
 
@@ -582,9 +582,9 @@ def render_desktop_entry(exec_command: str, icon: str) -> str:
     return (
         "[Desktop Entry]\n"
         "Type=Application\n"
-        "Name=Hermes\n"
-        "GenericName=Hermes Desktop\n"
-        "Comment=Launch Hermes Desktop\n"
+        "Name=Loki\n"
+        "GenericName=Loki Desktop\n"
+        "Comment=Launch Loki Desktop\n"
         f"Exec={exec_command}\n"
         f"Icon={icon}\n"
         "Terminal=false\n"
@@ -663,7 +663,7 @@ def _hicolor_subdir(dimensions: Optional[tuple[int, int]]) -> str:
 
 
 def _hicolor_icon_dest(subdir: str) -> Path:
-    return _xdg_data_home() / "icons" / "hicolor" / subdir / "apps" / "hermes.png"
+    return _xdg_data_home() / "icons" / "hicolor" / subdir / "apps" / "loki.png"
 
 
 def _remove_stale_scalable_icon() -> bool:
@@ -781,7 +781,7 @@ def _alias_legacy_desktop_entry(applications_dir: Path, exec_command: str, icon:
         text = legacy.read_text(encoding="utf-8-sig")
     except OSError:
         return False
-    if not any(line.strip() == "Name=Hermes" for line in text.splitlines()):
+    if not any(line.strip() == "Name=Loki" for line in text.splitlines()):
         return False
     alias_contents = _render_legacy_alias_entry(exec_command, icon)
     if text == alias_contents:
@@ -827,9 +827,9 @@ def install_desktop_entry(project_root: Path) -> Optional[Path]:
     # Prefer the themed name: the icon is COPIED into the hicolor tree, so the entry outlives the
     # checkout (an absolute Icon= path breaks when the checkout moves). Absolute path only when
     # the copy is impossible (read-only tree); themed name when the checkout has no icon at all.
-    icon_value = str(icon) if icon.is_file() else "hermes"
+    icon_value = str(icon) if icon.is_file() else "loki"
     if icon.is_file() and _install_icon_to_hicolor(icon):
-        icon_value = "hermes"
+        icon_value = "loki"
     contents = render_desktop_entry(exec_command, icon_value)
 
     try:

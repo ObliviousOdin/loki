@@ -27,7 +27,7 @@ def _spawn_gateway_lookalike(bin_dir: Path, lock_path: Path) -> subprocess.Popen
     """Real child process whose argv matches the gateway runtime matcher."""
     bin_dir.mkdir(parents=True, exist_ok=True)
     lock_path.parent.mkdir(parents=True, exist_ok=True)
-    script = bin_dir / "hermes"
+    script = bin_dir / "loki"
     if sys.platform == "win32":
         body = "import time\ntime.sleep(120)\n"
     else:
@@ -59,7 +59,7 @@ def _pid_record(proc: subprocess.Popen, script: Path, owner_home: Path) -> dict:
 
     return {
         "pid": proc.pid,
-        "kind": "hermes-gateway",
+        "kind": "loki-gateway",
         "argv": [str(script), "gateway", "run"],
         "start_time": get_process_start_time(proc.pid),
         "hermes_home": str(owner_home),
@@ -121,7 +121,7 @@ class TestCrossProfileStopRefusal:
             tmp_path / "bin", tim_home / "gateway.lock"
         )
         try:
-            record = _pid_record(proc, tmp_path / "bin" / "hermes", root_home)
+            record = _pid_record(proc, tmp_path / "bin" / "loki", root_home)
             (tim_home / "gateway.pid").write_text(json.dumps(record))
 
             from hermes_cli import gateway as gateway_cli
@@ -150,7 +150,7 @@ class TestCrossProfileStopRefusal:
             tmp_path / "bin", tim_home / "gateway.lock"
         )
         try:
-            record = _pid_record(proc, tmp_path / "bin" / "hermes", tim_home)
+            record = _pid_record(proc, tmp_path / "bin" / "loki", tim_home)
             (tim_home / "gateway.pid").write_text(json.dumps(record))
 
             from hermes_cli import gateway as gateway_cli
@@ -181,7 +181,7 @@ class TestProfileDeleteStopRefusal:
             tmp_path / "bin", tim_home / "gateway.lock"
         )
         try:
-            record = _pid_record(proc, tmp_path / "bin" / "hermes", root_home)
+            record = _pid_record(proc, tmp_path / "bin" / "loki", root_home)
             (tim_home / "gateway.pid").write_text(json.dumps(record))
 
             from hermes_cli.profiles import _stop_gateway_process
@@ -205,7 +205,7 @@ class TestProfileDeleteStopRefusal:
             tmp_path / "bin", tim_home / "gateway.lock"
         )
         try:
-            record = _pid_record(proc, tmp_path / "bin" / "hermes", tim_home)
+            record = _pid_record(proc, tmp_path / "bin" / "loki", tim_home)
             (tim_home / "gateway.pid").write_text(json.dumps(record))
 
             from hermes_cli.profiles import _stop_gateway_process

@@ -3,6 +3,8 @@
 ``ClientLifecycleMixin`` owns task cleanup, the shared primary client, per-request client caches
 (owner-thread close vs stranger-thread abort), credential rotation and route-derived headers.
 """
+
+from loki_identity import CLIENT_USER_AGENT
 import logging
 import threading
 import time
@@ -24,7 +26,7 @@ _NO_SOCKETS_SUFFIX = " — no sockets found; in-flight request may keep running 
 def _routermint_headers() -> dict:
     """User-Agent RouterMint needs to avoid Cloudflare 1010 blocks."""
     from hermes_cli.version_info import get_version_info
-    return {"User-Agent": f"HermesAgent/{get_version_info().base_version}"}
+    return {"User-Agent": CLIENT_USER_AGENT}
 
 
 def _qwen_portal_headers() -> dict:

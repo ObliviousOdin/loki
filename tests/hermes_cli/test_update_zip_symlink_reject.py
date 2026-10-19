@@ -14,6 +14,8 @@ import zipfile
 from unittest.mock import patch
 
 import pytest
+
+from tests.hermes_cli.loki_update_fixtures import archive_loki_source
 from hermes_cli import update_cmd
 
 
@@ -30,6 +32,7 @@ def _build_zip_with_symlink_member(zip_path: str, link_name: str, target: str) -
 def _build_normal_zip(zip_path: str) -> None:
     """Write a regular ZIP with a normal file member (no symlink)."""
     with zipfile.ZipFile(zip_path, "w") as zf:
+        archive_loki_source(zf)
         zf.writestr("hermes-agent-main/README.md", "ok\n")
         zf.comment = b"8192da90e0afb20010a1c2f5da83db305d05ac5a"  # git archive's commit identity
 

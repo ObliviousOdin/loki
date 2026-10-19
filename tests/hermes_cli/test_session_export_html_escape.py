@@ -2,6 +2,19 @@ import re
 
 from hermes_cli.session_export_html import _generate_messages_html
 
+
+def test_rendered_export_brands_defaults_and_preserves_custom_session_content():
+    from hermes_cli.session_export_html import generate_multi_session_html_export
+
+    sessions = [{"id": "one", "messages": [{"role": "assistant", "content": "Hermes model response"}]},
+                {"id": "two", "title": "Hermes custom title", "messages": []}]
+    html = generate_multi_session_html_export(sessions)
+
+    assert "<title>Loki Session Export</title>" in html
+    assert "Loki History" in html and "<h1>Loki Session</h1>" in html
+    assert "Built with ᛚ Loki" in html
+    assert "Hermes custom title" in html and "Hermes model response" in html
+
 def test_role_is_escaped_in_html_export():
     messages = [
         {

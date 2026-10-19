@@ -1152,9 +1152,9 @@ class CLISessionMixin:
         except Exception:
             _active_profile = "default"
         profile_flag = "" if _active_profile in ("default", "custom") else f" -p {_active_profile}"
-        print(f"  hermes --resume {self.session_id}{profile_flag}")
+        print(f"  loki --resume {self.session_id}{profile_flag}")
         if session_title:
-            print(f"  hermes -c \"{session_title}\"{profile_flag}")
+            print(f"  loki -c \"{session_title}\"{profile_flag}")
         print()
         print(t("cli.session.exit_label_session", session_id=self.session_id))
         if session_title:

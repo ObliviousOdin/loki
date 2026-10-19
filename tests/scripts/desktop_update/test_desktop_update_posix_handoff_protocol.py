@@ -41,9 +41,9 @@ MARKER_SH = POSIX.with_name("marker.sh")
 
 
 def _env(tmp_path: Path, home: Path, **extra: str) -> dict:
-    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path), "HERMES_HOME": str(home),
-           "HANDOFF_CAPTURE": str(tmp_path / "calls.txt"), "HERMES_RUNTIME_DIR": str(tmp_path / "store"),
-           "HERMES_UPDATE_SHIM_GRACE_SECONDS": "0"}
+    env = {**os.environ, "HOME": str(tmp_path), "TMPDIR": str(tmp_path), "LOKI_HOME": str(home),
+           "HANDOFF_CAPTURE": str(tmp_path / "calls.txt"), "LOKI_RUNTIME_DIR": str(tmp_path / "store"),
+           "LOKI_UPDATE_SHIM_GRACE_SECONDS": "0"}
     for key in ("PYTHONPATH", "PYTHONHOME", "HERMES_UPDATE_STARTED_AT", "MARKER_LOCK_TOOL"):
         env.pop(key, None)
     env.update(extra)
@@ -114,7 +114,7 @@ def _old_desktop_handoff(tmp_path: Path, home: Path, install: Path, procs, *, br
                 f'--desktop-pid $PPID; echo "rc=$?" >> {shlex.quote(str(report))}; sleep 2')
     desktop_code = (
         "import subprocess, sys, time, os\n"
-        f"x = subprocess.Popen(['bash', '-c', {launcher!r}], env=dict(os.environ, HERMES_UPDATE_STARTED_AT='{started}'))\n"
+        f"x = subprocess.Popen(['bash', '-c', {launcher!r}], env=dict(os.environ, LOKI_UPDATE_STARTED_AT='{started}'))\n"
         f"bridge = {bridge!r}\n"
         f"if bridge == 'launcher': open({str(marker)!r}, 'w', encoding='utf-8').write(f'{{x.pid}}\\n{started}\\n')\n"  # windows-footgun: ok — a write, inside generated code
         "x.wait()\n"
@@ -174,7 +174,7 @@ def test_reparented_live_launcher_is_adopted_only_with_the_handoff_started_at(tm
     marker = home / ".hermes-update-in-progress"
     report = tmp_path / "launched.txt"
     launcher = (f'printf "%s\\n{started}\\n" $$ > {shlex.quote(str(marker))}; '
-                f'HERMES_UPDATE_STARTED_AT={started if env_matches else started - 7} bash {shlex.quote(str(POSIX))} --daemonized --no-ui '
+                f'LOKI_UPDATE_STARTED_AT={started if env_matches else started - 7} bash {shlex.quote(str(POSIX))} --daemonized --no-ui '
                 f'--self-test-marker --install-root {shlex.quote(str(install))} --desktop-pid {desktop.pid}; echo "rc=$?" > {shlex.quote(str(report))}')
     x = subprocess.run(["bash", "-c", launcher], env=_env(tmp_path, home), timeout=60, check=False)
     assert x.returncode == 0
@@ -414,7 +414,7 @@ def test_line_two_stays_young_through_the_r6_release_wait(tmp_path):
     marker = home / ".hermes-update-in-progress"
     completion = tmp_path / "release-completion"
     env = _env(tmp_path, home, HANDOFF_COMPLETION=str(completion), HANDOFF_CHECKOUT_LOCK=str(install / ".hermes-update.lock"),
-               HERMES_UPDATE_STARTED_AT=str(int(time.time()) - 600))
+               LOKI_UPDATE_STARTED_AT=str(int(time.time()) - 600))
     script = subprocess.Popen(["bash", str(POSIX), "--daemonized", "--no-ui", "--install-root", str(install),
                                "--self-test-refresh-every", "1"], env=env, cwd=tmp_path,
                               stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)

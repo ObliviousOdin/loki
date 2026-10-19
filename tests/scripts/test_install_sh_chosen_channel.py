@@ -32,6 +32,8 @@ def test_rerun_keeps_a_chosen_channel_checkout(tmp_path, monkeypatch, channel, m
     origin.mkdir()
     home.mkdir()
     _git(origin, "init", "-b", "main")
+    (origin / "pyproject.toml").write_text('[project]\nname = "obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(origin, "add", "pyproject.toml")
     for label in ("release", "newer"):
         _git(origin, "commit", "--allow-empty", "-m", label)
     release, tip = _git(origin, "rev-parse", "HEAD~1"), _git(origin, "rev-parse", "HEAD")
@@ -42,7 +44,7 @@ def test_rerun_keeps_a_chosen_channel_checkout(tmp_path, monkeypatch, channel, m
 
     result = subprocess.run(
         ["bash", str(ROOT / "scripts" / "install.sh"), "--stage", "repository",
-         "--branch", "main", "--dir", str(install), "--hermes-home", str(home), "--non-interactive"],
+         "--branch", "main", "--dir", str(install), "--loki-home", str(home), "--non-interactive"],
         check=False, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120,
         env={"PATH": os.environ["PATH"], "HOME": str(tmp_path), "NO_COLOR": "1"},
     )

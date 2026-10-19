@@ -11,6 +11,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("loki_oauth_test_apps", "loki_external_login_opt_in")
+
 from hermes_cli.auth import (
     AuthError,
     DEFAULT_QWEN_BASE_URL,

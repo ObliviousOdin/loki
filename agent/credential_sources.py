@@ -24,13 +24,13 @@ logger = logging.getLogger(__name__)
 
 EXTERNAL_LOGINS_NOT_ADOPTED_NOTICE = (
     "External CLI logins (Codex CLI, Claude Code) are not adopted: auth.adopt_external_logins is false. "
-    "Hermes uses only its own logins; run `hermes auth add <provider>` to add one."
+    "Loki uses only its own logins; run `loki auth add <provider>` to add one."
 )
 _notice_logged = False
 
 
 def adopt_external_logins_enabled() -> bool:
-    """``auth.adopt_external_logins`` (default True).
+    """``auth.adopt_external_logins`` (default False for Loki).
 
     Codex and Claude OAuth refresh tokens are single-use and rotate, so once Hermes borrows a CLI's
     token pair the two programs hold one token family and whichever refreshes first logs the other
@@ -41,8 +41,8 @@ def adopt_external_logins_enabled() -> bool:
         from hermes_cli.config import load_config_readonly
         auth_cfg = (load_config_readonly() or {}).get("auth")
     except Exception:
-        return True
-    enabled = not isinstance(auth_cfg, dict) or bool(auth_cfg.get("adopt_external_logins", True))
+        return False
+    enabled = isinstance(auth_cfg, dict) and auth_cfg.get("adopt_external_logins") is True
     if not enabled and not _notice_logged:
         _notice_logged = True
         logger.info(EXTERNAL_LOGINS_NOT_ADOPTED_NOTICE)

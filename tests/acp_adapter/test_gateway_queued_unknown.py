@@ -70,7 +70,7 @@ async def test_resumed_unknown_turn_names_the_existing_discard_recovery():
     with pytest.raises(GatewayClientError) as refused:
         await agent.prompt([acp.text_block('new input')], 's')
     for text in (notice, str(refused.value)):
-        assert 'chat --cli --resume s' in text and f'/discard {lost}' in text, text
+        assert 'loki chat --cli --resume s' in text and f'/discard {lost}' in text, text
         assert 'do not resend' in text
     assert 'nothing was submitted' in str(refused.value)
     # The load's own RPCs only (the session's reasoning flag included): no prompt.submit.

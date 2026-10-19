@@ -118,7 +118,8 @@ class PluginCatalogEntry:
 
 def get_catalog_dir() -> Path:
     """The ``plugin-catalog/`` directory shipped with this checkout."""
-    return Path(__file__).resolve().parent.parent / "plugin-catalog"
+    from hermes_constants import get_bundled_plugin_catalog_dir
+    return get_bundled_plugin_catalog_dir(Path(__file__).resolve().parent.parent / "plugin-catalog")
 
 
 # ── Parsing ──────────────────────────────────────────────────────────────────
@@ -197,6 +198,31 @@ def _removed_from_list(raw_list: Any) -> list[RemovedEntry]:
 
 # ── In-tree catalog ──────────────────────────────────────────────────────────
 
+def _loki_catalog_entry_allowed(entry: PluginCatalogEntry) -> bool:
+    """Honcho needs Loki's reviewed state-isolation patch, never an upstream replacement."""
+    if entry.name != "honcho":
+        return True
+    owned = (
+        entry.repo == "https://github.com/ObliviousOdin/loki"
+        and entry.subdir == "optional-plugins/honcho"
+        and _SHA_RE.fullmatch(entry.sha) is not None
+    )
+    if not owned:
+        logger.warning("Loki's reviewed Honcho catalog pin is unavailable; refusing a foreign replacement")
+    return owned
+
+
+def _with_loki_catalog_pins(entries: list[PluginCatalogEntry], tree: list[PluginCatalogEntry]
+                            ) -> list[PluginCatalogEntry]:
+    """Keep remote updates for other plugins; only the shipped catalog may select Honcho."""
+    resolved = [entry for entry in entries if entry.name != "honcho"]
+    owned = next((entry for entry in tree if entry.name == "honcho" and _loki_catalog_entry_allowed(entry)), None)
+    if owned is not None:
+        position = next((i for i, entry in enumerate(entries) if entry.name == "honcho"), len(resolved))
+        resolved.insert(min(position, len(resolved)), owned)
+    return resolved
+
+
 def load_catalog(catalog_dir: Optional[Path] = None) -> list[PluginCatalogEntry]:
     """Every valid ``*.yaml`` entry in the catalog dir (``removed.yaml`` excluded), sorted by file name.
     Malformed entries are skipped with a warning — never raises."""
@@ -209,7 +235,7 @@ def load_catalog(catalog_dir: Optional[Path] = None) -> list[PluginCatalogEntry]
             continue
         data = _read_yaml(path)
         entry = entry_from_mapping(data, str(path)) if data is not None else None
-        if entry is not None:
+        if entry is not None and _loki_catalog_entry_allowed(entry):
             entries.append(entry)
     return entries
 
@@ -472,19 +498,21 @@ def load_catalog_live() -> list[PluginCatalogEntry]:
     different pins the NEWER source supplies it — right after ``hermes update`` bumps an in-tree pin,
     a cache fetched before the bump must not re-install the old one (see :func:`_prefer_in_tree_entry`)."""
     data = fetch_live_catalog()
+    tree_entries = load_catalog()
     if data is None:
-        return load_catalog()
+        return _with_loki_catalog_pins(tree_entries, tree_entries)
     entries = [e for i, raw in enumerate(data["entries"])
                if (e := entry_from_mapping(raw, f"{LIVE_CATALOG_URL}#{i}")) is not None]
     if not entries:
-        return load_catalog()
-    in_tree = {e.name: e for e in load_catalog()}
+        return _with_loki_catalog_pins(tree_entries, tree_entries)
+    in_tree = {e.name: e for e in tree_entries}
     live_t, tree_t = _live_generated_time(data), in_tree_catalog_time()
     tree_is_newer = (tree_t > live_t) if (live_t is not None and tree_t is not None) else None
     raw_by_name = {str(raw.get("name")): raw for raw in data["entries"] if isinstance(raw, dict)}
-    return [in_tree[e.name] if e.name in in_tree and _prefer_in_tree_entry(in_tree[e.name], e, tree_is_newer)
-            else _with_curated_fields(e, in_tree.get(e.name), raw_by_name.get(e.name) or {})
-            for e in entries]
+    resolved = [in_tree[e.name] if e.name in in_tree and _prefer_in_tree_entry(in_tree[e.name], e, tree_is_newer)
+                else _with_curated_fields(e, in_tree.get(e.name), raw_by_name.get(e.name) or {})
+                for e in entries]
+    return _with_loki_catalog_pins(resolved, tree_entries)
 
 
 # Curated display fields a published doc older than the field does not carry. ``generated_at`` is the

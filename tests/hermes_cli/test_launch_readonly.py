@@ -14,7 +14,7 @@ def test_resume_and_exit_read_without_writing(tmp_path, populated):
     home = tmp_path / "profile"
     home.mkdir()
     env = {k: os.environ[k] for k in ("PATH", "SYSTEMROOT", "LANG", "TZ") if k in os.environ}
-    env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), HERMES_HOME=str(home), PYTHONPATH=str(repo))
+    env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), LOKI_HOME=str(home), PYTHONPATH=str(repo))
     code = '''
 from pathlib import Path
 from hermes_state import SessionDB
@@ -49,7 +49,7 @@ assert after == before, 'launch reader created or mutated state.db'
     assert result.returncode == 0, result.stdout + result.stderr
     assert 'Error generating insights:' not in result.stdout
     if populated:
-        assert 'Hermes Insights' in result.stdout
+        assert 'Loki Insights' in result.stdout
         assert 'Resume this session with:' in result.stdout
         assert 'Reader fixture' in result.stdout
     else:

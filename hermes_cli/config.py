@@ -35,6 +35,7 @@ import hermes_yaml as yaml
 
 from hermes_cli.cli_output import line_input
 from hermes_cli.colors import Colors, color
+from hermes_cli.loki_branding import public_env_name
 from hermes_cli import managed_scope
 from hermes_cli.default_soul import DEFAULT_SOUL_MD, is_legacy_template_soul
 from hermes_cli.secret_prompt import masked_secret_prompt
@@ -149,8 +150,8 @@ def validate_env_var_name_for_write(key: str) -> None:
         raise ValueError(
             f"Environment variable {key!r} is on the writer denylist. "
             "Names that influence subprocess execution (LD_PRELOAD, PYTHONPATH, PATH, EDITOR, ...) "
-            "or Hermes runtime location and security policy (HERMES_HOME, HERMES_YOLO_MODE, ...) "
-            "cannot be persisted via the env writer. If you really need this, edit ~/.hermes/.env "
+            "or Loki runtime location and security policy (HERMES_HOME, HERMES_YOLO_MODE, ...) "
+            "cannot be persisted via the env writer. If you really need this, edit ~/.loki/.env "
             "directly.")
 
 
@@ -235,7 +236,7 @@ def is_managed() -> bool:
 # Nix installs arrive by several routes (nix run, nix profile, system flake, home-manager) and
 # the running process cannot tell which, so the text names the routes instead of one command.
 _NIX_UPDATE_MSG = (
-    "Update Hermes through the Nix source that installed it "
+    "Update Loki through the Nix source that installed it "
     "(e.g. nix profile upgrade, or update your flake input and rebuild with nixos-rebuild or home-manager switch)"
 )
 
@@ -324,8 +325,8 @@ def is_nix_install_method(method: str) -> bool:
 
 
 _UPDATE_COMMAND_BY_METHOD = {
-    "docker": "docker pull nousresearch/hermes-agent:latest",
-    "apt": "pkg upgrade hermes-agent",  # "apt" == Termux APT by contract; uses Termux's `pkg`.
+    "docker": "See https://github.com/ObliviousOdin/loki/releases for Loki container availability",
+    "apt": "See https://github.com/ObliviousOdin/loki/releases for Loki platform availability",  # "apt" == Termux APT by contract; uses Termux's `pkg`.
 }
 
 
@@ -333,7 +334,7 @@ def recommended_update_command_for_method(method: str) -> str:
     """Return the update command or guidance for a given install method."""
     if is_nix_install_method(method):
         return _NIX_UPDATE_MSG
-    return _UPDATE_COMMAND_BY_METHOD.get(method, "hermes update")
+    return _UPDATE_COMMAND_BY_METHOD.get(method, "loki update")
 
 
 def recommended_update_command() -> str:
@@ -348,33 +349,17 @@ def recommended_update_command() -> str:
 # forks. The published image excludes ``.git``, so the git update path can never succeed there
 # and the generic "reinstall via install.sh" fallback would install a NEW host-side Hermes.
 _DOCKER_UPDATE_MESSAGE = """\
-✗ ``hermes update`` doesn't apply inside the Docker container.
+✗ ``loki update`` does not modify an immutable Docker image.
 
-Hermes Agent runs as a published image (nousresearch/hermes-agent), not a
-git checkout — the container has no working tree to pull into.  Update by
-pulling a fresh image and restarting your container instead:
+Rebuild this checkout with its Dockerfile, or pull a project-owned Loki image
+that your operator has explicitly configured (``docker pull <your-loki-image>``).
+Restart the container using the new image and run ``loki --version`` inside it.
 
-  docker pull nousresearch/hermes-agent:latest
-  # then restart whatever started the container, e.g.:
-  docker compose up -d --force-recreate hermes-agent
-  # or, for ad-hoc runs, exit the current container and `docker run` again
+Loki preview artifact availability:
+  https://github.com/ObliviousOdin/loki/releases
 
-Verify the new version after restart:
-  docker run --rm nousresearch/hermes-agent:latest --version
-
-Notes:
-  • If you pinned a specific tag (e.g. ``:v0.14.0``) the ``:latest`` tag
-    won't move your container — pull the newer tag you actually want, or
-    switch to ``:latest`` / ``:main`` for rolling updates.  See available
-    tags at https://hub.docker.com/r/nousresearch/hermes-agent/tags
-  • On a ``-desktop`` tag (the one carrying Bot Screen)?  Keep the suffix:
-    the unsuffixed image has no Xvnc/Xfce and no sudo to add them, so
-    pulling it stops the bots' screens from starting.
-  • Your config and session history live under ``$HERMES_HOME`` (``/opt/data``
-    in the container, typically bind-mounted from the host) and persist
-    across image upgrades — re-pulling doesn't lose any state.
-  • Running a fork?  Build your own image with this repo's ``Dockerfile``
-    and replace the ``docker pull`` step with your build/push pipeline."""
+Keep the same Loki data volume and product variant when replacing the image.
+Configuration and session history persist in that volume."""
 
 
 def format_docker_update_message() -> str:
@@ -382,12 +367,12 @@ def format_docker_update_message() -> str:
     return _DOCKER_UPDATE_MESSAGE
 
 
-def format_managed_message(action: str = "modify this Hermes installation") -> str:
+def format_managed_message(action: str = "modify this Loki installation") -> str:
     """Build a user-facing error for managed installs."""
     managed_system = get_managed_system() or "a package manager"
     return (
-        f"Cannot {action}: this Hermes installation is managed by {managed_system}.\n"
-        "Use your package manager to upgrade or reinstall Hermes.")
+        f"Cannot {action}: this Loki installation is managed by {managed_system}.\n"
+        "Use your package manager to upgrade or reinstall Loki.")
 
 
 def managed_error(action: str = "modify configuration"):
@@ -459,9 +444,9 @@ def require_parseable_user_config(*, ignore_user_config: bool = False) -> None:
     backup_path = backup_config(config_path, "corrupt")
     where = _yaml_error_location(parse_error)
     message = (
-        f"Hermes stopped because your settings file ({config_path}) has a formatting error"
-        f"{f' at {where}' if where else ''}. Fix it with `hermes config edit` and check with "
-        "`hermes config check`, or add --ignore-user-config to run once with default settings.")
+        f"Loki stopped because your settings file ({config_path}) has a formatting error"
+        f"{f' at {where}' if where else ''}. Fix it with `loki config edit` and check with "
+        "`loki config check`, or add --ignore-user-config to run once with default settings.")
     if backup_path is not None:
         message += f" A copy of the broken file is at {backup_path}."
     message += f" Details: {_yaml_error_details(parse_error)}"
@@ -613,8 +598,7 @@ from hermes_cli.config_version_stamp import (
 
 # ---- Config Migration System ----
 
-# Env vars introduced per config version; migration only mentions vars new since the user's
-# previous version.
+# Migration mentions only env vars introduced since the user's previous config version.
 ENV_VARS_BY_VERSION: dict[int, list[str]] = {
     3: ["FIRECRAWL_API_KEY", "BROWSERBASE_API_KEY", "BROWSERBASE_PROJECT_ID", "FAL_KEY"],
     4: ["VOICE_TOOLS_OPENAI_KEY", "ELEVENLABS_API_KEY"],
@@ -1124,7 +1108,7 @@ def _validate_web_backends(config: dict[str, Any], issues: list[ConfigIssue]) ->
             _issue(issues, "warning",
                    f"web.{_key} is set to '{_val}', but {note} — "
                    "web_search/web_extract will fail until it is changed",
-                   "Run 'hermes tools' and pick a different Web Search & Extract provider")
+                   "Run 'loki tools' and pick a different Web Search & Extract provider")
 
 
 def _container_slots() -> dict[str, str]:
@@ -1163,9 +1147,9 @@ def _validate_quoted_containers(config: dict[str, Any], issues: list[ConfigIssue
             continue
         if isinstance(parsed, (list, dict)):
             _issue(issues, "warning",
-                   f"{key} is the quoted string {value!r} — Hermes expects a YAML {kind} here "
+                   f"{key} is the quoted string {value!r} — Loki expects a YAML {kind} here "
                    "and every reader ignores the string",
-                   f"Run: hermes config set {key} {shlex.quote(value)}  (stores a real {kind}), "
+                   f"Run: loki config set {key} {shlex.quote(value)}  (stores a real {kind}), "
                    "or remove the quotes in config.yaml")
 
 
@@ -1194,7 +1178,7 @@ def validate_config_structure(config: Optional[dict[str, Any]] = None) -> list[C
 
     if cp and not config.get("model"):
         _issue(issues, "warning",
-               "custom_providers defined but no 'model' section — Hermes won't know which provider to use",
+               "custom_providers defined but no 'model' section — Loki won't know which provider to use",
                "Add a model section:\n  model:\n    provider: custom\n    default: your-model-name\n"
                "    base_url: https://...")
 
@@ -1225,7 +1209,7 @@ def print_config_warnings(config: Optional[dict[str, Any]] = None) -> None:
     for ci in issues:
         marker = "\033[31m✗\033[0m" if ci.severity == "error" else "\033[33m⚠\033[0m"
         lines.append(f"  {marker} {ci.message}")
-    lines.append("  \033[2mRun 'hermes doctor' for fix suggestions.\033[0m")
+    lines.append("  \033[2mRun 'loki doctor' for fix suggestions.\033[0m")
     sys.stderr.write("\n".join(lines) + "\n\n")
 
 
@@ -1274,7 +1258,7 @@ def _prompt_and_save_env(name: str, info: dict[str, Any], prompt: str, results: 
         return False
     save_env_value(name, value)
     results["env_added"].append(name)
-    print(f"  ✓ Saved {name}")
+    print(f"  ✓ Saved {public_env_name(name)}")
     return True
 
 
@@ -1318,7 +1302,7 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> dict[str, A
         msg = support_floor_message()
         results["warnings"].append(msg)
         # stderr so it is visible even on quiet startup paths.
-        sys.stderr.write(f"⚠ hermes config: {msg}\n")
+        sys.stderr.write(f"⚠ loki config: {msg}\n")
         if not quiet:
             print(f"  ⚠ {msg}")
     else:
@@ -1334,14 +1318,14 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> dict[str, A
     if missing_env and not quiet:
         print("\n⚠️  Missing required environment variables:")
         for var in missing_env:
-            print(f"   • {var['name']}: {var['description']}")
+            print(f"   • {public_env_name(var['name'])}: {var['description']}")
     if interactive and missing_env:
         print("\nLet's configure them now:\n")
         for var in missing_env:
             if var.get("url"):
                 print(f"  Get your key at: {var['url']}")
             if not _prompt_and_save_env(var["name"], var, f"  {var['prompt']}: ", results):
-                results["warnings"].append(f"Skipped {var['name']} - some features may not work")
+                results["warnings"].append(f"Skipped {public_env_name(var['name'])} - some features may not work")
             print()
 
     if interactive and not quiet:
@@ -1415,7 +1399,7 @@ def _offer_list(heading: str, items: list[str], question: str) -> bool:
         print(f"    • {item}")
     print()
     if not _ask_yes_no(question):
-        print("  Set later with: hermes config set <key> <value>")
+        print("  Set later with: loki config set <key> <value>")
         return False
     print()
     return True
@@ -1432,14 +1416,14 @@ def _offer_new_optional_env_vars(current_ver: int, latest_ver: int, results: dic
         if not get_env_value(name) and name in OPTIONAL_ENV_VARS]
     if not new_and_unset or not _offer_list(
         f"\n  {len(new_and_unset)} new optional key(s) in this update:",
-        [f"{name} — {info.get('description', '')}" for name, info in new_and_unset],
+        [f"{public_env_name(name)} — {info.get('description', '')}" for name, info in new_and_unset],
         "  Configure new keys? [y/N]: "):
         return
     for name, info in new_and_unset:
-        print(f"  {info.get('description', name)}")
+        print(f"  {info.get('description', public_env_name(name))}")
         if info.get("url"):
             print(f"  Get your key at: {info['url']}")
-        _prompt_and_save_env(name, info, f"  {info.get('prompt', name)} (Enter to skip): ", results)
+        _prompt_and_save_env(name, info, f"  {info.get('prompt', public_env_name(name))} (Enter to skip): ", results)
         print()
 
 
@@ -1560,7 +1544,7 @@ def _env_expand_match(m: re.Match) -> str:
         return val
     if inner.startswith("env:"):
         logger.warning(
-            "Config ref %r: %s is not set (check ~/.hermes/.env); "
+            "Config ref %r: %s is not set (check ~/.loki/.env); "
             "keeping the literal placeholder", raw, name)
     return raw
 
@@ -2430,8 +2414,8 @@ _FALLBACK_COMMENT = """
 #
 # Supported providers:
 #   openrouter   (OPENROUTER_API_KEY)  — routes to any model
-#   openai-codex (OAuth — hermes auth) — OpenAI Codex
-#   nous         (OAuth — hermes auth) — Nous Portal
+#   openai-codex (OAuth — loki auth) — OpenAI Codex
+#   nous         (OAuth — loki auth) — Nous Portal
 #   zai          (ZAI_API_KEY)         — Z.AI / GLM
 #   kimi-coding  (KIMI_API_KEY)        — Kimi / Moonshot
 #   kimi-coding-cn (KIMI_CN_API_KEY)   — Kimi / Moonshot (China)
@@ -3293,7 +3277,7 @@ def _refuse_container_type_mismatch(key: str, value: Any, user_config: dict[str,
     literal = "[item, ...]" if expected == "list" else "{key: value}"
     _exit_invalid(
         f"✗ Cannot set '{key}': it must be a {expected}, got a {got} — nothing was written.\n"
-        f"  Pass a YAML/JSON literal, e.g.:\n    hermes config set {key} '{literal}'\n"
+        f"  Pass a YAML/JSON literal, e.g.:\n    loki config set {key} '{literal}'\n"
         "  or edit config.yaml directly.")
 
 
@@ -3380,7 +3364,7 @@ def _write_user_config(config_path: Path, user_config: dict[str, Any]) -> None:
 def _print_unknown_key_notice(key: str, suggestion: Optional[str]) -> None:
     print(color(
         f"⚠ '{key}' is not a recognized config key — it was saved anyway, "
-        "but Hermes may not read it.", Colors.YELLOW))
+        "but Loki may not read it.", Colors.YELLOW))
     if suggestion:
         print(color(f"  Did you mean: {suggestion}", Colors.YELLOW))
     # The env bridge covers custom TOP-LEVEL keys only; an unseeded nested path (``stt.provider``)
@@ -3503,7 +3487,7 @@ def set_config_value(key: str, value: str, force: bool = False):
             _route_notice = color(
                 f"⚠ model.base_url ({user_config['model'].get('base_url')}) was set under {_old_provider} and "
                 f"still applies to {value} — requests go there. If it is not {value}'s endpoint: "
-                "`hermes config unset model.base_url` (and model.api_mode).", Colors.YELLOW)
+                "`loki config unset model.base_url` (and model.api_mode).", Colors.YELLOW)
     # api_base -> base_url alias at set-time too (mirrors _normalize_root_model_keys).
     if key.strip().lower() in ("model.api_base", "api_base"):
         # Normalize the api_base → base_url alias at set-time too (issue #8919), so a fresh `hermes config
@@ -3587,7 +3571,7 @@ def get_config_value(key: str, *, as_json: bool = False, raw: bool = False):
         is_known, suggestion = _validate_config_key(key)
         if not is_known:
             print(color(
-                f"⚠ '{key}' is not a recognized config key — Hermes may not read it; the value "
+                f"⚠ '{key}' is not a recognized config key — Loki may not read it; the value "
                 "printed above comes from your config file.", Colors.YELLOW), file=sys.stderr)
             if suggestion:
                 print(color(f"  Did you mean: {suggestion}", Colors.YELLOW), file=sys.stderr)
@@ -3672,17 +3656,17 @@ def _run_write_command(fn, *args) -> None:
         _exit_invalid(f"✗ {exc}")
 
 
-_USAGE_GET = ("Usage: hermes config get <key> [--json] [--raw]", [
-    "hermes config get model", "hermes config get terminal.backend",
-    "hermes config get skills.config --json"], None)
-_USAGE_SET = ("Usage: hermes config set [--force] <key> <value>", [
-    "hermes config set model anthropic/claude-sonnet-4", "hermes config set terminal.backend docker",
-    "hermes config set OPENROUTER_API_KEY sk-or-..."], [
+_USAGE_GET = ("Usage: loki config get <key> [--json] [--raw]", [
+    "loki config get model", "loki config get terminal.backend",
+    "loki config get skills.config --json"], None)
+_USAGE_SET = ("Usage: loki config set [--force] <key> <value>", [
+    "loki config set model anthropic/claude-sonnet-4", "loki config set terminal.backend docker",
+    "loki config set OPENROUTER_API_KEY sk-or-..."], [
     "", "  --force: skip the unknown-key notice for unrecognized keys,",
     "           and allow a scalar to replace a whole mapping section"])
-_USAGE_UNSET = ("Usage: hermes config unset <key>", [
-    "hermes config unset model", "hermes config unset terminal.backend",
-    "hermes config unset OPENROUTER_API_KEY"], None)
+_USAGE_UNSET = ("Usage: loki config unset <key>", [
+    "loki config unset model", "loki config unset terminal.backend",
+    "loki config unset OPENROUTER_API_KEY"], None)
 
 
 def _cmd_config_get(args):
@@ -3744,7 +3728,7 @@ def _cmd_config_migrate(args):
         if group:
             print(f"\n  {heading.format(len(group))}")
             for var in group:
-                print(f"     • {var['name']}{_tools_suffix(var, suffix) if suffix else ''}")
+                print(f"     • {public_env_name(var['name'])}{_tools_suffix(var, suffix) if suffix else ''}")
 
     print()
     results = migrate_config(interactive=True, quiet=False)
@@ -3776,13 +3760,13 @@ def _cmd_config_check(args):
         print()
         print(color(f"  {title}:", Colors.BOLD))
         for var_name, info in table.items():
-            print(f"    ✓ {var_name}" if get_env_value(var_name) else missing_line(var_name, info))
+            print(f"    ✓ {public_env_name(var_name)}" if get_env_value(var_name) else missing_line(public_env_name(var_name), info))
 
     missing_config = get_missing_config_fields()
     if missing_config:
         print()
         print(color(f"  {len(missing_config)} new config option(s) available", Colors.YELLOW))
-        print("    Run 'hermes config migrate' to add them")
+        print("    Run 'loki config migrate' to add them")
 
     from hermes_cli.config_check_diagnostics import config_check_diagnostics
 
@@ -3814,15 +3798,15 @@ _CONFIG_SUBCOMMANDS = {
     "check": _cmd_config_check}
 
 _CONFIG_USAGE = """Available commands:
-  hermes config           Show current configuration
-  hermes config edit      Open config in editor
-  hermes config get <key>          Print a resolved config value
-  hermes config set <key> <value>   Set a config value
-  hermes config unset <key>        Remove a config value
-  hermes config check     Check for missing, outdated, or inactive config
-  hermes config migrate   Update config with new options
-  hermes config path      Show config file path
-  hermes config env-path  Show .env file path"""
+  loki config           Show current configuration
+  loki config edit      Open config in editor
+  loki config get <key>          Print a resolved config value
+  loki config set <key> <value>   Set a config value
+  loki config unset <key>        Remove a config value
+  loki config check     Check for missing, outdated, or inactive config
+  loki config migrate   Update config with new options
+  loki config path      Show config file path
+  loki config env-path  Show .env file path"""
 
 
 def config_command(args):

@@ -24,6 +24,7 @@ def test_staged_uv_prepares_pm_before_any_tool_download(tmp_path):
     for name in ("pm", "hermes_cli"):
         shutil.copytree(repo / name, stage / name, ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copy2(repo / "hermes_constants.py", stage / "hermes_constants.py")
+    shutil.copy2(repo / "loki_identity.py", stage / "loki_identity.py")
     home = tmp_path / "home"
     store = home / "tools"
     target = current_target()
@@ -57,11 +58,11 @@ print(result.stdout)
     result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True, timeout=180, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert Path(json.loads(result.stdout)["tls"]).is_relative_to(home)
-    assert "Preparing the isolated Hermes runtime" in result.stderr
+    assert "Preparing the isolated Loki runtime" in result.stderr
     assert "must-not-fetch.invalid" not in result.stderr
     warm = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True, text=True, timeout=30, check=False)
     assert warm.returncode == 0, warm.stdout + warm.stderr
-    assert "Preparing the isolated Hermes runtime" not in warm.stderr
+    assert "Preparing the isolated Loki runtime" not in warm.stderr
     assert warm.stdout == result.stdout
     assert not (store / "facts.json").exists(), "preparing PM must not realize its tool closure"
     assert not list(store.glob("python-*"))
@@ -99,6 +100,7 @@ def test_pm_cli_verifies_tls_with_platform_trust(tmp_path, monkeypatch):
     for name in ("pm", "hermes_cli"):
         shutil.copytree(source / name, repo / name, ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copy2(source / "hermes_constants.py", repo / "hermes_constants.py")
+    shutil.copy2(source / "loki_identity.py", repo / "loki_identity.py")
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     subject = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "PM test CA")])
     now = datetime.now(UTC)

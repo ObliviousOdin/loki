@@ -18,8 +18,8 @@ ASSETS = Path(__file__).resolve().parents[1] / "install/e2e-assets"
 @pytest.mark.platforms("posix")
 def test_shell_selects_the_installed_command_not_the_phase_or_path(tmp_path):
     root = tmp_path / "installed source"
-    legacy = root / "venv/bin/hermes"
-    published = root / ".hermes/bin/hermes"
+    legacy = root / "venv/bin/loki"
+    published = root / ".loki/bin/loki"
     for command, label in ((legacy, "legacy"), (published, "published")):
         command.parent.mkdir(parents=True)
         command.write_text(f'#!/bin/sh\nprintf "{label}:%s\\n" "$*"\n', encoding="utf-8")
@@ -29,14 +29,14 @@ def test_shell_selects_the_installed_command_not_the_phase_or_path(tmp_path):
 source "$ASSETS/source-driver.sh"
 command=$(source_hermes "$INSTALL_DIR")
 "$command" 'literal argument'
-rm "$INSTALL_DIR/venv/bin/hermes"
+rm "$INSTALL_DIR/venv/bin/loki"
 test "$(source_hermes "$INSTALL_DIR")" = "$command"
 printf '#!/bin/sh\nexit 23\n' > "$command"
 "$command" || test "$?" = 23
 rm "$command"
 if source_hermes "$INSTALL_DIR"; then exit 91; fi
-printf '#!/bin/sh\nprintf legacy\n' > "$INSTALL_DIR/venv/bin/hermes"
-chmod +x "$INSTALL_DIR/venv/bin/hermes"
+printf '#!/bin/sh\nprintf legacy\n' > "$INSTALL_DIR/venv/bin/loki"
+chmod +x "$INSTALL_DIR/venv/bin/loki"
 "$(source_hermes "$INSTALL_DIR")"
 # A PM checkout cannot hide missing publication behind its old venv.
 mkdir -p "$INSTALL_DIR/pm"
@@ -88,9 +88,9 @@ def test_powershell_selects_exact_exe_or_cmd_and_legacy_fallback(tmp_path):
     harness.write_text('''$ErrorActionPreference = 'Stop'
 . (Join-Path $env:ASSETS 'source-driver.ps1')
 $root = $env:INSTALL_DIR
-$legacy = Join-Path $root 'venv/Scripts/hermes.exe'
-$exe = Join-Path $root '.hermes/bin/hermes.exe'
-$cmd = Join-Path $root '.hermes/bin/hermes.cmd'
+$legacy = Join-Path $root 'venv/Scripts/loki.exe'
+$exe = Join-Path $root '.loki/bin/loki.exe'
+$cmd = Join-Path $root '.loki/bin/loki.cmd'
 New-Item -ItemType Directory -Path (Split-Path $legacy), (Split-Path $exe) -Force | Out-Null
 Set-Content $legacy 'legacy'
 if ((Get-SourceHermes $root) -ne $legacy) { throw 'legacy fallback' }
@@ -155,6 +155,7 @@ def test_pm_observer_accepts_ready_fixture_and_leaves_failed_fixture_untouched(t
     for directory in ("pm", "hermes_cli"):
         shutil.copytree(repo / directory, root / directory, ignore=shutil.ignore_patterns("__pycache__"))
     shutil.copy2(repo / "hermes_constants.py", root / "hermes_constants.py")
+    shutil.copy2(repo / "loki_identity.py", root / "loki_identity.py")
     (root / "hermes_bootstrap.py").write_text("raise RuntimeError('bootstrap must not run')", encoding="utf-8")
     (root / "uv.lock").write_text("fixture locked graph", encoding="utf-8")
     home = tmp_path / "home"
@@ -188,7 +189,7 @@ site = site_packages(selected)
 site.parent.mkdir(parents=True)
 site.symlink_to(deps, target_is_directory=True)
 Facts(runtime_facts_path(root)).record_state('venv', Venv(root).expected_stamp([]), [], environment=selected)
-ensure_install_launchers(root, root / '.hermes/bin')
+ensure_install_launchers(root, root / '.loki/bin')
 '''
     subprocess.run([sys.executable, "-I", "-B", "-c", setup, str(root), str(store), node,
                     sysconfig.get_path("purelib")], env=env, cwd=tmp_path, check=True, timeout=60)
@@ -205,9 +206,9 @@ for (const [product, out] of [['tui', 'ui-tui/dist'], ['web', 'hermes_cli/web_di
 }
 '''
     subprocess.run([node, "--input-type=module", "-e", record], cwd=root, env=env, check=True, timeout=30)
-    (root / "apps/desktop/release/linux-unpacked/hermes").write_bytes(b"fixture executable")
+    (root / "apps/desktop/release/linux-unpacked/loki").write_bytes(b"fixture executable")
     command = [sys.executable, "-B", str(ASSETS / "source_driver.py"), "--root", str(root),
-               "--launcher", str(root / ".hermes/bin/hermes"), "--desktop", "present"]
+               "--launcher", str(root / ".loki/bin/loki"), "--desktop", "present"]
     if fault == "no-desktop":
         shutil.rmtree(root / "apps/desktop")
         command[-1] = "absent"
@@ -226,10 +227,10 @@ for (const [product, out] of [['tui', 'ui-tui/dist'], ['web', 'hermes_cli/web_di
         foreign = tmp_path / "foreign"
         shutil.copytree(root, foreign)
         from hermes_cli._launchers import mint_launcher
-        launcher = mint_launcher("hermes", foreign, root / ".hermes/bin", Path(sys.executable), None)
+        launcher = mint_launcher("loki", foreign, root / ".loki/bin", Path(sys.executable), None)
         assert launcher is not None
     elif fault == "missing-launcher":
-        (root / ".hermes/bin/hermes").unlink()
+        (root / ".loki/bin/loki").unlink()
     elif fault == "incomplete":
         (root / ".update-incomplete").write_text("incomplete", encoding="utf-8")
     else:

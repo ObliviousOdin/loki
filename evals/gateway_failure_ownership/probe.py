@@ -5,13 +5,14 @@ from types import SimpleNamespace
 
 ROOT = Path(sys.argv[1]).resolve()
 RECEIPT = Path(sys.argv[2]).resolve()
-HOME = Path(tempfile.mkdtemp(prefix="hermes-104653-state-"))
+HOME = Path(tempfile.mkdtemp(prefix="loki-104653-state-"))
 # Discard inherited credentials/config, preserve only interpreter essentials.
 keep = {k: v for k, v in os.environ.items() if k in ("PATH", "LANG", "LC_ALL", "TZ")}
 os.environ.clear()
 os.environ.update(keep)
 os.environ.update(
     HOME=str(HOME),
+    LOKI_HOME=str(HOME),
     HERMES_HOME=str(HOME),
     HERMES_DISABLE_PLUGINS="1",
     # The scrub above drops the test harness's hermetic switch; keep lazy PM installs off so no

@@ -1,5 +1,7 @@
-"""Telegram Managed Bot onboarding client: creates a user-owned child bot via the Nous onboarding
-service (no BotFather copy-paste); the raw Telegram token is saved locally after one retrieval."""
+"""Telegram Managed Bot client for an explicitly configured onboarding service.
+
+The raw Telegram token is saved locally after one retrieval.
+"""
 
 from __future__ import annotations
 
@@ -13,10 +15,10 @@ from typing import Optional
 
 import httpx
 
-# Nous-hosted pairing API; override for PoC/staging with TELEGRAM_ONBOARDING_URL.
-DEFAULT_API_URL = "https://setup.hermes-agent.nousresearch.com"
+# Loki has no inherited hosted provisioning service. Operators supply an authorized endpoint.
+DEFAULT_API_URL = ""
 TELEGRAM_ONBOARDING_URL_ENV = "TELEGRAM_ONBOARDING_URL"
-DEFAULT_BOT_NAME = "Hermes Agent"
+DEFAULT_BOT_NAME = "Loki"
 DEFAULT_POLL_TIMEOUT = 180
 POLL_INTERVAL = 2
 
@@ -43,8 +45,8 @@ class TelegramBotSetupResult:
 
 
 def _api_url(api_url: str | None = None) -> str:
-    """Resolve the onboarding API URL, honoring the PoC env override."""
-    return (api_url or os.environ.get(TELEGRAM_ONBOARDING_URL_ENV) or DEFAULT_API_URL).rstrip("/")
+    """Resolve the operator endpoint; an empty result disables hosted provisioning."""
+    return (api_url or os.environ.get(TELEGRAM_ONBOARDING_URL_ENV) or DEFAULT_API_URL).strip().rstrip("/")
 
 
 def is_valid_telegram_bot_token(token: object) -> bool:
@@ -78,9 +80,9 @@ def render_qr_terminal(url: str) -> str:
 def print_qr_code(url: str, *, include_link: bool = True) -> None:
     """Print a QR code to stdout, with URL fallback if qrcode is missing."""
     print(render_qr_terminal(url) or (
-        "  (QR code unavailable. From the Hermes environment, run: "
+        "  (QR code unavailable. From the Loki environment, run: "
         f"{install_hint('messaging')}. "
-        "Then restart Hermes.)"))
+        "Then restart Loki.)"))
     if include_link:
         print(f"  Link: {url}")
 
@@ -89,8 +91,11 @@ def create_pairing(
     api_url: str | None = None, bot_name: str = DEFAULT_BOT_NAME, timeout: float = 10.0
 ) -> TelegramPairing | None:
     """POST a pairing; the returned poll token is only used as a bearer credential while polling."""
+    resolved_api_url = _api_url(api_url)
+    if not resolved_api_url:
+        return None
     try:
-        resp = httpx.post(f"{_api_url(api_url)}/v1/telegram/pairings", json={"bot_name": bot_name}, timeout=timeout)
+        resp = httpx.post(f"{resolved_api_url}/v1/telegram/pairings", json={"bot_name": bot_name}, timeout=timeout)
         if resp.status_code not in (200, 201):
             return None
         data = resp.json()
@@ -111,7 +116,10 @@ def poll_pairing_result_once(
     api_url: str | None, pairing: TelegramPairing, timeout: float = 10.0
 ) -> TelegramBotSetupResult | None:
     """Poll the onboarding service once. Returns setup metadata when ready."""
-    resp = httpx.get(f"{_api_url(api_url)}/v1/telegram/pairings/{pairing.pairing_id}",
+    resolved_api_url = _api_url(api_url)
+    if not resolved_api_url:
+        return None
+    resp = httpx.get(f"{resolved_api_url}/v1/telegram/pairings/{pairing.pairing_id}",
                      headers={"Authorization": f"Bearer {pairing.poll_token}"}, timeout=timeout)
     if resp.status_code != 200:
         return None
@@ -130,6 +138,8 @@ def poll_for_setup_result(
     interval: float = POLL_INTERVAL, on_tick=None) -> Optional[TelegramBotSetupResult]:
     """Poll the pairing API until setup metadata is available or timeout. ``on_tick(elapsed_s)``
     runs before each attempt (progress display)."""
+    if not _api_url(api_url):
+        return None
     start = time.monotonic()
     deadline = start + timeout
     while time.monotonic() < deadline:
@@ -151,11 +161,15 @@ def auto_setup_telegram_bot_result(
     """Run the full automatic Telegram bot creation flow."""
     _ = manager_bot, profile_name  # accepted for callers; the service decides both
     resolved_api_url = _api_url(api_url)
-    print(f"\n  Contacting Hermes Telegram onboarding service: {resolved_api_url}")
+    if not resolved_api_url:
+        print("\n  Loki Telegram setup service is not configured. Set TELEGRAM_ONBOARDING_URL "
+              "to an authorized endpoint, or create a bot manually with @BotFather.")
+        return None
+    print(f"\n  Contacting configured Telegram onboarding service: {resolved_api_url}")
     sys.stdout.flush()
     pairing = create_pairing(resolved_api_url)
     if not pairing:
-        print("  ✗ Could not reach the Hermes Telegram onboarding service.\n"
+        print("  ✗ Could not reach the configured Telegram onboarding service.\n"
               "    Try the manual setup instead, or check your network.")
         return None
 

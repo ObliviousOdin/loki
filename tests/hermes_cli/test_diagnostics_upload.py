@@ -28,7 +28,8 @@ def _resp(*, status=200, body=b""):
 # ---------------------------------------------------------------------------
 
 class TestRequestUploadUrl:
-    def test_happy_path_posts_json_and_returns_dict(self):
+    def test_happy_path_posts_json_and_returns_dict(self, monkeypatch):
+        monkeypatch.setenv("HERMES_DIAGNOSTICS_BASE_URL", "https://diagnostics.example.test")
         from hermes_cli.diagnostics_upload import request_upload_url
 
         payload = {
@@ -58,7 +59,8 @@ class TestRequestUploadUrl:
         # urllib lower-cases header keys.
         assert req.headers["Content-type"] == "application/json"
 
-    def test_non_2xx_raises(self):
+    def test_non_2xx_raises(self, monkeypatch):
+        monkeypatch.setenv("HERMES_DIAGNOSTICS_BASE_URL", "https://diagnostics.example.test")
         from hermes_cli.diagnostics_upload import request_upload_url
 
         resp = _resp(status=500, body=b"boom")
@@ -71,30 +73,28 @@ class TestRequestUploadUrl:
 
 
     def test_base_url_env_override(self, monkeypatch):
-        # NAS_BASE is read at import time; re-import the module under the
-        # patched env to confirm the override is honoured.
-        import importlib
-
-        monkeypatch.setenv("HERMES_DIAGNOSTICS_BASE_URL", "https://staging.example.com")
         import hermes_cli.diagnostics_upload as mod
 
-        mod = importlib.reload(mod)
-        try:
-            assert mod.NAS_BASE == "https://staging.example.com"
-            resp = _resp(
-                status=200,
-                body=json.dumps({"uploadUrl": "u", "id": "i", "viewUrl": "v"}).encode(),
-            )
-            with patch(
-                "hermes_cli.diagnostics_upload.urllib.request.urlopen",
-                return_value=resp,
-            ) as urlopen:
+        assert mod.NAS_BASE == ""
+        resp = _resp(
+            status=200,
+            body=json.dumps({"uploadUrl": "u", "id": "i", "viewUrl": "v"}).encode(),
+        )
+        with patch("hermes_cli.diagnostics_upload.urllib.request.urlopen", return_value=resp) as urlopen:
+            for endpoint in ("https://staging.example.com", "https://second.example.test"):
+                monkeypatch.setenv("HERMES_DIAGNOSTICS_BASE_URL", endpoint)
                 mod.request_upload_url()
-            req = urlopen.call_args[0][0]
-            assert req.full_url == "https://staging.example.com/api/diagnostics/upload-url"
-        finally:
-            monkeypatch.delenv("HERMES_DIAGNOSTICS_BASE_URL", raising=False)
-            importlib.reload(mod)
+                assert urlopen.call_args[0][0].full_url == f"{endpoint}/api/diagnostics/upload-url"
+
+    def test_unconfigured_destination_is_refused_before_network(self, monkeypatch):
+        from hermes_cli.diagnostics_upload import request_upload_url
+
+        monkeypatch.delenv("HERMES_DIAGNOSTICS_BASE_URL", raising=False)
+        with patch("hermes_cli.diagnostics_upload.urllib.request.urlopen") as urlopen:
+            with pytest.raises(RuntimeError, match="Loki diagnostics upload is not configured"):
+                request_upload_url()
+        urlopen.assert_not_called()
+
 
 
 # ---------------------------------------------------------------------------

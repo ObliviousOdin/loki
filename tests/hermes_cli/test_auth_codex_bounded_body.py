@@ -8,6 +8,8 @@ install the response hook that cuts the read off at the cap.
 """
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import functools
 import json
 
@@ -46,6 +48,7 @@ def _serve(monkeypatch, payload: dict) -> list:
 
 
 def test_oversized_200_auth_body_is_rejected_before_being_buffered(monkeypatch):
+    configure_auth(monkeypatch, clients=("openai-codex",))
     pulled = _serve(monkeypatch, {"access_token": "at", "refresh_token": "rt", "pad": "a" * (3 * 1024 * 1024)})
 
     with pytest.raises(AuthError) as excinfo:
@@ -65,6 +68,7 @@ def test_oversized_200_auth_body_is_rejected_before_being_buffered(monkeypatch):
 
 
 def test_normal_auth_body_still_parses(monkeypatch):
+    configure_auth(monkeypatch, clients=("openai-codex",))
     _serve(monkeypatch, {"access_token": "at-new", "refresh_token": "rt-new"})
 
     refreshed = auth_codex.refresh_codex_oauth_pure("old-at", "old-rt")

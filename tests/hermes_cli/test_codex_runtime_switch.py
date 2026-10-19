@@ -99,7 +99,7 @@ class TestApply:
         with patch.object(crs, "check_codex_binary_ok",
                           return_value=(True, "0.130.0")), \
              patch("hermes_cli.codex_runtime_plugin_migration.migrate") as mig:
-            mig.return_value.migrated = ["filesystem", "hermes-tools"]
+            mig.return_value.migrated = ["filesystem", "loki-tools"]
             mig.return_value.migrated_plugins = []
             mig.return_value.plugin_query_error = None
             mig.return_value.wrote_permissions_default = ":workspace"
@@ -140,7 +140,7 @@ class TestApply:
         with patch.object(crs, "check_codex_binary_ok",
                           return_value=(True, "0.130.0")), \
              patch("hermes_cli.codex_runtime_plugin_migration.migrate") as mig:
-            mig.return_value.migrated = ["filesystem", "hermes-tools"]
+            mig.return_value.migrated = ["filesystem", "loki-tools"]
             mig.return_value.migrated_plugins = []
             mig.return_value.plugin_query_error = None
             mig.return_value.wrote_permissions_default = ":workspace"

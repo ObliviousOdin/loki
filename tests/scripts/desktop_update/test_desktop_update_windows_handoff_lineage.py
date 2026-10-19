@@ -45,7 +45,7 @@ from pathlib import Path
 home, script, mode, foreign = Path(sys.argv[1]), sys.argv[2], sys.argv[3], int(sys.argv[4])
 other_desktop, env_skew = int(sys.argv[5]), int(sys.argv[6])  # a Desktop that is NOT the wrapper's parent
 started = int(time.time())
-env = dict(os.environ, HERMES_UPDATE_STARTED_AT=str(started + env_skew))
+env = dict(os.environ, LOKI_UPDATE_STARTED_AT=str(started + env_skew))
 ps = [os.environ['POWERSHELL'], '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script,
       '-InstallRoot', str(home / 'hermes-agent'), '-NoUi', '-SelfTestMarker', '-NoMarkerCleanup',
       '-DesktopPid', str(other_desktop or os.getpid())]
@@ -65,7 +65,7 @@ def _old_desktop(home: Path, mode: str, foreign: int = 0, other_desktop: int = 0
     program.write_text(OLD_DESKTOP, encoding='utf-8')
     desktop = subprocess.Popen([sys.executable, str(program), str(home), str(SCRIPT), mode, str(foreign),
                                 str(other_desktop), str(env_skew)],
-                               env={**os.environ, 'HERMES_HOME': str(home), 'POWERSHELL': POWERSHELL})
+                               env={**os.environ, 'LOKI_HOME': str(home), 'POWERSHELL': POWERSHELL})
     deadline = time.monotonic() + 30
     while not (home / 'desktop.json').exists():
         assert time.monotonic() < deadline and desktop.poll() is None, 'old desktop never spawned'

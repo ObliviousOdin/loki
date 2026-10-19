@@ -143,7 +143,7 @@ class TestPersistence:
         env = make_env(get_side_effect=lambda name: existing, persistent=True,
                        task_id="mytask")
         existing.start.assert_called_once()
-        env._mock_client.get.assert_called_once_with("hermes-mytask")
+        env._mock_client.get.assert_called_once_with("loki-mytask")
         env._mock_client.create.assert_not_called()
 
 
@@ -152,6 +152,16 @@ class TestPersistence:
         env._mock_client.get.assert_not_called()
         env._mock_client.list.assert_not_called()
         env._mock_client.create.assert_called_once()
+
+    def test_persistent_discovery_and_creation_use_only_loki_identity(self, make_env, daytona_sdk, monkeypatch):
+        params = MagicMock()
+        monkeypatch.setattr(daytona_sdk, "CreateSandboxFromImageParams", params)
+        env = make_env(task_id="shared-task", persistent=True)
+        env._mock_client.get.assert_called_once_with("loki-shared-task")
+        env._mock_client.list.assert_called_once_with(labels={"loki_task_id": "shared-task"}, limit=1)
+        kwargs = params.call_args.kwargs
+        assert kwargs["name"] == "loki-shared-task"
+        assert kwargs["labels"] == {"loki_task_id": "shared-task"}
 
 
 # ---------------------------------------------------------------------------

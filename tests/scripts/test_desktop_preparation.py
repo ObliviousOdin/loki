@@ -297,3 +297,43 @@ def test_clean_run_cannot_delete_the_outputs_of_a_build_that_holds_the_lock(tmp_
         prepare(request, clean=True)
 
     assert running.read_text(encoding="utf-8") == "output of the build that holds the lock"
+
+
+@pytest.mark.parametrize("flag", [None, *{
+    "darwin": ["--mac", "--macos", "-m", "-o"],
+    "linux": ["--linux", "-l"],
+    "win32": ["--win", "--windows", "-w"],
+}[sys.platform]])
+def test_prepared_builder_preserves_defaults_but_honors_explicit_package_targets(tmp_path, monkeypatch, flag):
+    from types import SimpleNamespace
+
+    from pm.store import current_target
+    from scripts.bundles import desktop, desktop_inputs
+
+    defaults = {"darwin": ["dmg", "zip"], "linux": ["AppImage"], "win32": ["msix"]}[sys.platform]
+    platform_flag = {"darwin": "--mac", "linux": "--linux", "win32": "--win"}[sys.platform]
+    chosen = "zip" if sys.platform == "darwin" else defaults[0]
+    supplied = [flag, chosen] if flag else []
+    request = SimpleNamespace(source=tmp_path, channel_request=None, target=current_target(),
+                              release_epoch=None, version="0.1.0-alpha.1", variant="light")
+    prepared = SimpleNamespace(validate=lambda: None, request=request, node=Path(sys.executable),
+                               packager=tmp_path / "packager.json", native=tmp_path / "native")
+    monkeypatch.setattr(desktop_inputs, "build_environment", lambda *_args: {})
+    calls = []
+
+    class ValidationOnly(Exception):
+        pass
+
+    def capture_validation(argv, **_kwargs):
+        calls.append(argv)
+        raise ValidationOnly
+
+    monkeypatch.setattr(desktop, "run", capture_validation)
+    with pytest.raises(ValidationOnly):
+        desktop._build_prepared(prepared, supplied, None)
+
+    argv, = calls
+    assert "--validate-only" in argv  # inspect the actual first strict-builder invocation
+    formats = [arg for arg in argv if arg in {"dmg", "zip", "msix", "AppImage"}]
+    assert formats == ([chosen] if flag else defaults)
+    assert argv.count(flag or platform_flag) == 1

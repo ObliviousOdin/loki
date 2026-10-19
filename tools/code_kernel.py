@@ -570,7 +570,7 @@ def _bind_rpc_socket(kernel: SessionKernel) -> str:
     else:
         from hermes_constants import socket_safe_tmpdir
         sock_tmpdir = socket_safe_tmpdir()
-        rpc_endpoint = kernel.sock_path = os.path.join(sock_tmpdir, f"hermes_rpc_{uuid.uuid4().hex}.sock")
+        rpc_endpoint = kernel.sock_path = os.path.join(sock_tmpdir, f"loki_rpc_{uuid.uuid4().hex}.sock")
         server_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         server_sock.bind(kernel.sock_path)
         os.chmod(kernel.sock_path, 0o600)
@@ -612,7 +612,7 @@ def _spawn(kernel: SessionKernel, *, child_python: str, child_cwd: str,
            sandbox_tools: frozenset, max_tool_calls: int, task_id: str = "") -> None:
     from tools.code_execution_env import _build_child_env
     from tools.code_execution_tool import generate_hermes_tools_module
-    kernel.tmpdir = tempfile.mkdtemp(prefix="hermes_kernel_")
+    kernel.tmpdir = tempfile.mkdtemp(prefix="loki_kernel_")
     kernel.rpc_token = secrets.token_urlsafe(32)
     kernel.sentinel = "@@HERMES-KERNEL-" + secrets.token_urlsafe(16) + "@@"
     rpc_endpoint = _bind_rpc_socket(kernel)
@@ -706,14 +706,14 @@ _REAPER_STARTED = False
 
 
 def _sweep_stale_staging_dirs(now: Optional[float] = None) -> int:
-    """Remove ``hermes_kernel_*`` staging dirs untouched for over a week. A live host
+    """Remove ``loki_kernel_*`` staging dirs untouched for over a week. A live host
     rmtrees each dir within one idle timeout of the kernel's last use, so a week-old
     dir belongs to a host that died before its cleanup could run; younger dirs are left
     alone because a concurrently running host's live kernel may own one. rmtree never
     follows symlinks, so a planted link is rejected rather than chased."""
     now = time.time() if now is None else now
     removed = 0
-    for path in glob.glob(os.path.join(tempfile.gettempdir(), "hermes_kernel_*")):
+    for path in glob.glob(os.path.join(tempfile.gettempdir(), "loki_kernel_*")):
         try:
             if now - os.path.getmtime(path) > _STALE_STAGING_DIR_AGE:
                 # No ignore_errors: a rejected symlink (or a half-removed dir) must not

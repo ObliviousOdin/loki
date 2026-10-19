@@ -68,7 +68,7 @@ _UPDATE_RETRY_RECOVERED = False
 
 
 def _should_skip_external_secret_sources() -> bool:
-    """True inside any ``hermes update`` process (and its import probes).
+    """True inside any ``loki update`` process (and its import probes).
 
     Every dotenv load in the process — ``hermes_cli.main``, ``run_agent``, ``cli`` — consults
     this, so the updater never resolves external secret sources: on Windows they map
@@ -207,10 +207,10 @@ def _marker_owner_is_live(marker: Path) -> bool:
     return False
 
 
-# ``hermes update`` writes this into the git dir right before git moves the checkout and removes it
+# ``loki update`` writes this into the git dir right before git moves the checkout and removes it
 # once git has exited (a kill is the only exit that keeps it). Git rewrites the tree file by file and
 # moves HEAD last, so an update killed in between leaves HEAD on the old commit with a prefix of the
-# files already new; that mixed tree fails at import in every entry point, ``hermes update`` included.
+# files already new; that mixed tree fails at import in every entry point, ``loki update`` included.
 INTERRUPTED_PULL_MARKER = "hermes-update-pull"
 # A fast-forward takes seconds; past this a "live" owner pid is a recycled one.
 _INTERRUPTED_PULL_MAX_AGE_SECONDS = 10 * 60
@@ -257,7 +257,7 @@ def interrupted_pull_marker(root: Path) -> Path:
 # objects first when no updater published them (``_launchers._CLOSURE_REPAIR``).
 # The modules import only the stdlib and each other; the package initializer is published empty.
 RECOVERY_CLOSURE_DIR = "hermes-update-recovery"
-RECOVERY_CLOSURE = ("hermes_cli/_early_recovery.py", "hermes_cli/update_lock.py", "hermes_cli/update_custody.py")
+RECOVERY_CLOSURE = ("loki_identity.py", "hermes_cli/_early_recovery.py", "hermes_cli/update_lock.py", "hermes_cli/update_custody.py")
 
 
 # ``<blob id> <path>`` per published file (``RECOVERY_CLOSURE`` + the empty package initializer):
@@ -297,7 +297,7 @@ def recovery_closure_verified(closure: Path, pre: str) -> bool:
 
 
 def _git_executable(recorded_by_updater: str = "") -> str:
-    """The git ``hermes update`` runs (``_subprocess_compat.expose_pm_git``), without installing it.
+    """The git ``loki update`` runs (``_subprocess_compat.expose_pm_git``), without installing it.
 
     The absolute git the killed updater recorded in its marker first: finding PM's copy needs
     ``pm``, which imports ``hermes_constants``, and a merge killed while writing that module (or
@@ -932,7 +932,7 @@ def write_durable_text(path: Path, text: str) -> None:
 
 
 def restore_interrupted_pull(project_root: Path | None = None, *, after_failure: bool = False) -> bool:
-    """Put back the files a killed ``hermes update`` had half-moved to the new commit.
+    """Put back the files a killed ``loki update`` had half-moved to the new commit.
 
     ``after_failure``: the updater itself calls this when git exited non-zero mid-move (a locked or
     read-only file): same restore, and the marker stays whenever the tree is not verified whole.
@@ -943,7 +943,7 @@ def restore_interrupted_pull(project_root: Path | None = None, *, after_failure:
     Fast path (no marker) is one or two ``stat`` calls. Acts only when the marker's owner is gone,
     HEAD is still the pre-pull commit and no merge/rebase is in progress; then every path git wrote
     (the target's content, or torn on the way there) returns to HEAD (the commit the venv was built
-    for), so the install is whole again and ``hermes update`` redoes the update from the start. Local
+    for), so the install is whole again and ``loki update`` redoes the update from the start. Local
     edits are never touched; the updater's autostash (if any) stays in ``git stash list``. Concurrent
     launches take turns (``_restore_claim``); a launch that waited out another's restore relaunches.
 
@@ -962,7 +962,7 @@ def restore_interrupted_pull(project_root: Path | None = None, *, after_failure:
             return False  # fast path: nothing to repair, no lock taken
         if _pytest_owns_live_checkout(root):
             return False
-        # A live `hermes update` (or its build/completion/git, after its updater died) owns the
+        # A live `loki update` (or its build/completion/git, after its updater died) owns the
         # checkout: its own transaction settles the tree, and repairing under it races its git.
         busy_note = "⚠ Not repairing the checkout now: {}. Launch again once it finishes."
         if (Path(root) / ZIP_SWAP_JOURNAL).is_file():
@@ -983,7 +983,7 @@ def restore_interrupted_pull(project_root: Path | None = None, *, after_failure:
                 # The tree is still torn (the marker is there): importing checkout code now would run
                 # the half-written files. Fail closed like unprovable custody does, as one line and
                 # exit 1 (SystemExit's message), never a traceback (F20).
-                raise SystemExit("hermes: another Hermes launch is finishing an interrupted `hermes update`; "
+                raise SystemExit("loki: another Loki launch is finishing an interrupted `loki update`; "
                                  "launch again in a moment.")
             if not marker.is_file():
                 return True  # another launch finished while this one started: rerun from its tree
@@ -996,7 +996,7 @@ def restore_interrupted_pull(project_root: Path | None = None, *, after_failure:
                 return _restore_holding_claim(root, marker, after_failure=after_failure)
     except (OSError, subprocess.SubprocessError, ValueError) as exc:
         # Never block launch: the import that follows surfaces any real breakage.
-        print(f"⚠ Could not check for an interrupted `hermes update`: {exc}", file=sys.stderr)
+        print(f"⚠ Could not check for an interrupted `loki update`: {exc}", file=sys.stderr)
     return False
 
 
@@ -1065,7 +1065,7 @@ def _resume_killed_rollback(git, fields: dict[str, str], git_dir: Path, root: Pa
         ref = fields.get("ref", "").strip().removeprefix("refs/heads/")
         back = (f"`git -C {root} checkout {ref}`" if ref
                 else f"`git -C {root} checkout --detach {fields.get('target', '').strip()[:10] or pre[:10]}`")
-        print(f"⚠ An interrupted `hermes update` rollback to {pre[:10]} was not resumed: HEAD now names "
+        print(f"⚠ An interrupted `loki update` rollback to {pre[:10]} was not resumed: HEAD now names "
               f"another branch. Switch back with {back}, then launch `hermes` again to finish it.",
               file=sys.stderr)
         return None
@@ -1075,7 +1075,7 @@ def _resume_killed_rollback(git, fields: dict[str, str], git_dir: Path, root: Pa
     # proven gone: until HEAD is on ``pre`` this marker is the rollback's only record.
     reason = _redo_rollback_head(git, git_dir, root, pre, rollback, after_failure=after_failure)
     if reason is not None:
-        print(f"⚠ An interrupted `hermes update` rollback to {pre[:10]} cannot resume yet ({reason}); "
+        print(f"⚠ An interrupted `loki update` rollback to {pre[:10]} cannot resume yet ({reason}); "
               "the next launch retries.", file=sys.stderr)
         return None
     return _read_head(git)
@@ -1089,7 +1089,7 @@ def _advise_killed_merge(git_dir: Path, root: Path, target: str, stash: str) -> 
             and merge_head.read_text(encoding="utf-8-sig").strip() == target):
         # The killed updater's own merge: its conflict markers may sit in startup modules.
         _merge_advice_shown = True
-        print(f"⚠ A killed `hermes update` left its merge unfinished. Run `git -C {root} merge --abort`, "
+        print(f"⚠ A killed `loki update` left its merge unfinished. Run `git -C {root} merge --abort`, "
               "then launch again." + (f" Your local changes are in its stash ({stash})." if stash else ""),
               file=sys.stderr)
 
@@ -1146,7 +1146,7 @@ def _read_head(git) -> str | None:
     if _OID.fullmatch(oid):
         return oid
     detail = head.stderr.strip() or f"git printed {oid!r}, exit {head.returncode}"
-    print(f"⚠ Could not read HEAD to repair an interrupted `hermes update` ({detail}); "
+    print(f"⚠ Could not read HEAD to repair an interrupted `loki update` ({detail}); "
           "the next launch retries.", file=sys.stderr)
     return None
 
@@ -1157,7 +1157,7 @@ def _retire_unattributable(git, git_dir: Path, root: Path, marker: Path, pre: st
     Unattributable bytes are not proof of a whole tree: only a clean tracked tree at ``pre`` retires
     the record, rollback or not (review G2)."""
     if not _rollback_verified(git, git_dir, pre):
-        print(f"⚠ An interrupted `hermes update` left tracked files that differ from {pre[:10]} and commit "
+        print(f"⚠ An interrupted `loki update` left tracked files that differ from {pre[:10]} and commit "
               f"{target[:10]} is gone; the marker was kept. Inspect `git -C {root} status`, then "
               f"`git -C {root} checkout {pre[:10]} -- <file>` for each file the update wrote.", file=sys.stderr)
         return
@@ -1195,7 +1195,7 @@ def _restore_holding_claim(root: Path, marker: Path, *, after_failure: bool = Fa
     # After a git that EXITED (``after_failure``) no git of ours is left: a lock now is another git's
     # (often the very reason ours failed), never ours to drop. The scan below only reads.
     if not index_free:
-        print(f"⚠ {_index_lock_holder(git_dir, root)} holds the index after an interrupted `hermes update`; "
+        print(f"⚠ {_index_lock_holder(git_dir, root)} holds the index after an interrupted `loki update`; "
               "the next launch finishes the restore.", file=sys.stderr)
         return False
     written = _paths_git_wrote(git, root, pre, target)
@@ -1216,7 +1216,7 @@ def _put_back_written(git, root: Path, marker: Path, written, pre: str, stash: s
         return False
     if restore or added:
         print(("⚠ git stopped partway through writing the new code — " if after_failure else
-               "⚠ A previous `hermes update` was killed while git was writing the new code — ")
+               "⚠ A previous `loki update` was killed while git was writing the new code — ")
               + f"restoring the checkout to {pre[:10]}...", file=sys.stderr)
         failed = _put_back_paths(git, root, restore, added, kept)
         if failed:
@@ -1239,7 +1239,7 @@ def _put_back_written(git, root: Path, marker: Path, written, pre: str, stash: s
     marker.unlink()
     if not restore and not added:
         return False  # the killed git never reached the tree: nothing to put back
-    print("  ✓ Checkout restored; `hermes update` updates it again.", file=sys.stderr)
+    print("  ✓ Checkout restored; `loki update` updates it again.", file=sys.stderr)
     if stash:
         print(f"  Your local changes are still in the update's stash ({stash}).", file=sys.stderr)
     return True
@@ -1422,16 +1422,16 @@ def recover_if_needed(project_root: Path | None = None, argv: list[str] | None =
         if any(_marker_owner_is_live(marker) for marker in markers):
             return False
         if not explicit and any(_read_marker_attempts(marker) >= _EARLY_CORE_INSTALL_MAX_ATTEMPTS for marker in markers):
-            print("hermes: automatic dependency repair retry limit reached; run `hermes pm repair`", file=sys.stderr)
+            print("loki: automatic dependency repair retry limit reached; run `loki pm repair`", file=sys.stderr)
             return False
         from pm.recovery import repair_dependencies
 
-        print("hermes: repairing the recorded dependency environment...", file=sys.stderr)
+        print("loki: repairing the recorded dependency environment...", file=sys.stderr)
         repair_dependencies(root)
         for marker in markers:
             marker.unlink(missing_ok=True)
         _UPDATE_RETRY_RECOVERED = args[:1] == ["update"]
-        print("hermes: dependency environment repaired", file=sys.stderr)
+        print("loki: dependency environment repaired", file=sys.stderr)
         return True
     except Exception as exc:
         from pm.environments import install_state_permission_message
@@ -1440,7 +1440,7 @@ def recover_if_needed(project_root: Path | None = None, argv: list[str] | None =
             raise  # The bootstrap or PM CLI reports the access error once.
         for marker in markers:
             _count_failed_attempt(marker)
-        print(f"hermes: dependency repair failed: {exc}; run `hermes pm repair`", file=sys.stderr)
+        print(f"loki: dependency repair failed: {exc}; run `loki pm repair`", file=sys.stderr)
         return False
     finally:
         os.close(lock)

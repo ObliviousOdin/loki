@@ -19,7 +19,8 @@ import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, NamedTuple, Optional
 
-from hermes_constants import get_hermes_home
+from hermes_constants import get_hermes_home, reset_hermes_home_override, set_hermes_home_override
+from tools.browser_use_paths import harness_subprocess_env
 from utils import is_truthy_value
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ _LOCAL_FALLBACK_SENTINEL = "_HERMES_BU_LOCAL_FALLBACK"
 _OWN_TAB_PREAMBLE = """\
 # hermes: pin this named session to its own tab (once per daemon process)
 def _hermes_ensure_own_tab():
-    import os as _os, tempfile as _tf
+    import os as _os
     _name = _os.environ.get("BU_NAME", "default")
     try:
         # Key the marker by the daemon's pid so a daemon restart (which
@@ -58,9 +59,8 @@ def _hermes_ensure_own_tab():
         _dpid = _bipc.pid_path(_name).read_text().strip() or "0"
     except Exception:
         _dpid = "0"
-    _uid = _os.getuid() if hasattr(_os, "getuid") else 0
     _marker = _os.path.join(
-        _tf.gettempdir(), "hermes-bu-owntab-%s-%s-%s" % (_uid, _name, _dpid)
+        _os.environ["BH_RUNTIME_DIR"], "own-tab-%s-%s" % (_name, _dpid)
     )
     if _os.path.exists(_marker):
         return
@@ -165,6 +165,7 @@ def _code_url_verdict(code: str) -> _CodeUrlVerdict:
 def _base_subprocess_env() -> dict:
     from tools.browser_tool import _build_browser_env
     env = _build_browser_env()
+    env.pop("BH_AGENT_WORKSPACE", None)  # browser_exec supplies its own task workspace below.
     # The harness runs on Hermes's own interpreter, but a bundled Desktop install boots that
     # interpreter with its site dir on PYTHONPATH (no venv to activate), and the harness's daemon
     # re-runs sys.executable. Point PYTHONPATH at the harness's site dir, replacing whatever the
@@ -678,7 +679,7 @@ def _run_cli_killing_process_group(cmd, code, env, timeout):
     """
     proc = subprocess.Popen(
         cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, encoding="utf-8", errors="replace", env=env, **_group_popen_kwargs(),
+        text=True, encoding="utf-8", errors="replace", env=harness_subprocess_env(env), **_group_popen_kwargs(),
     )
     try:
         stdout, stderr = proc.communicate(input=code, timeout=timeout)
@@ -712,9 +713,13 @@ def stop_harness_daemons() -> None:
     if not cmd:
         return
     env = _base_subprocess_env()
-    for name in names:
-        with contextlib.suppress(OSError, subprocess.SubprocessError):
-            _run_cli_killing_process_group([*cmd, "--reload"], "", {**env, "BU_NAME": name}, 15)
+    for home, name in names:
+        token = set_hermes_home_override(home)
+        try:
+            with contextlib.suppress(OSError, subprocess.SubprocessError):
+                _run_cli_killing_process_group([*cmd, "--reload"], "", {**env, "BU_NAME": name}, 15)
+        finally:
+            reset_hermes_home_override(token)
 
 
 def _route_exec(env: dict, session: str, task_id: Optional[str], local: bool, local_sidecar: bool,
@@ -796,7 +801,7 @@ def browser_exec(code: str, session: str = "", timeout_s: int = _DEFAULT_TIMEOUT
     def dispatch() -> dict[str, Any]:
         _attach_vault_supervisor(env, task_id)
         with _driven_daemons_lock:
-            _driven_daemons.add(env.get("BU_NAME", "default"))
+            _driven_daemons.add((str(get_hermes_home()), env.get("BU_NAME", "default")))
         try:
             return {"proc": _run_cli_killing_process_group(cmd, code, env, timeout)}
         except subprocess.TimeoutExpired:

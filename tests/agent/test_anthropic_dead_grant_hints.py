@@ -7,6 +7,8 @@ instead of benching the dead grant as transient.
 """
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import io
 import logging
 import urllib.error
@@ -18,6 +20,7 @@ import pytest
 from agent import anthropic_credentials as ac
 
 def test_dead_grant_is_classified_and_not_replayed_at_other_endpoints(monkeypatch):
+    configure_auth(monkeypatch, clients=("anthropic",))
     calls: list = []
 
     def fake_urlopen(req, timeout=None):

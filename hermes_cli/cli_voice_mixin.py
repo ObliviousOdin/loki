@@ -13,6 +13,7 @@ import re
 import tempfile
 import threading
 import time
+import uuid
 
 from agent.i18n import t
 from hermes_constants import is_termux as _is_termux_environment
@@ -324,9 +325,9 @@ class CLIVoiceMixin:
             self._voice_last_tts_text = tts_text
             # MP3 for CLI playback (afplay doesn't handle OGG well); the TTS tool may
             # auto-convert MP3->OGG but the original MP3 remains.
-            out_dir = os.path.join(tempfile.gettempdir(), "hermes_voice")
+            out_dir = os.path.join(tempfile.gettempdir(), "loki_voice")
             os.makedirs(out_dir, exist_ok=True)
-            mp3_path = os.path.join(out_dir, f"tts_{time.strftime('%Y%m%d_%H%M%S')}.mp3")
+            mp3_path = os.path.join(out_dir, f"tts_{uuid.uuid4().hex}.mp3")
 
             raw_result = text_to_speech_tool(text=tts_text, output_path=mp3_path)
             try:

@@ -82,7 +82,7 @@ def _subdict(node: Any, *keys: str) -> dict[str, Any]:
 
 
 def _read_config_section(*path: str, label: str, log: logging.Logger = logger) -> dict[str, Any]:
-    """Read a nested section of ~/.hermes/config.yaml. Tolerates missing file."""
+    """Read a nested section of ~/.loki/config.yaml. Tolerates missing file."""
     try:
         from hermes_cli.config import load_config_readonly
         cfg = load_config_readonly()
@@ -144,7 +144,7 @@ def get_archive_after_days() -> int:
 
 
 def get_consolidate() -> bool:
-    """LLM consolidation pass — OFF by default (prune only, no aux-model fork); ``hermes curator run --consolidate`` overrides per invocation."""
+    """LLM consolidation pass — OFF by default (prune only, no aux-model fork); ``loki curator run --consolidate`` overrides per invocation."""
     return bool(_load_config().get("consolidate", DEFAULT_CONSOLIDATE))
 
 
@@ -160,7 +160,7 @@ def _parse_iso(ts: Optional[str]) -> Optional[datetime]:
 def should_run_now(now: Optional[datetime] = None) -> bool:
     """Gates: curator.enabled, not paused, ``last_run_at`` present AND older than interval_hours. First observation seeds
     ``last_run_at`` to now and defers one interval, so a fresh install/update never mutates the library on its first tick.
-    ``hermes curator run`` bypasses this; the idle check is the caller's."""
+    ``loki curator run`` bypasses this; the idle check is the caller's."""
     if not is_enabled() or is_paused():
         return False
     state = load_state()
@@ -169,7 +169,7 @@ def should_run_now(now: Optional[datetime] = None) -> bool:
     if last is None:
         try:
             state["last_run_at"] = now.isoformat()
-            state["last_run_summary"] = "deferred first run — curator seeded, will run after one interval; use `hermes curator run --dry-run` to preview now"
+            state["last_run_summary"] = "deferred first run — curator seeded, will run after one interval; use `loki curator run --dry-run` to preview now"
             save_state(state)
         except Exception as e:  # pragma: no cover — best-effort persistence
             logger.debug("Failed to seed curator last_run_at: %s", e)
@@ -279,7 +279,7 @@ CURATOR_DRY_RUN_BANNER = (
     "produce on a live run — but describe the actions you WOULD take, "
     "not actions you took. A downstream reviewer will read the report "
     "and decide whether to approve a live run with "
-    "`hermes curator run` (no flag).\n"
+    "`loki curator run` (no flag).\n"
     "\n"
     "If you accidentally take a mutating action, say so explicitly in "
     "the summary so the reviewer can revert it.\n"
@@ -288,7 +288,7 @@ CURATOR_DRY_RUN_BANNER = (
 
 
 CURATOR_REVIEW_PROMPT = (
-    "You are running as Hermes' background skill CURATOR. This is an "
+    "You are running as Loki' background skill CURATOR. This is an "
     "UMBRELLA-BUILDING consolidation pass, not a passive audit and not a "
     "duplicate-finder.\n\n"
     "The goal of the skill collection is a LIBRARY OF CLASS-LEVEL "
@@ -318,7 +318,7 @@ CURATOR_REVIEW_PROMPT = (
     "to local curator-managed skills only; external skills are externally "
     "owned and read-only to this background curator.\n"
     "2. DO NOT delete any skill. Archiving (moving the skill's directory "
-    "into ~/.hermes/skills/.archive/) is the maximum destructive action. "
+    "into ~/.loki/skills/.archive/) is the maximum destructive action. "
     "Archives are recoverable; deletion is not.\n"
     "3. DO NOT touch skills shown as pinned=yes. Skip them entirely.\n"
     "3b. DO NOT archive, delete, consolidate, move, or otherwise modify any "
@@ -383,7 +383,7 @@ CURATOR_REVIEW_PROMPT = (
     "then `skill_manage action=delete` on the source. Never a terminal move "
     "— a shell mv/cp writes the same bytes with no ledger entry, so the "
     "archive that follows snapshots an already-stripped package and "
-    "`hermes curator rollback` restores a hollow skill (issue #96962).\n\n"
+    "`loki curator rollback` restores a hollow skill (issue #96962).\n\n"
     "Package integrity — not optional:\n"
     "Before demoting or archiving a skill, inspect it as a COMPLETE "
     "directory package, not just SKILL.md. A skill root may include "
@@ -471,7 +471,7 @@ CURATOR_REVIEW_PROMPT = (
 # --- Per-run reports — {YYYYMMDD-HHMMSS}/run.json + REPORT.md under logs/curator/ ---
 
 def _reports_root() -> Path:
-    """``~/.hermes/logs/curator/`` (telemetry next to agent.log, not under skills/). mkdir'd here too so gateway-only / bare-library entry paths work."""
+    """``~/.loki/logs/curator/`` (telemetry next to agent.log, not under skills/). mkdir'd here too so gateway-only / bare-library entry paths work."""
     root = get_hermes_home() / "logs" / "curator"
     try:
         root.mkdir(parents=True, exist_ok=True)
@@ -665,10 +665,10 @@ def _build_rename_summary(*, before_names: set[str], after_report: list[dict[str
     lines = [f"archived {total} skill(s):"] + entries[:SHOW]
     if total > SHOW:
         lines.append(f"  … and {total - SHOW} more")
-    lines.append("full report: hermes curator status")
+    lines.append("full report: loki curator status")
     umbrellas = sorted({e.get("into") for e in diff.consolidated if e.get("into")})
     if umbrellas:
-        lines.append(f"keep an umbrella stable: hermes curator pin {umbrellas[0]}")
+        lines.append(f"keep an umbrella stable: loki curator pin {umbrellas[0]}")
     return "\n".join(lines)
 
 
@@ -772,11 +772,11 @@ def _cron_rewrite_lines(entry: dict[str, Any]) -> list[str]:
 _REPORT_SECTIONS = (
     ("consolidated", "Consolidated into umbrella skills",
      "_These skills were **absorbed into another skill** during this run — their content still lives, just under a different name. "
-     "The original directory was moved to `~/.hermes/skills/.archive/` for safety and can be restored via "
-     "`hermes curator restore <name>` if the consolidation was wrong._\n", _consolidated_lines, 50, "see `run.json`"),
+     "The original directory was moved to `~/.loki/skills/.archive/` for safety and can be restored via "
+     "`loki curator restore <name>` if the consolidation was wrong._\n", _consolidated_lines, 50, "see `run.json`"),
     ("pruned", "Pruned — archived for staleness",
      "_These skills were archived without being merged into an umbrella (e.g. stale, unused, or judged irrelevant). "
-     "Directories live under `~/.hermes/skills/.archive/`. Restore any via `hermes curator restore <name>`._\n",
+     "Directories live under `~/.loki/skills/.archive/`. Restore any via `loki curator restore <name>`._\n",
      _pruned_lines, 50, "see `run.json`"),
     ("added", "New skills this run", "_Usually these are new class-level umbrellas created via `skill_manage action=create`._\n",
      lambda n: [f"- `{n}`"], None, ""),
@@ -821,8 +821,8 @@ def _render_report_markdown(p: dict[str, Any]) -> str:
         lines += ["## LLM final summary\n", final, ""]
     elif not error and (p.get("llm_summary") or ""):
         lines += ["## LLM summary\n", p.get("llm_summary"), ""]
-    lines += ["## Recovery\n", "- Restore an archived skill: `hermes curator restore <name>`",
-              "- All archives live under `~/.hermes/skills/.archive/` and are recoverable by `mv`",
+    lines += ["## Recovery\n", "- Restore an archived skill: `loki curator restore <name>`",
+              "- All archives live under `~/.loki/skills/.archive/` and are recoverable by `mv`",
               "- See `run.json` in this directory for the full machine-readable record.", ""]
     return "\n".join(lines)
 
@@ -1135,7 +1135,7 @@ def _run_llm_review(prompt: str) -> dict[str, Any]:
 
             _reset_background_review_read_marks()
         # Silence the fork's tool-call chatter (CLI synchronous foreground runs).
-        with open(os.devnull, "w", encoding="utf-8") as devnull, \
+        with open(os.devnull, "w", encoding="utf-8") as devnull,\
              contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
             conv_result = review_agent.run_conversation(user_message=prompt)
         final = str(conv_result.get("final_response") or "").strip() if isinstance(conv_result, dict) else ""

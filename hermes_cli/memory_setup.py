@@ -1,4 +1,4 @@
-"""hermes memory setup|status — configure memory provider plugins."""
+"""loki memory setup|status — configure memory provider plugins."""
 
 from __future__ import annotations
 
@@ -100,7 +100,7 @@ def _install_dependencies(provider_name: str) -> None:
     if status:
         print(f"  ✓ Dependencies prepared for {provider_name}")
         if status == "restart_required":
-            print("  Restart Hermes to use the prepared dependencies.")
+            print("  Restart Loki to use the prepared dependencies.")
 
     # Also show external (non-pip) dependencies that are missing.
     for dep in meta.get("external_dependencies", []):
@@ -185,7 +185,7 @@ def cmd_setup_provider(provider_name: str) -> None:
         if install:
             print(f"  It is a catalog plugin that is not installed. Install it with: {install}\n")
         else:
-            print("  Run 'hermes memory setup' to see available providers.\n")
+            print("  Run 'loki memory setup' to see available providers.\n")
         return
     name, _, provider = match
 
@@ -262,7 +262,7 @@ def cmd_setup(args) -> None:
     providers = _get_available_providers()
     if not providers:
         print("\n  No memory provider plugins detected.")
-        print("  Install a plugin to ~/.hermes/plugins/ and try again.\n")
+        print("  Install a plugin to ~/.loki/plugins/ and try again.\n")
         return
 
     items = [(name, f"— {desc}") for name, desc, _ in providers]
@@ -339,7 +339,7 @@ def _write_env_vars(
 
     ``hermes_home`` may be supplied by plugin ``post_setup`` hooks that
     already received an explicit home directory (e.g. a non-default
-    profile). It is applied through the context-local Hermes home override
+    profile). It is applied through the context-local Loki home override
     so ``save_env_value`` still owns the validation, sanitization, and
     atomic-write path without mutating global ``os.environ``.
     """
@@ -421,7 +421,7 @@ def cmd_status(args) -> None:
                         if url and not is_set:
                             line += f"  → {url}"
                         print(line)
-                print("  Note: systemd/gateway services do not inherit ~/.hermes/.env —")
+                print("  Note: systemd/gateway services do not inherit ~/.loki/.env —")
                 print("        set any variables above in the service environment.")
         else:
             print("\n  Plugin:    NOT installed ✗")
@@ -429,7 +429,7 @@ def cmd_status(args) -> None:
             if install:
                 print(f"  Install it with: {install}")
             else:
-                print(f"  Install the '{provider_name}' memory plugin to ~/.hermes/plugins/")
+                print(f"  Install the '{provider_name}' memory plugin to ~/.loki/plugins/")
 
     if providers:
         print("\n  Installed plugins:")

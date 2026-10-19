@@ -19,6 +19,57 @@ import pytest
 from scripts.bundles import native
 
 
+def _observe_preseal_normalization(output, monkeypatch):
+    from scripts.bundles import bytecode, native_symbols
+
+    normalize, bake = native_symbols.strip_macho_debug_symbols, bytecode.bake_bytecode
+    phases = []
+
+    def normalize_staged(payload):
+        assert payload == output
+        assert (payload / "uv-cache").is_dir()
+        assert str(output) not in (payload / "venv/pyvenv.cfg").read_text(encoding="utf-8-sig")
+        assert not payload.with_name(payload.name + ".prepared.json").exists()
+        result = normalize(payload)
+        phases.append("normalized")
+        return result
+
+    def bake_normalized(payload, python):
+        assert phases == ["normalized"], "normalize staged binaries before bytecode and admission"
+        return bake(payload, python)
+
+    monkeypatch.setattr(native_symbols, "strip_macho_debug_symbols", normalize_staged)
+    monkeypatch.setattr(bytecode, "bake_bytecode", bake_normalized)
+
+
+def _assert_relocated_payload(output, parent, command, python, monkeypatch):
+    from pm import paths, runtime as runtime_api
+    from pm.environments import site_packages
+
+    moved = parent / "installed elsewhere"
+    output.rename(moved)
+    try:
+        assert not output.exists()
+        run = subprocess.run([str(moved / command)], cwd=parent, capture_output=True, text=True, timeout=30, check=False)
+        assert run.returncode == 7, run.stderr
+        assert run.stdout.strip() == "1.0"
+        site = site_packages(moved / "venv")
+        code = (f"import sys; sys.path[:0] = {[str(moved / 'hermes-agent'), str(site)]!r}; "
+                "import entry, bundle_probe, json; print(json.dumps([entry.__file__, bundle_probe.__file__]))")
+        imports = subprocess.run([str(moved / python), "-B", "-I", "-S", "-c", code],
+                                 cwd=parent, capture_output=True, text=True, timeout=30, check=False)
+        assert imports.returncode == 0, imports.stderr
+        assert all(Path(path).is_relative_to(moved) for path in json.loads(imports.stdout))
+        with monkeypatch.context() as patch:
+            patch.setattr(paths, "repo_root", lambda: moved / "hermes-agent")
+            run = subprocess.run(runtime_api.runtime_command(moved / "hermes-agent/pm/launch.py", ["status"]),
+                                 cwd=parent, env=runtime_api.runtime_environment(), capture_output=True, text=True, timeout=30, check=False)
+        assert run.returncode == 0, run.stderr
+        assert "no pm sync receipt" in run.stdout
+    finally:
+        moved.rename(output)
+
+
 def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_path, monkeypatch):
     import importlib
     import inspect
@@ -32,6 +83,7 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
     output = tmp_path / "payload"
+    _observe_preseal_normalization(output, monkeypatch)
     canonical = tmp_path / "canonical"
     lock, target = native._lockfile(), native.current_target()
     python_package = get_package("python")
@@ -58,6 +110,7 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
     for name in ("__init__.py", "runtime_state.py"):
         shutil.copy2(source / "hermes_cli" / name, repo / "hermes_cli" / name)
     shutil.copy2(source / "hermes_constants.py", repo / "hermes_constants.py")
+    shutil.copy2(source / "loki_identity.py", repo / "loki_identity.py")
     wheels = repo / "wheels"
     wheels.mkdir()
     witness = tmp_path / "inventory-python.json"
@@ -150,6 +203,7 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
     def build(**kwargs):
         assert "uv" not in kwargs
         assert kwargs["sealed"] is True
+        assert kwargs["no_install_project"] is True
         assert kwargs["python"] == target_python
         assert kwargs["source"] == output / "hermes-agent"
         assert kwargs.get("timeout", install_timeout) > install_timeout
@@ -269,6 +323,7 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
         assert facts.get(name)["version"] == lock.version(name)
         assert facts.get(name)["target"] == target
         assert facts.get(name)["artifacts"] == [row["sha256"] for row in lock.artifacts(name, target)]
+        assert facts.get(name)["digest"] == tree_digest(output / "tools" / entry)
         assert (output / "tools" / entry / "payload").read_text(encoding="utf-8-sig") == name
         assert not (output / "tools" / f"cached-{name}").exists()
     assert not (output / "tools/orphaned-version").exists()
@@ -282,21 +337,8 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
     feature_file = output / "enabled-features.json"
     assert os.environ["HERMES_RUNTIME_DIR"] == str(user_store)
 
-    moved = tmp_path / "installed elsewhere"
-    output.rename(moved)
-    try:
-        run = subprocess.run([str(moved / command)], cwd=tmp_path, capture_output=True, text=True, timeout=30, check=False)
-        assert run.returncode == 7, run.stderr
-        assert run.stdout.strip() == "1.0"
-        from pm import runtime as runtime_api, paths
-        with monkeypatch.context() as patch:
-            patch.setattr(paths, "repo_root", lambda: moved / "hermes-agent")
-            run = subprocess.run(runtime_api.runtime_command(moved / "hermes-agent/pm/launch.py", ["status"]),
-                                 cwd=tmp_path, env=runtime_api.runtime_environment(), capture_output=True, text=True, timeout=30, check=False)
-        assert run.returncode == 0, run.stderr
-        assert "no pm sync receipt" in run.stdout
-    finally:
-        moved.rename(output)
+    assert str(output) not in (output / "venv/pyvenv.cfg").read_text(encoding="utf-8-sig")
+    _assert_relocated_payload(output, tmp_path, command, target_python.relative_to(output), monkeypatch)
     assert json.loads(feature_file.read_text(encoding="utf-8"))["extras"] == ["payloadtest"]
     assert Path(json.loads(witness.read_text(encoding="utf-8-sig"))) == target_python
     before = feature_file.read_bytes()

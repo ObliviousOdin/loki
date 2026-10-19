@@ -1,6 +1,8 @@
-# Contribuir a Hermes Agent
+> Loki fork policy. Internal engine names retain upstream compatibility; see [Loki maintenance](docs/loki/MAINTENANCE.md).
 
-¡Gracias por contribuir a Hermes Agent! Esta guía cubre todo lo que necesitas: configurar tu entorno de desarrollo, entender la arquitectura, decidir qué construir y conseguir que tu PR sea aceptado.
+# Contribuir a Loki
+
+¡Gracias por contribuir a Loki! Esta guía cubre todo lo que necesitas: configurar tu entorno de desarrollo, entender la arquitectura, decidir qué construir y conseguir que tu PR sea aceptado.
 
 ---
 
@@ -566,7 +568,7 @@ test(tools): añadir tests unitarios para file_operations
 
 ## Reportar Issues
 
-- Usa [GitHub Issues](https://github.com/NousResearch/hermes-agent/issues)
+- Usa [GitHub Issues](https://github.com/ObliviousOdin/loki/issues)
 - Incluye: SO, versión de Python, versión de Hermes (`hermes --version`), traza de error completa
 - Incluye pasos para reproducir
 - Verifica los issues existentes antes de crear duplicados

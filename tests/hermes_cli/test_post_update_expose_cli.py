@@ -1,6 +1,6 @@
 """expose_cli — the launcher owner repairs PATH conveniences.
 
-The installers write ~/.local/bin/hermes* once, at install time. This
+The installers write ~/.local/bin/loki* once, at install time. This
 step rewrites them when they drift (moved checkout, recreated venv,
 deleted by hand) and — just as load-bearing — REFUSES to touch a
 launcher that belongs to a different install sharing the link dir.
@@ -12,6 +12,8 @@ gate gets its own test.
 """
 
 from __future__ import annotations
+
+from tests.loki_child_fixture import bind_fixture_child_env
 
 import json
 import os
@@ -46,7 +48,7 @@ def fake_install(tmp_path, monkeypatch):
     root = tmp_path / "checkout"
     (root / "venv" / "bin").mkdir(parents=True)
     (root / "venv" / "bin" / "python").write_text("#!fake\n", encoding="utf-8")
-    (root / "hermes").write_text("# entrypoint\n", encoding="utf-8")
+    (root / "loki").write_text("# entrypoint\n", encoding="utf-8")
     (root / "run_agent.py").write_text("# agent\n", encoding="utf-8")
     monkeypatch.setenv("HERMES_INSTALL_ROOT", str(root))
     store = tmp_path / "tools"
@@ -93,7 +95,7 @@ def test_sandbox_home_keeps_its_launchers_off_the_user_path(user_path_writes, tm
     The console environment is not stubbed: Windows builds it from the user's
     stored variables, so these overrides are exactly what a sandbox sets."""
     box = tmp_path / "box"
-    monkeypatch.setenv("HERMES_HOME", str(box / "hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(box / "loki"))
     monkeypatch.setenv("LOCALAPPDATA", str(box / "local"))
     monkeypatch.setenv("USERPROFILE", str(box / "user"))
 
@@ -105,7 +107,7 @@ def test_sandbox_home_keeps_its_launchers_off_the_user_path(user_path_writes, tm
 
 
 @pytest.mark.platforms("windows")
-@pytest.mark.parametrize("hermes_home", [None, ("hermes",), ("hermes", "profiles", "work")])
+@pytest.mark.parametrize("hermes_home", [None, ("loki",), ("loki", "profiles", "work")])
 def test_the_home_new_consoles_use_registers_its_bin(user_path_writes, hermes_home, tmp_path, monkeypatch):
     local = tmp_path / "local"
     monkeypatch.setenv("LOCALAPPDATA", str(local))
@@ -118,7 +120,7 @@ def test_the_home_new_consoles_use_registers_its_bin(user_path_writes, hermes_ho
     result = _launchers._expose_windows_user_bin(tmp_path / "checkout", create=True)
 
     assert result["path"] == "added"
-    assert user_path_writes == [local / "hermes" / "bin"]
+    assert user_path_writes == [local / "loki" / "bin"]
 
 
 @pytest.mark.platforms("windows")
@@ -158,7 +160,7 @@ def test_unknown_console_environment_leaves_the_user_path(user_path_writes, tmp_
 def test_new_console_environment_ignores_this_process(tmp_path, monkeypatch):
     """The real Win32 read: variables set only in this process are absent from a new console's environment."""
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "local"))
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "loki"))
     monkeypatch.setenv("HERMES_TEST_ONLY_IN_THIS_PROCESS", "1")
 
     environ = _launchers._new_console_environment()
@@ -167,7 +169,7 @@ def test_new_console_environment_ignores_this_process(tmp_path, monkeypatch):
     assert "HERMES_TEST_ONLY_IN_THIS_PROCESS" not in environ
     assert environ.get("LOCALAPPDATA")
     assert Path(environ["LOCALAPPDATA"]) != tmp_path / "local"
-    assert environ.get("HERMES_HOME") != str(tmp_path / "hermes")
+    assert environ.get("HERMES_HOME") != str(tmp_path / "loki")
 
 
 @pytest.mark.platforms("windows")
@@ -196,35 +198,35 @@ class TestExposeCli:
         assert _launchers.expose_cli(create=False) == {"ok": True, "written": []}
         assert not wrapper_dir.exists()
         assert not extra.exists()
-        assert {p.name for p in (root / ".hermes/bin").iterdir()} == set(_launchers.ENTRY_POINTS)
+        assert {p.name for p in (root / ".loki/bin").iterdir()} == set(_launchers.ENTRY_POINTS)
 
         # An owned ACP entry must be repaired even without an owned hermes
         # sibling admitting this directory. Its old target is already gone.
         extra.mkdir()
-        dangling = root / "venv/bin/hermes-acp"
-        acp = extra / "hermes-acp"
+        dangling = root / "venv/bin/loki-acp"
+        acp = extra / "loki-acp"
         acp.symlink_to(dangling)
         assert not acp.exists() and acp.is_symlink()
         foreign = b"#!/bin/sh\n# user-owned caf\xc3\xa9 command\nexit 19\n"
         if hermes == "foreign":
-            (extra / "hermes").write_bytes(foreign)
+            (extra / "loki").write_bytes(foreign)
         wrapper_dir.mkdir(parents=True)
-        (wrapper_dir / "hermes").write_bytes(foreign)
-        foreign_link = wrapper_dir / "hermes-acp"
+        (wrapper_dir / "loki").write_bytes(foreign)
+        foreign_link = wrapper_dir / "loki-acp"
         foreign_target = home / "other-install/hermes-acp"
         foreign_link.symlink_to(foreign_target)
-        before = {path: path.lstat().st_mtime_ns for path in (wrapper_dir, wrapper_dir / "hermes", foreign_link)}
+        before = {path: path.lstat().st_mtime_ns for path in (wrapper_dir, wrapper_dir / "loki", foreign_link)}
 
-        assert _launchers.expose_cli(create=False) == {"ok": True, "written": ["hermes-acp"]}
+        assert _launchers.expose_cli(create=False) == {"ok": True, "written": ["loki-acp"]}
         assert acp.is_file() and not acp.is_symlink() and os.access(acp, os.X_OK)
         assert not dangling.exists()
-        assert not (extra / "hermes-agent").exists()
-        assert not (wrapper_dir / "hermes-agent").exists()
+        assert not (extra / "loki-agent").exists()
+        assert not (wrapper_dir / "loki-agent").exists()
         if hermes == "foreign":
-            assert (extra / "hermes").read_bytes() == foreign
+            assert (extra / "loki").read_bytes() == foreign
         else:
-            assert not (extra / "hermes").exists()
-        assert (wrapper_dir / "hermes").read_bytes() == foreign
+            assert not (extra / "loki").exists()
+        assert (wrapper_dir / "loki").read_bytes() == foreign
         assert foreign_link.is_symlink() and foreign_link.readlink() == foreign_target
         assert before == {path: path.lstat().st_mtime_ns for path in before}
         assert _launchers.expose_cli(create=False) == {"ok": True, "written": []}
@@ -234,12 +236,12 @@ class TestExposeCli:
         home, root = fake_install
         result = _launchers.expose_cli()
         assert result["ok"] is True
-        assert sorted(result["written"]) == ["hermes", "hermes-acp", "hermes-agent"]
-        for name in ("hermes", "hermes-agent", "hermes-acp"):
+        assert sorted(result["written"]) == ["loki", "loki-acp", "loki-agent"]
+        for name in ("loki", "loki-agent", "loki-acp"):
             wrapper = home / ".local" / "bin" / name
             body = wrapper.read_text(encoding="utf-8-sig")
             assert str(root) in body
-            assert str(root / ".hermes" / "bin") in body
+            assert str(root / ".loki" / "bin") in body
             assert os.access(wrapper, os.X_OK)
 
 
@@ -250,13 +252,13 @@ class TestExposeCli:
         other = "/somewhere/else/checkout"
         wrapper_dir = home / ".local" / "bin"
         wrapper_dir.mkdir(parents=True)
-        foreign = f'#!/bin/sh\nexec "{other}/venv/bin/python" "{other}/hermes" "$@"\n'
-        (wrapper_dir / "hermes").write_text(foreign, encoding="utf-8")
+        foreign = f'#!/bin/sh\nexec "{other}/venv/bin/python" "{other}/loki" "$@"\n'
+        (wrapper_dir / "loki").write_text(foreign, encoding="utf-8")
         result = _launchers.expose_cli()
-        assert (wrapper_dir / "hermes").read_text(encoding="utf-8-sig") == foreign
-        assert "hermes" not in result["written"]
+        assert (wrapper_dir / "loki").read_text(encoding="utf-8-sig") == foreign
+        assert "loki" not in result["written"]
         # The other two had no file at all — those ARE written.
-        assert sorted(result["written"]) == ["hermes-acp", "hermes-agent"]
+        assert sorted(result["written"]) == ["loki-acp", "loki-agent"]
 
     @posix_only
     def test_config_gate_disables(self, fake_install, monkeypatch):
@@ -289,7 +291,7 @@ class TestExposeCli:
         (payload / "bin").mkdir(parents=True)
         (payload / "repo").mkdir()
         _write_bundled_stamp(payload / "repo")
-        for name in ("hermes", "hermes-agent", "hermes-acp"):
+        for name in ("loki", "loki-agent", "loki-acp"):
             (payload / "bin" / name).write_text("\x7fELF fake shim\n", encoding="utf-8")
         monkeypatch.setenv("HERMES_INSTALL_ROOT", str(payload / "repo"))
         if not create:
@@ -303,14 +305,14 @@ class TestExposeCli:
         self, fake_install, monkeypatch, tmp_path
     ):
         """The stamp is the shape authority. A venv-less checkout whose
-        PARENT happens to carry a bin/hermes (the installers' launcher
-        dir shares ~/.hermes with the checkout) must skip, not enter the
+        PARENT happens to carry a bin/loki (the installers' launcher
+        dir shares ~/.loki with the checkout) must skip, not enter the
         sealed branch — on every platform."""
         (tmp_path / "tools" / "facts.json").unlink()
         parent = tmp_path / "hermes-home"
         (parent / "bin").mkdir(parents=True)
-        (parent / "bin" / "hermes").write_text("#!/bin/sh\n# installer launcher\n", encoding="utf-8")
-        checkout = parent / "hermes-agent"
+        (parent / "bin" / "loki").write_text("#!/bin/sh\n# installer launcher\n", encoding="utf-8")
+        checkout = parent / "loki-agent"
         checkout.mkdir()
         monkeypatch.setenv("HERMES_INSTALL_ROOT", str(checkout))
         result = _launchers.expose_cli()
@@ -324,15 +326,15 @@ class TestExposeCli:
         home, root = fake_install
         wrapper_dir = home / ".local" / "bin"
         wrapper_dir.mkdir(parents=True)
-        console_script = root / "venv" / "bin" / "hermes"
+        console_script = root / "venv" / "bin" / "loki"
         console_script.write_text("# real console script\n", encoding="utf-8")
-        (wrapper_dir / "hermes").symlink_to(console_script)
+        (wrapper_dir / "loki").symlink_to(console_script)
         result = _launchers.expose_cli()
-        assert "hermes" in result["written"]
+        assert "loki" in result["written"]
         # The venv console script survives untouched…
         assert console_script.read_text(encoding="utf-8-sig") == "# real console script\n"
         # …and the link-dir entry is now a real file, not a symlink.
-        assert not (wrapper_dir / "hermes").is_symlink()
+        assert not (wrapper_dir / "loki").is_symlink()
 
 
 @pytest.mark.platforms("macos")
@@ -351,19 +353,19 @@ def test_direct_packaged_cli_exposes_shims_before_electron(tmp_path):
     bin_dir = payload / "bin"
     bin_dir.mkdir()
     code = f"import sys; sys.path.insert(0, {str(Path(__file__).resolve().parents[2])!r}); from hermes_cli.main import main; main()"
-    for name in ("hermes", "hermes-agent", "hermes-acp"):
+    for name in ("loki", "loki-agent", "loki-acp"):
         shim = bin_dir / name
         shim.write_text(f'#!/bin/sh\nexec {shlex.join([sys.executable, "-I", "-c", code])} "$@"\n', encoding="utf-8")
         shim.chmod(0o755)
-    env = dict(os.environ, HOME=str(home), HERMES_HOME=str(home / ".hermes"),
+    env = dict(os.environ, HOME=str(home), HERMES_HOME=str(home / ".loki"),
                HERMES_INSTALL_ROOT=str(repo), HERMES_RUNTIME_DIR=str(tmp_path / "tools"))
     # Execute the package CLI directly. No Electron process or linking helper runs.
     # `--help` reaches main()'s boot bootstrap (which owns expose_cli) before argparse
     # exits; `--version` is answered on the pre-import fast path and never gets there.
-    result = subprocess.run([str(bin_dir / "hermes"), "--help"], env=env,
+    result = subprocess.run([str(bin_dir / "loki"), "--help"], env=bind_fixture_child_env(env),
                             capture_output=True, text=True, timeout=30, encoding="utf-8", check=False)
     assert result.returncode == 0, result.stderr
-    for name in ("hermes", "hermes-agent", "hermes-acp"):
+    for name in ("loki", "loki-agent", "loki-acp"):
         assert (home / ".local/bin" / name).is_symlink()
         assert (home / ".local/bin" / name).resolve() == bin_dir / name
 
@@ -381,7 +383,7 @@ class TestSymlinkSealedLaunchers:
         monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
         payload_bin = tmp_path / "Hermes.app" / "Contents" / "Resources" / "agent-payload" / "bin"
         payload_bin.mkdir(parents=True)
-        for name in ("hermes", "hermes-agent", "hermes-acp"):
+        for name in ("loki", "loki-agent", "loki-acp"):
             (payload_bin / name).write_text("fake mach-o shim\n", encoding="utf-8")
         return home, payload_bin
 
@@ -389,8 +391,8 @@ class TestSymlinkSealedLaunchers:
         home, payload_bin = payload
         result = _launchers._symlink_sealed_launchers(payload_bin)
         assert result["ok"] is True
-        assert sorted(result["written"]) == ["hermes", "hermes-acp", "hermes-agent"]
-        for name in ("hermes", "hermes-agent", "hermes-acp"):
+        assert sorted(result["written"]) == ["loki", "loki-acp", "loki-agent"]
+        for name in ("loki", "loki-agent", "loki-acp"):
             link = home / ".local" / "bin" / name
             assert link.is_symlink()
             assert os.readlink(link) == str(payload_bin / name)
@@ -408,22 +410,22 @@ class TestSymlinkSealedLaunchers:
         old = payload_bin.parent / "bin-old"
         link_dir = home / ".local" / "bin"
         link_dir.mkdir(parents=True)
-        (link_dir / "hermes").symlink_to(old / "hermes")  # dangling, old payload path
+        (link_dir / "loki").symlink_to(old / "loki")  # dangling, old payload path
         result = _launchers._symlink_sealed_launchers(payload_bin)
-        assert "hermes" in result["written"]
-        assert os.readlink(link_dir / "hermes") == str(payload_bin / "hermes")
+        assert "loki" in result["written"]
+        assert os.readlink(link_dir / "loki") == str(payload_bin / "loki")
 
     def test_never_touches_a_live_foreign_entry(self, payload, tmp_path):
         home, payload_bin = payload
         link_dir = home / ".local" / "bin"
         link_dir.mkdir(parents=True)
         # A real file (pipx-style launcher)…
-        (link_dir / "hermes").write_text("#!/bin/sh\n# pipx launcher\n", encoding="utf-8")
+        (link_dir / "loki").write_text("#!/bin/sh\n# pipx launcher\n", encoding="utf-8")
         # …and a live symlink to a different tool.
         other = tmp_path / "other-tool"
         other.write_text("other\n", encoding="utf-8")
-        (link_dir / "hermes-agent").symlink_to(other)
+        (link_dir / "loki-agent").symlink_to(other)
         result = _launchers._symlink_sealed_launchers(payload_bin)
-        assert (link_dir / "hermes").read_text(encoding="utf-8-sig") == "#!/bin/sh\n# pipx launcher\n"
-        assert os.readlink(link_dir / "hermes-agent") == str(other)
-        assert sorted(result["written"]) == ["hermes-acp"]
+        assert (link_dir / "loki").read_text(encoding="utf-8-sig") == "#!/bin/sh\n# pipx launcher\n"
+        assert os.readlink(link_dir / "loki-agent") == str(other)
+        assert sorted(result["written"]) == ["loki-acp"]

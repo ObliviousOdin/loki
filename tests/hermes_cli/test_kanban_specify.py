@@ -71,19 +71,22 @@ def _patch_aux_client(content: str, *, model: str = "test-model"):
 
 def test_specify_task_happy_path(kanban_home):
     with kbc.connect() as conn:
-        tid = kb.create_task(conn, title="rough", triage=True)
+        tid = kb.create_task(conn, title="Hermes project", triage=True)
 
     content = jsonlib.dumps({
         "title": "Refined rough",
         "body": "**Goal**\nA concrete goal.",
     })
-    p, _ = _patch_aux_client(content)
+    p, called = _patch_aux_client(content)
     with p:
         outcome = spec.specify_task(tid, author="ace")
 
     assert outcome.ok is True
     assert outcome.task_id == tid
     assert outcome.new_title == "Refined rough"
+    messages = called.call_args.kwargs["messages"]
+    assert messages[0]["content"].startswith("You are the Kanban triage specifier for the Loki board.")
+    assert "Hermes project" in messages[1]["content"]
 
     with kbc.connect() as conn:
         task = kb.get_task(conn, tid)

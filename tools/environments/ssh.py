@@ -6,6 +6,7 @@ import logging
 import os
 import shlex
 import shutil
+import stat
 import subprocess
 import tempfile
 from pathlib import Path
@@ -61,8 +62,13 @@ class SSHEnvironment(BaseEnvironment):
                  probe_only: bool = False, sync_files: bool = True, persistent: bool = True):
         super().__init__(cwd=cwd, timeout=timeout, persist_env=persistent)
         self.host, self.user, self.port, self.key_path = host, user, port, key_path
-        self.control_dir = Path(tempfile.gettempdir()) / "hermes-ssh"
-        self.control_dir.mkdir(parents=True, exist_ok=True)
+        self.control_dir = Path(tempfile.gettempdir()) / "loki-ssh"
+        self.control_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
+        control_info = self.control_dir.lstat()
+        if (not stat.S_ISDIR(control_info.st_mode)
+                or getattr(control_info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+                or (hasattr(os, "getuid") and control_info.st_uid != os.getuid())):
+            raise EnvironmentConnectionError(f"Refusing unowned Loki SSH control directory: {self.control_dir}")
         # Short, deterministic socket name: the path must stay under macOS's 104-byte sun_path
         # limit (raw user@host:port + SSH's 16-byte suffix under a deep $TMPDIR exceeds it), and
         # stability across reconnects keeps ControlMaster reuse working. A probe gets its own
@@ -83,7 +89,7 @@ class SSHEnvironment(BaseEnvironment):
         if sync_files:
             self._ensure_remote_dirs()
             self._sync_manager = FileSyncManager(
-                get_files_fn=lambda: iter_sync_files(f"{self._remote_home}/.hermes"),
+                get_files_fn=lambda: iter_sync_files(f"{self._remote_home}/.loki"),
                 upload_fn=self._scp_upload, delete_fn=self._ssh_delete,
                 bulk_upload_fn=self._ssh_bulk_upload, bulk_download_fn=self._ssh_bulk_download)
             self._sync_manager.sync(force=True)
@@ -162,8 +168,8 @@ class SSHEnvironment(BaseEnvironment):
         return "/root" if self.user == "root" else f"/home/{self.user}"
 
     def _ensure_remote_dirs(self) -> None:
-        """Create base ~/.hermes directory tree on remote in one SSH call."""
-        base = f"{self._remote_home}/.hermes"
+        """Create base ~/.loki directory tree on remote in one SSH call."""
+        base = f"{self._remote_home}/.loki"
         self._run_ssh(quoted_mkdir_command([base, f"{base}/skills", f"{base}/credentials", f"{base}/cache"]),
                       timeout=10)
 
@@ -181,16 +187,12 @@ class SSHEnvironment(BaseEnvironment):
         connection to remote ``tar x``, after a single batched ``mkdir -p``."""
         if not files:
             return
-        base = f"{self._remote_home}/.hermes"
-        parents = unique_parent_dirs(files)
-        if parents:
-            self._run_ssh_checked(quoted_mkdir_command(parents), 30, "remote mkdir failed",
-                                  f"Remote directory setup on {self.host}")
+        base = f"{self._remote_home}/.loki"
 
         # Symlink staging avoids fragile GNU tar --transform rules. On Windows
         # without Developer Mode symlink creation raises OSError winerror 1314;
         # only that case falls back to a plain copy, other OSErrors re-raise.
-        with tempfile.TemporaryDirectory(prefix="hermes-ssh-bulk-") as staging:
+        with tempfile.TemporaryDirectory(prefix="loki-ssh-bulk-") as staging:
             for host_path, remote_path in files:
                 try:
                     rel_remote = os.path.relpath(remote_path, base)
@@ -206,6 +208,13 @@ class SSHEnvironment(BaseEnvironment):
                     if getattr(e, "winerror", None) != 1314:
                         raise
                     shutil.copy2(host_path, staged)
+
+            # Validate the entire upload set before creating anything on the
+            # remote host, including when a stale caller supplies a foreign root.
+            parents = unique_parent_dirs(files)
+            if parents:
+                self._run_ssh_checked(quoted_mkdir_command(parents), 30, "remote mkdir failed",
+                                      f"Remote directory setup on {self.host}")
 
             # --no-overwrite-dir keeps tar from stamping the staging dir's mode onto
             # existing dirs (e.g. /home/<user>); a umask-002 0775 home breaks sshd StrictModes.
@@ -245,11 +254,11 @@ class SSHEnvironment(BaseEnvironment):
         logger.debug("SSH: bulk-uploaded %d file(s) via tar pipe", len(files))
 
     def _ssh_bulk_download(self, dest: Path) -> None:
-        """Download remote .hermes/ as a tar archive."""
+        """Download remote .loki/ as a tar archive."""
         # Tar from / with the full path so archive entries keep absolute paths
-        # (home/user/.hermes/skills/f.py), matching _pushed_hashes keys.
-        rel_base = f"{self._remote_home}/.hermes".lstrip("/")
-        # Live sockets inside .hermes (gateway.sock and friends) cannot be archived: tar prints
+        # (home/user/.loki/skills/f.py), matching _pushed_hashes keys.
+        rel_base = f"{self._remote_home}/.loki".lstrip("/")
+        # Live sockets inside .loki (gateway.sock and friends) cannot be archived: tar prints
         # "socket ignored" and some builds exit 2, which failed every sync-back and left a
         # multi-GB temp tar behind on each retry. Exclude them up front.
         ssh_cmd = self._build_ssh_command() + [

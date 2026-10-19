@@ -25,7 +25,7 @@ def test_pinned_git_extracts_without_a_bzip2_capable_tar(tmp_path):
     driver.write_text(
         textwrap.dedent(f"""
             . '{INSTALLER}' -HermesHome '{tmp_path / "home"}'
-            $env:HERMES_RUNTIME_DIR = '{tmp_path / "tools"}'
+            $env:LOKI_RUNTIME_DIR = '{tmp_path / "tools"}'
             # This machine has no bzip2 (and nothing else to fall back on).
             $env:PATH = "$env:SystemRoot\\System32;$env:SystemRoot"
             $git = Get-PinnedGit

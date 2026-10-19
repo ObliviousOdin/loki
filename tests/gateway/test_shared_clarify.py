@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 
 def test_real_shared_clarify_survives_detach(tmp_path):
     home, state = tmp_path / 'home', tmp_path / 'state'
@@ -14,7 +16,7 @@ def test_real_shared_clarify_survives_detach(tmp_path):
     env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(state), PYTHONPATH=str(repo))
     result = subprocess.run(
         [sys.executable, str(Path(__file__).parent / 'fixtures' / 'authority_clarify_peer.py')],
-        cwd=repo, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, check=False)
+        cwd=repo, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=60, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert (state / 'clarify-passed').read_text() == 'reply reached real model; stale reply rejected'
 

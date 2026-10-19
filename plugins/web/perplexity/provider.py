@@ -36,6 +36,8 @@ Use Firecrawl / Exa / Parallel when a verbatim full-page dump is required.
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import logging
 from typing import Any, Dict, List
 from urllib.parse import urlparse
@@ -54,9 +56,9 @@ _KEY_URL = "https://www.perplexity.ai/account/api"
 # OpenCode, plus Perplexity's integration header. No per-user identifier and no separate
 # request; the call already carries the user's own API key.
 _HEADERS = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
-    "User-Agent": f"HermesAgent/{get_version_info().base_version}",
+    "HTTP-Referer": "https://github.com/ObliviousOdin/loki",
+    "X-Title": "Loki",
+    "User-Agent": CLIENT_USER_AGENT,
     "X-Pplx-Integration": "hermes-agent",
 }
 

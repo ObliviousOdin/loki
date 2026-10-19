@@ -19,6 +19,7 @@ import hermes_yaml
 from scripts.releases.job_groups import JOB_GROUPS
 
 ROOT = Path(__file__).resolve().parents[2]
+UPSTREAM_REPOSITORY = "NousResearch/hermes-agent"
 WORKFLOW = ROOT / ".github" / "workflows" / "desktop-bundled-release.yml"
 SMOKE_WORKFLOW = "./.github/workflows/desktop-bundle-smoke.yml"
 BUILD_CACHE_ACTION = "./.github/actions/desktop-build-cache"
@@ -207,7 +208,10 @@ def evaluate(expression, inputs, needs, *, cancelled=False, failed=False, job_if
 
     def value(match):
         bits = match[0].split('.')
-        result = {'inputs': inputs, 'needs': needs, 'github': github or {}, 'env': env or {}, 'steps': steps or {}}
+        # Replay inherited release contracts under their owner while preserving
+        # an explicitly supplied foreign repository for refusal assertions.
+        context_github = {'repository': UPSTREAM_REPOSITORY, **(github or {})}
+        result = {'inputs': inputs, 'needs': needs, 'github': context_github, 'env': env or {}, 'steps': steps or {}}
         for bit in bits:
             result = result.get(bit, '') if isinstance(result, dict) else ''
         return repr(result)

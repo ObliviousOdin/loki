@@ -49,18 +49,18 @@ def test_activation_real_setup_pm_lifecycle(tmp_path, served):
     core.mkdir()
     home = tmp_path / "home"
     home.mkdir()
-    hermes_home = home / ".hermes"
+    hermes_home = home / ".loki"
     runtime = tmp_path / "runtime"
     scratch = tmp_path / "tmp"
     scratch.mkdir()
     env = {
-        "PATH": os.environ["PATH"], "HOME": str(home), "HERMES_HOME": str(hermes_home),
-        "HERMES_RUNTIME_DIR": str(runtime), "SHELL": bash, "TMPDIR": str(scratch),
+        "PATH": os.environ["PATH"], "HOME": str(home), "LOKI_HOME": str(hermes_home),
+        "LOKI_RUNTIME_DIR": str(runtime), "SHELL": bash, "TMPDIR": str(scratch),
         "XDG_CONFIG_HOME": str(home / ".config"), "XDG_CACHE_HOME": str(home / ".cache"),
         "LANG": "C.UTF-8", "PYTHONNOUSERSITE": "1", "UV_OFFLINE": "1",
-        "UV_CACHE_DIR": str(home / ".cache" / "uv"), "UV_PYTHON_DOWNLOADS": "never",
+        "UV_CACHE_DIR": str(hermes_home / "cache" / "bootstrap-uv"), "UV_PYTHON_DOWNLOADS": "never",
     }
-    for name in ("activate", "setup-hermes.sh", "hermes_constants.py", "hermes_yaml.py", "utils.py",
+    for name in ("activate", "setup-hermes.sh", "loki_identity.py", "hermes_constants.py", "hermes_yaml.py", "utils.py",
                  "scripts/_activation.sh"):
         (core / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / name, core / name)
@@ -211,7 +211,7 @@ test "${PYTHONPATH-}" = "$prior_pythonpath" || exit 96
     assert Path(probe["module"]).is_relative_to(Path(first["environment"]))
     assert probe["pythonpath"].split(os.pathsep)[0] == str(core)
     # Cold activation builds both PM's isolated runtime and the app environment.
-    assert "Preparing the isolated Hermes runtime" in cold.stderr
+    assert "Preparing the isolated Loki runtime" in cold.stderr
     assert len(app_syncs()) == 1
     facts = json.loads((runtime / "facts.json").read_text())["packages"]
     assert facts["python"]["artifacts"] == [first_digest]

@@ -21,7 +21,10 @@
     "./skin": "./src/skin.ts",
     "./slash": "./src/slash.ts",
     "./theme-presets": "./src/theme-presets.ts",
-    "./usage-tick": "./src/usage-tick.ts"
+    "./usage-tick": "./src/usage-tick.ts",
+    "./branding": "./src/branding.ts",
+    "./loki-environment": "./src/loki-environment.mjs",
+    "./loki-bootstrap": "./src/loki-bootstrap.mjs"
   },
   "types": "./src/index.ts",
   "scripts": {

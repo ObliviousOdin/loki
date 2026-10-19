@@ -8,6 +8,7 @@ stderr line must always be printed alongside the diagnosis.
 """
 
 from hermes_cli import update_cmd
+from tests.hermes_cli.loki_update_fixtures import loki_git_batch
 
 
 RATE_LIMIT_STDERR = (
@@ -76,7 +77,7 @@ class TestClassifyFetchFailure:
             "fatal: Could not read from remote repository."
         )
         assert "SSH authentication failed" in msg
-        assert "https://github.com/NousResearch/hermes-agent.git" in msg
+        assert "https://github.com/ObliviousOdin/loki.git" in msg
 
     def test_ssh_host_key_failure_reports_ssh_auth(self):
         msg = update_cmd._classify_fetch_failure(
@@ -152,6 +153,8 @@ def test_update_and_upstream_network_calls_disable_terminal_prompts(monkeypatch,
 
     def run(cmd, **kwargs):
         calls.append((cmd[1:], kwargs))
+        if "cat-file" in cmd:
+            return subprocess.CompletedProcess(cmd, 0, loki_git_batch(kwargs["input"]), b"")
         return subprocess.CompletedProcess(cmd, 0, upstream if "rev-parse" in cmd else "", "")
 
     monkeypatch.setattr(subprocess, "run", run)

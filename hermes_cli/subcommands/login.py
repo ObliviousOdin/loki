@@ -30,7 +30,7 @@ def build_login_parser(subparsers, *, cmd_login: Callable) -> None:
     login_parser.add_argument(
         "--inference-url", help="Inference API base URL (default: production inference API)")
     login_parser.add_argument(
-        "--client-id", default=None, help="OAuth client id to use (default: hermes-cli)")
+        "--client-id", default=None, help="(deprecated) OAuth client id; ignored — see `loki model`")
     login_parser.add_argument("--scope", default=None, help="OAuth scope to request")
     login_parser.add_argument(
         "--no-browser", action="store_true",

@@ -26,7 +26,7 @@ from hermes_cli import _launchers
 
 SOURCE = Path(__file__).resolve().parents[2]
 # What a minted launcher imports before the application entry.
-BOOT = ("hermes_bootstrap.py", "hermes_constants.py", "hermes_cli/__init__.py", "hermes_cli/_launchers.py",
+BOOT = ("loki_identity.py", "hermes_bootstrap.py", "hermes_constants.py", "hermes_cli/__init__.py", "hermes_cli/_launchers.py",
         "hermes_cli/_early_recovery.py", "hermes_cli/_parser.py", "hermes_cli/runtime_state.py",
         "hermes_cli/venv_sync.py", "hermes_cli/steward.py", "hermes_cli/stderr_timestamp.py",
         "hermes_cli/update_lock.py", "hermes_cli/update_custody.py", "pm/environments.py",
@@ -48,7 +48,7 @@ def _killed_mid_write(tmp_path: Path, rel: str, committed: dict[str, str] | None
     for f, text in (committed or {}).items():
         (root / f).write_text(text, encoding="utf-8")
     (root / "hermes_cli/main.py").write_text("def main():\n    print('APP_REACHED')\n    return 0\n", encoding="utf-8")
-    env = {"HOME": str(home), "HERMES_HOME": str(home / ".hermes"), "PATH": os.environ.get("PATH", ""),
+    env = {"HOME": str(home), "HERMES_HOME": str(home / ".loki"), "PATH": os.environ.get("PATH", ""),
            "LANG": "C.UTF-8", "GIT_CONFIG_NOSYSTEM": "1", "GIT_CONFIG_GLOBAL": os.devnull}
     git_exe = shutil.which("git") or "git"
 
@@ -98,8 +98,8 @@ def _killed_mid_write(tmp_path: Path, rel: str, committed: dict[str, str] | None
     (root / ".git/info/attributes").unlink()
 
     (tmp_path / "bin").mkdir()
-    launcher = _launchers._mint_shell_launcher("hermes", tmp_path / "bin", Path(sys.executable),
-                                               _launchers._launcher_script("hermes", root, None))
+    launcher = _launchers._mint_shell_launcher("loki", tmp_path / "bin", Path(sys.executable),
+                                               _launchers._launcher_script("loki", root, None))
     assert launcher is not None
     return root, env, original, launcher
 
@@ -107,6 +107,8 @@ def _killed_mid_write(tmp_path: Path, rel: str, committed: dict[str, str] | None
 @pytest.mark.platforms("posix")
 @pytest.mark.parametrize(("rel", "torn", "published"), [
     ("hermes_bootstrap.py", False, True),
+    ("loki_identity.py", False, True),
+    ("loki_identity.py", True, False),
     ("hermes_cli/_early_recovery.py", True, True),
     ("hermes_cli/__init__.py", True, True),
     ("hermes_cli/update_lock.py", True, True),

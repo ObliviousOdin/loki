@@ -11,6 +11,8 @@ def test_cli_readers_observe_committed_state_during_writer_transaction(tmp_path)
     home.mkdir()
     env = {k: os.environ[k] for k in ('PATH', 'SYSTEMROOT', 'LANG', 'TZ') if k in os.environ}
     env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), HERMES_HOME=str(home), PYTHONPATH=str(repo))
+    from tests.loki_child_fixture import bind_fixture_child_env
+    env = bind_fixture_child_env(env)
     code = '''
 import os, subprocess, sys
 from pathlib import Path
@@ -37,7 +39,7 @@ with SessionDB(db_path=path) as owner:
                 elif command[0] == 'sessions':
                     assert 'Total sessions: 1' in result.stdout, result.stdout
                 else:
-                    assert 'Hermes Insights' in result.stdout, result.stdout
+                    assert 'Loki Insights' in result.stdout, result.stdout
                 assert owner._conn.in_transaction, 'reader disturbed owner transaction'
         finally:
             owner._conn.rollback()

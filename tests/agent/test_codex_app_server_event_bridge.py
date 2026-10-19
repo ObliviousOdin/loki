@@ -60,10 +60,10 @@ class TestCodexItemToToolName:
         so the codex-level event IS the display event — shown without the
         mcp.hermes-tools.* namespacing (from #26541 by @simpolism)."""
         assert _codex_item_to_tool_name(
-            {"type": "mcpToolCall", "server": "hermes-tools", "tool": "web_search"}
+            {"type": "mcpToolCall", "server": "loki-tools", "tool": "web_search"}
         ) == "web_search"
         assert _codex_item_to_tool_name(
-            {"type": "mcpToolCall", "server": "hermes-tools", "tool": "browser_navigate"}
+            {"type": "mcpToolCall", "server": "loki-tools", "tool": "browser_navigate"}
         ) == "browser_navigate"
 
 class TestCodexItemToArgs:

@@ -14,6 +14,8 @@ probe exercises the platform's actual lock semantics, not a stub.
 
 from __future__ import annotations
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 import json
 import os
 import queue
@@ -77,12 +79,12 @@ def _spawn_lock_holder(
     bin_dir: Path, home: Path, *, as_gateway: bool,
 ) -> tuple[subprocess.Popen[str], psutil.Process]:
     bin_dir.mkdir(parents=True, exist_ok=True)
-    script = bin_dir / ("hermes" if as_gateway else "holder.py")
+    script = bin_dir / ("loki" if as_gateway else "holder.py")
     script.write_text(_HOLDER.format(root=str(PROJECT_ROOT)), encoding="utf-8")
     argv = [sys.executable, str(script), *(["gateway", "run"] if as_gateway else [])]
     proc = subprocess.Popen(
         argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-        env={**os.environ, "HERMES_HOME": str(home)},
+        env=bind_fixture_child_env({**os.environ, "HERMES_HOME": str(home)}),
     )
     assert proc.stdout is not None
     line = _readline(proc.stdout).strip()

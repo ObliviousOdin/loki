@@ -127,12 +127,12 @@ def systemd_unit_hermes_home(scope_cmd: list, svc_name: str) -> str | None:
         tokens = shlex.split(env_line)
     except ValueError:
         tokens = env_line.split()
-    for token in tokens:
-        key, sep, value = token.partition("=")
-        if sep and key == "HERMES_HOME" and value.strip():
-            return value.strip()
+    declared = dict(token.split("=", 1) for token in tokens if "=" in token)
+    for key in ("LOKI_HOME", "HERMES_HOME"):
+        if declared.get(key, "").strip():
+            return declared[key].strip()
     if "--user" in scope_cmd:
-        return str(Path.home() / ".hermes")
+        return str(Path.home() / ".loki")
     return None
 
 
@@ -156,7 +156,10 @@ def launchd_label_foreign_home(label: str, scope: set[Path] | None = None) -> st
         if not plist_path.exists():
             return None
         data = plistlib.loads(plist_path.read_bytes())
-        pinned = str(data["EnvironmentVariables"]["HERMES_HOME"])
+        env = data.get("EnvironmentVariables") or {}
+        pinned = str(env.get("LOKI_HOME") or env.get("HERMES_HOME") or "")
+        if not pinned:
+            return None
         return None if home_in_update_scope(pinned, scope) else pinned
     return None
 

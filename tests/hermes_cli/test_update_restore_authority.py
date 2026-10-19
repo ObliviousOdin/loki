@@ -1,4 +1,6 @@
 """Maintenance must not replace the database behind a live authority."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 from contextlib import closing
 from http.server import ThreadingHTTPServer
@@ -113,7 +115,7 @@ def test_corrupt_epoch_refuses_profile_sweep_with_separate_recovery(tmp_path, mo
     for home in homes:
         assert ((home / 'state.db').read_bytes(), snapshots[home].read_bytes()) == originals[home]
     assert 'Auto-restored' not in output
-    assert 'separate' in output and 'hermes sessions recover' in output
+    assert 'separate' in output and 'loki sessions recover' in output
     assert 'restored copy also failed integrity' not in output
     for home in homes:
         report = recover_session_database(snapshots[home], home / 'recovered.db')
@@ -167,7 +169,7 @@ def test_update_restore_excludes_startup_until_publication(tmp_path, monkeypatch
         env.update(HOME=str(tmp_path / 'user'), HERMES_HOME=str(home), PYTHONPATH=str(root))
         contender = subprocess.run([sys.executable, '-c',
             "import logging, runpy; logging.basicConfig(level=logging.INFO); runpy.run_module('gateway.run', run_name='__main__')"],
-            cwd=root, env=env, stdin=subprocess.DEVNULL, capture_output=True,
+            cwd=root, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True,
             text=True, encoding='utf-8', timeout=25, check=False)
         assert 'already owns profile' in contender.stdout + contender.stderr, contender
         assert (destination.read_bytes(), source.read_bytes()) == before

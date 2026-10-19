@@ -22,11 +22,11 @@ def launchers(tmp_path, monkeypatch):
     monkeypatch.setattr(bot_relay, "__file__", str(module))
     old_bin = tmp_path / "old generation" / "bin"
     old_bin.mkdir(parents=True)
-    name = "hermes.exe" if sys.platform == "win32" else "hermes"
+    name = "loki.exe" if sys.platform == "win32" else "loki"
     sibling = old_bin / name
     sibling.touch()
     monkeypatch.setattr(sys, "executable", str(old_bin / "python"))
-    published = root / ".hermes" / "bin" / name
+    published = root / ".loki" / "bin" / name
     published.parent.mkdir(parents=True)
     return published, sibling
 
@@ -57,7 +57,7 @@ def test_path_then_bare_fallback_remain_available(launchers, monkeypatch):
     monkeypatch.setattr(bot_relay.shutil, "which", lambda name: "external-hermes")
     assert bot_relay._hermes_cli() == "external-hermes"
     monkeypatch.setattr(bot_relay.shutil, "which", lambda name: None)
-    assert bot_relay._hermes_cli() == "hermes"
+    assert bot_relay._hermes_cli() == "loki"
 
 
 @pytest.mark.platforms("windows")
@@ -77,6 +77,7 @@ def test_real_delivery_launcher_imports_new_generation(tmp_path, monkeypatch):
     # an editable test interpreter may also expose an older installed checkout.
     import shutil
     shutil.copyfile(real_root / "hermes_constants.py", root / "hermes_constants.py")
+    shutil.copy2(real_root / "loki_identity.py", root / "loki_identity.py")
     (package / "__init__.py").write_text(
         f"__path__.append({str(real_root / 'hermes_cli')!r})\n", encoding="utf-8")
     (package / "main.py").write_text(
@@ -92,9 +93,9 @@ def test_real_delivery_launcher_imports_new_generation(tmp_path, monkeypatch):
         "activate_dependencies(Path(__file__).resolve().parent)\n", encoding="utf-8")
     runtime = tmp_path / "runtime"
     monkeypatch.setenv("HERMES_RUNTIME_DIR", str(runtime))
-    out = root / ".hermes" / "bin"
+    out = root / ".loki" / "bin"
     out.mkdir(parents=True)
-    published = _launchers.mint_launcher("hermes", root, out, real_python, None)
+    published = _launchers.mint_launcher("loki", root, out, real_python, None)
     assert published is not None
     record = runtime_facts_path(root)
     record.parent.mkdir(parents=True, exist_ok=True)
@@ -107,7 +108,7 @@ def test_real_delivery_launcher_imports_new_generation(tmp_path, monkeypatch):
     (old_package / "main.py").write_text(
         "def main():\n    print('old-generation')\n    return 0\n", encoding="utf-8")
     (old_package.parent / "hermes_bootstrap.py").write_text("", encoding="utf-8")
-    assert _launchers.mint_launcher("hermes", old_package.parent, old_bin, real_python, None)
+    assert _launchers.mint_launcher("loki", old_package.parent, old_bin, real_python, None)
     monkeypatch.setattr(bot_relay, "__file__", str(root / "tools" / "bot_relay.py"))
     monkeypatch.setattr(sys, "executable", str(old_bin / "python.exe"))
     argv = _delivery_argv("researcher", str(tmp_path / "message&extra.txt"))
@@ -132,7 +133,7 @@ def test_real_delivery_launcher_imports_new_generation(tmp_path, monkeypatch):
     assert "old-generation" not in result.stdout
 
 
-@pytest.mark.parametrize("name", ["hermes", "hermes.exe"])
+@pytest.mark.parametrize("name", ["loki", "loki.exe"])
 def test_launcher_shape_preserves_profile_and_lock(tmp_path, monkeypatch, name):
     import contextlib
     from tools import bot_mode_dm, bot_mode_probe

@@ -25,8 +25,8 @@ def test_clone_retries_and_publishes_only_materialized_tree(tmp_path, materializ
     git("commit", "-m", "fixture")
     dest = tmp_path / "install"
     attempts = tmp_path / "attempts"
-    env = dict(os.environ, HOME=tmp_path.as_posix(), HERMES_HOME=(tmp_path / "home").as_posix(),
-               HERMES_INSTALL_DIR=dest.as_posix(), HERMES_REPO_URL=origin.as_posix())
+    env = dict(os.environ, HOME=tmp_path.as_posix(), LOKI_HOME=(tmp_path / "home").as_posix(),
+               LOKI_INSTALL_DIR=dest.as_posix(), LOKI_REPO_URL=origin.as_posix())
     # Inject throttling at the network boundary; the fallback and checkout use real Git.
     script = f'''source {shlex.quote((ROOT / 'scripts/install.sh').as_posix())} --manifest
 sleep() {{ :; }}
@@ -57,8 +57,8 @@ POWERSHELL = next((c for c in ("pwsh", "powershell") if shutil.which(c)), None)
 
 
 def _run_repository_stage(installer: str, tmp_path: Path, install: Path, origin_url: str) -> subprocess.CompletedProcess:
-    env = dict(os.environ, HOME=tmp_path.as_posix(), HERMES_HOME=(tmp_path / "home").as_posix(),
-               HERMES_INSTALL_DIR=install.as_posix(), HERMES_REPO_URL=origin_url)
+    env = dict(os.environ, HOME=tmp_path.as_posix(), LOKI_HOME=(tmp_path / "home").as_posix(),
+               LOKI_INSTALL_DIR=install.as_posix(), LOKI_REPO_URL=origin_url)
     if installer == "sh":
         script = f"source {shlex.quote((ROOT / 'scripts/install.sh').as_posix())} --manifest\nsleep() {{ :; }}\nstage_repository\n"
         return subprocess.run(["bash", "-c", script], env=env, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60, check=False)
@@ -70,7 +70,7 @@ def _run_repository_stage(installer: str, tmp_path: Path, install: Path, origin_
         for name in ("git.exe", "git"):
             if not (cmd / name).exists():
                 (cmd / name).symlink_to(shutil.which("git"))
-        env.update(HERMES_RUNTIME_DIR=str(tmp_path / "tools"), PATH=str(cmd) + os.pathsep + env["PATH"])
+        env.update(LOKI_RUNTIME_DIR=str(tmp_path / "tools"), PATH=str(cmd) + os.pathsep + env["PATH"])
     return subprocess.run([POWERSHELL, "-NoProfile", "-File", str(ROOT / "scripts" / "install.ps1"),
                            "-Stage", "repository", "-NonInteractive", "-InstallDir", str(install),
                            "-HermesHome", str(tmp_path / "home")],
@@ -96,6 +96,8 @@ def test_existing_treeless_checkout_is_refetched_before_update(tmp_path, install
     git(source, "init", "-b", "main")
     git(source, "config", "user.email", "fixture@example.invalid")
     git(source, "config", "user.name", "Fixture")
+    (source / "pyproject.toml").write_text('[project]\nname="obliviousodin-loki-agent"\n', encoding="utf-8")
+    git(source, "add", "pyproject.toml")
     for index in range(5):
         (source / "history.txt").write_text(f"commit {index}\n", encoding="utf-8")
         git(source, "add", "history.txt")

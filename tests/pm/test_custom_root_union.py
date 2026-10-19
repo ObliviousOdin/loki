@@ -37,7 +37,8 @@ def test_home_layout_joins_sibling_union(tmp_path, monkeypatch, layout):
     import hermes_constants
 
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    root = tmp_path / (".hermes" if layout == "default" else "data-root")
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
+    root = hermes_constants._get_platform_default_hermes_home() if layout == "default" else tmp_path / "data-root"
     active = root / "profiles/active" if layout == "profile" else root
     if layout == "default":
         monkeypatch.delenv("HERMES_HOME", raising=False)

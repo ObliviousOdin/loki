@@ -7,6 +7,8 @@ bookkeeping, PKCE login start, token-endpoint exchange and JWT verification live
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import base64
 import hashlib
 import logging
@@ -217,7 +219,7 @@ def make_jwks_client(jwks_url: str) -> Any:
 
     return PyJWKClient(
         jwks_url, cache_keys=True, lifespan=JWKS_CACHE_SECONDS,
-        headers={"Accept": "application/json", "User-Agent": "HermesAgent/1.0"})
+        headers={"Accept": "application/json", "User-Agent": CLIENT_USER_AGENT})
 
 
 def verify_jwt(

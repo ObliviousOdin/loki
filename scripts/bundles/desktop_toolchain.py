@@ -33,11 +33,17 @@ def bootstrap_environment(source: Path, work: Path, cache: Path,
              "UV_CACHE_DIR", "NPM_CONFIG_CACHE", "NPM_EXECPATH", "NPM_NODE_EXECPATH",
              "NPM_CONFIG_USERCONFIG", "NPM_CONFIG_GLOBALCONFIG", "NPM_CONFIG_PREFIX",
              "PYTHONUTF8", "PYTHONDONTWRITEBYTECODE", "CARGO_HOME", "RUSTUP_HOME"}
-    result = {key: value for key, value in env.items() if key.upper() not in _INSTALL_ENV | owned}
+    result = {key: value for key, value in env.items()
+              if key.upper() not in _INSTALL_ENV | owned
+              and not key.upper().startswith(("LOKI_", "HERMES_", "__HERMES_", "__LOKI_", "_HERMES_"))}
     canonical = {key.upper(): value for key, value in env.items()}
+    # This selector is build-only and validated by product-identity.cjs; it
+    # carries no user state. All runtime selectors above belong to this build.
+    if "LOKI_PREVIEW_PRIMARY" in canonical:
+        result["LOKI_PREVIEW_PRIMARY"] = canonical["LOKI_PREVIEW_PRIMARY"]
     # Rustup must still find the runner's installed toolchain after HOME moves.
     home_key = "USERPROFILE" if os.name == "nt" else "HOME"
-    original_home = Path(canonical.get("HERMES_REAL_HOME") or canonical.get(home_key) or Path.home())
+    original_home = Path(canonical.get(home_key) or Path.home())
     for key, directory in (("CARGO_HOME", ".cargo"), ("RUSTUP_HOME", ".rustup")):
         result[key] = canonical.get(key) or str(original_home / directory)
     home = work / "home"
@@ -45,8 +51,11 @@ def bootstrap_environment(source: Path, work: Path, cache: Path,
         "HOME": str(home), "USERPROFILE": str(home),
         "LOCALAPPDATA": str(home / "AppData/Local"),
         "APPDATA": str(home / "AppData/Roaming"),
-        "HERMES_HOME": str(work / "hermes-home"),
+        "LOKI_HOME": str(work / "loki-home"),
+        "LOKI_RUNTIME_DIR": str(cache / "tools"),
+        "HERMES_HOME": str(work / "loki-home"),
         "HERMES_RUNTIME_DIR": str(cache / "tools"),
+        "__LOKI_ENV_BOUND": "1",
         "HERMES_PYTHON_SRC_ROOT": str(source),
         "XDG_CONFIG_HOME": str(home / "config"), "XDG_CACHE_HOME": str(home / "cache"),
         "XDG_DATA_HOME": str(home / "data"), "XDG_STATE_HOME": str(home / "state"),

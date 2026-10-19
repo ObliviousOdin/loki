@@ -1,5 +1,7 @@
 """Base platform adapter interface; every platform adapter inherits from BasePlatformAdapter."""
 
+from loki_identity import CLIENT_USER_AGENT
+
 import asyncio
 import contextlib
 import inspect
@@ -29,14 +31,6 @@ from agent.proxy_bypass import first_proxy_env_value, should_bypass_proxy as _sh
 logger = logging.getLogger(__name__)
 
 
-def _consume_detached_handler_exception(task: asyncio.Task) -> None:
-    """Done-callback for a detached fatal-error handler task (carrier cancelled in
-    ``_notify_fatal_error``): retrieve its exception so asyncio never logs "never retrieved"."""
-    if task.cancelled():
-        return
-    exc = task.exception()
-    if exc is not None:
-        logger.error("Detached fatal-error handler task failed: %s", exc, exc_info=exc)
 
 
 # Audio exts for native audio delivery; Telegram's narrower sets stay separate (.m2a is audio to
@@ -218,7 +212,7 @@ def build_auto_tts_output_path(platform) -> str:
     from tools.tts_tool import OPUS_VOICE_PLATFORMS
     ext = "ogg" if _platform_name(platform) in OPUS_VOICE_PLATFORMS else "mp3"
     audio_path = os.path.join(
-        tempfile.gettempdir(), "hermes_voice", f"tts_reply_{uuid.uuid4().hex[:12]}.{ext}")
+        tempfile.gettempdir(), "loki_voice", f"tts_reply_{uuid.uuid4().hex[:12]}.{ext}")
     os.makedirs(os.path.dirname(audio_path), exist_ok=True)
     return audio_path
 
@@ -640,7 +634,7 @@ async def _cache_media_from_url(url: str, ext: str, retries: int, *, media_type:
     import httpx
     if not is_safe_url(url):
         raise ValueError(f"Blocked unsafe URL (SSRF protection): {safe_url_for_log(url)}")
-    headers = {"User-Agent": "Mozilla/5.0 (compatible; HermesAgent/1.0)", "Accept": accept}
+    headers = {"User-Agent": f"Mozilla/5.0 (compatible; {CLIENT_USER_AGENT})", "Accept": accept}
     async with create_ssrf_safe_async_client(
         timeout=30.0, follow_redirects=True, event_hooks={"response": [_ssrf_redirect_guard]},
     ) as client:
@@ -2184,7 +2178,8 @@ class BasePlatformAdapter(ABC):
             except asyncio.CancelledError:
                 # Carrier cancelled (our own teardown inside the handler): let it finish detached.
                 if not task.done():
-                    task.add_done_callback(_consume_detached_handler_exception)
+                    from gateway.platforms.base_tasks import consume_detached_handler_exception
+                    task.add_done_callback(consume_detached_handler_exception)
                 raise
 
     def _acquire_platform_lock(self, scope: str, identity: str, resource_desc: str) -> bool:

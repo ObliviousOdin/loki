@@ -734,7 +734,7 @@ def _heal_forked_single_use_oauth_grants(provider_id: str) -> Optional[dict[str,
         # Same seat belt as the write-through paths: never touch the real user's
         # ~/.hermes/auth.json from a test that forgot to isolate HOME.
         real_home_env = os.environ.get("HOME", "")
-        if real_home_env and _same_path(root_path, Path(real_home_env) / ".hermes" / "auth.json"):
+        if real_home_env and _same_path(root_path, Path(real_home_env) / ".loki" / "auth.json"):
             return None
     profile_path = _auth_file_path()
     profile_home = profile_path.parent

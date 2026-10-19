@@ -81,10 +81,11 @@ def tui_smoke(launcher: Path, env: dict[str, str], cwd: Path) -> None:
 
 def validate_update_refusal(project_root: Path, result: subprocess.CompletedProcess) -> None:
     from hermes_cli.update_contract import COMMIT_BUILD_UPDATE_MESSAGE, is_commit_build
+    from hermes_cli.steward import STEWARD_APT_TERMUX, STEWARD_UPDATE_MESSAGES
 
     # Commit artifacts have no update channel, even when installed through dpkg.
     commit_build = is_commit_build(project_root)
-    expected = COMMIT_BUILD_UPDATE_MESSAGE if commit_build else "pkg upgrade hermes-agent"
+    expected = COMMIT_BUILD_UPDATE_MESSAGE if commit_build else STEWARD_UPDATE_MESSAGES[STEWARD_APT_TERMUX]
     if result.returncode != 2 or expected not in result.stdout + result.stderr:
         raise RuntimeError(f"wrong updater refusal ({result.returncode}): {result.stdout}\n{result.stderr}")
     print("COMMIT_BUILD_UPDATE_REFUSAL_OK" if commit_build else "APT_UPDATE_REFUSAL_OK", flush=True)
@@ -92,11 +93,11 @@ def validate_update_refusal(project_root: Path, result: subprocess.CompletedProc
 
 def main() -> None:
     prefix = Path(os.environ["PREFIX"])
-    root = prefix / "lib/hermes-agent"
-    with tempfile.TemporaryDirectory(prefix="hermes-install-proof-", dir=prefix / "tmp") as tmp:
+    root = prefix / "lib/loki-agent"
+    with tempfile.TemporaryDirectory(prefix="loki-install-proof-", dir=prefix / "tmp") as tmp:
         home = Path(tmp)
         env = {
-            "PREFIX": str(prefix), "HOME": str(home), "HERMES_HOME": str(home / "state"),
+            "PREFIX": str(prefix), "HOME": str(home), "LOKI_HOME": str(home / "state"),
             "PATH": str(prefix / "bin"), "TERM": "xterm-256color", "LANG": "C.UTF-8",
             "LD_LIBRARY_PATH": ":".join((
                 str(root / "tools/python" / prefix.relative_to("/") / "lib"),
@@ -104,14 +105,14 @@ def main() -> None:
                 str(root / "tools/ffmpeg" / prefix.relative_to("/") / "lib"),
                 str(root / "runtime-libs/lib"), str(prefix / "lib"),
             )),
-            "HERMES_RUNTIME_DIR": str(root / "tools"),
+            "LOKI_RUNTIME_DIR": str(root / "tools"),
             "PYTHONPATH": str(root / "app"),
             "PYTHONPYCACHEPREFIX": str(home / "pycache"),
         }
-        launcher = prefix / "bin/hermes"
+        launcher = prefix / "bin/loki"
         run([str(launcher), "--version"], env, home)
         run([str(launcher), "chat", "--help"], env, home)
-        run([str(prefix / "bin/hermes-acp"), "--check"], env, home)
+        run([str(prefix / "bin/loki-acp"), "--check"], env, home)
         python = root / "venv/bin/python"
         run([
             str(python), "-c",

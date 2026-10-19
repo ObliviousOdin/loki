@@ -188,7 +188,7 @@ def test_canary_publisher_consumes_staged_bytes_and_writes_pointer_last(tmp_path
            'HERMES_PAYLOAD_TAG': tag, 'RELEASE_TAG': tag}
     # Use the real assembly identity derivation with a stable base available.
     for file in ['scripts/msix-shared.mjs', 'scripts/release-content-types.json',
-                 'apps/desktop/product-identity.cjs', 'apps/desktop/package.json']:
+                 'apps/desktop/product-identity.cjs', 'apps/desktop/preview-identity.cjs', 'apps/desktop/package.json']:
         target = tmp_path / file
         target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(ROOT / file, target)
@@ -202,8 +202,8 @@ def test_canary_publisher_consumes_staged_bytes_and_writes_pointer_last(tmp_path
 
     def assembly_identity():
         result = subprocess.run(['node', '--input-type=module', '-e',
-                                 'import {appIdentity} from "./scripts/msix-shared.mjs";'
-                                 'console.log(JSON.stringify(appIdentity(process.cwd()+"/apps/desktop")));'],
+                                 'import {appIdentity, OUT_OF_STORE_PUBLISHER} from "./scripts/msix-shared.mjs";'
+                                 'console.log(JSON.stringify({...appIdentity(process.cwd()+"/apps/desktop"), publisher: OUT_OF_STORE_PUBLISHER}));'],
                                 cwd=tmp_path, env=_child_env(**env), check=True, capture_output=True, text=True)
         return json.loads(result.stdout)
 
@@ -218,12 +218,24 @@ def test_canary_publisher_consumes_staged_bytes_and_writes_pointer_last(tmp_path
     bundle = release / filename
     with zipfile.ZipFile(bundle, 'w') as archive:
         archive.writestr('AppxMetadata/AppxBundleManifest.xml',
-                         '<Bundle><Identity Name="NousResearch.HermesBundledCanary" '
-                         'Publisher="CN=Nous Research Inc., O=Nous Research Inc., L=Austin, S=Texas, C=US" '
+                         f'<Bundle><Identity Name="{assembled["identity"]["msixAppIdWithOrg"]}" '
+                         f'Publisher="{assembled["publisher"]}" '
                          f'Version="{version}"/></Bundle>')
     tested_bytes = bundle.read_bytes()
     jobs = _workflow()['jobs']
+    # Replay the quarantined upstream publication protocol with this fork's real
+    # assembly identity. Only the local fake-transport selectors are adapted;
+    # the source workflow and its disabled publication authority remain intact.
+    for job in jobs.values():
+        for step in job.get('steps', []):
+            if 'run' in step:
+                step['run'] = step['run'].replace('HermesBundled', assembled['name']).replace(
+                    'Hermes*', assembled['name'] + '*')
     publisher = updater_publishers(jobs)['win32']
+
+    def replay_publisher(name):
+        script = next(step['run'] for step in jobs[publisher]['steps'] if step.get('name') == name)
+        return shell_step(tmp_path, r2_server, publisher, name, env, script=script)
     staged = shell_step(tmp_path, r2_server, '', '', env, script=stage_step(jobs[universal_assembler(jobs)])['run'])
     assert staged.returncode == 0, staged.stdout + staged.stderr
     assert all(key.startswith(f'releases/tag/{tag}/') for key in r2_server.store)
@@ -233,7 +245,7 @@ def test_canary_publisher_consumes_staged_bytes_and_writes_pointer_last(tmp_path
     git('tag', 'v0.28.1')
     assert assembly_identity()['version'] == version
     for name in ('Retrieve the tested universal bundle', 'Publish identical tested bytes without rebuilding'):
-        result = shell_step(tmp_path, r2_server, publisher, name, env)
+        result = replay_publisher(name)
         assert result.returncode == 0, result.stdout + result.stderr
     assert (tmp_path / 'staged' / filename).read_bytes() == tested_bytes
     assert r2_server.store[f'releases/win32/canary/{filename}'][0] == tested_bytes
@@ -246,13 +258,12 @@ def test_canary_publisher_consumes_staged_bytes_and_writes_pointer_last(tmp_path
 
     # The publication job must refuse an ambiguous envelope, even when a
     # caller accidentally broadens the receipt selector in future.
-    (tmp_path / 'staged/HermesBundled-0.29.0.0-win.msixbundle').write_bytes(tested_bytes)
+    (tmp_path / f'staged/{assembled["name"]}-0.29.0.0-win.msixbundle').write_bytes(tested_bytes)
     before = len(writes)
-    refused = shell_step(tmp_path, r2_server, publisher,
-                         'Publish identical tested bytes without rebuilding', env)
+    refused = replay_publisher('Publish identical tested bytes without rebuilding')
     assert refused.returncode != 0
     assert len([row for row in r2_server.requests if row[0] == 'PUT']) == before
-    (tmp_path / 'staged/HermesBundled-0.29.0.0-win.msixbundle').unlink()
+    (tmp_path / f'staged/{assembled["name"]}-0.29.0.0-win.msixbundle').unlink()
 
     # Filename, tag base, and baked identity must still agree. Reading the
     # accepted assembly version is not permission to trust arbitrary metadata.
@@ -265,16 +276,14 @@ def test_canary_publisher_consumes_staged_bytes_and_writes_pointer_last(tmp_path
         native.set(field, wrong)
         with zipfile.ZipFile(staged_bundle, 'w') as archive:
             archive.writestr('AppxMetadata/AppxBundleManifest.xml', ET.tostring(manifest))
-        refused = shell_step(tmp_path, r2_server, publisher,
-                             'Publish identical tested bytes without rebuilding', env)
+        refused = replay_publisher('Publish identical tested bytes without rebuilding')
         assert refused.returncode != 0, field
         assert len([row for row in r2_server.requests if row[0] == 'PUT']) == before
     staged_bundle.write_bytes(tested_bytes)
-    for wrong in ['HermesBundled-0.29.0.0-win.msixbundle', 'HermesBundled-0.28.1.65536-win.msixbundle',
-                  'HermesBundled-0.28.1-canary.20260818101010-win.msixbundle']:
+    for wrong in [f'{assembled["name"]}-0.29.0.0-win.msixbundle', f'{assembled["name"]}-0.28.1.65536-win.msixbundle',
+                  f'{assembled["name"]}-0.28.1-canary.20260818101010-win.msixbundle']:
         renamed = staged_bundle.rename(staged_bundle.with_name(wrong))
-        refused = shell_step(tmp_path, r2_server, publisher,
-                             'Publish identical tested bytes without rebuilding', env)
+        refused = replay_publisher('Publish identical tested bytes without rebuilding')
         assert refused.returncode != 0, wrong
         assert len([row for row in r2_server.requests if row[0] == 'PUT']) == before
         renamed.rename(staged_bundle)

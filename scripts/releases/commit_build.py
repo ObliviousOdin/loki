@@ -38,9 +38,13 @@ def version_at(repo: Path | None, commit: str, *, run=output) -> str:
     require_commit(commit)
     document = tomllib.loads(run(["git", "show", f"{commit}:pyproject.toml"], repo))
     version = document["project"]["version"]
-    if not isinstance(version, str) or not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
-        raise ValueError("Commit packaging requires project.version=X.Y.Z")
-    return version
+    if isinstance(version, str) and re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", version):
+        return version
+    preview = re.fullmatch(r"(\d+\.\d+\.\d+)(a|b|rc)(\d+)", version) if isinstance(version, str) else None
+    if document["project"].get("name") == "obliviousodin-loki-agent" and preview:
+        stage = {"a": "alpha", "b": "beta", "rc": "rc"}[preview[2]]
+        return f"{preview[1]}-{stage}.{preview[3]}"
+    raise ValueError("Commit packaging requires project.version=X.Y.Z or a Loki PEP 440 preview")
 
 
 def _controller(env: dict[str, str], commit: str, *, run=output,

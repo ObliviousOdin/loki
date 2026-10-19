@@ -58,11 +58,11 @@ test('null/undefined fields never match', () => {
 
 // --- isExternalVenvHolder (#62311) ------------------------------------------
 
-test('matches the autostart gateway shim (hermes.exe under venv Scripts)', () => {
+test('matches the autostart gateway shim (loki.exe under venv Scripts)', () => {
   assert.equal(
     isExternalVenvHolder(
-      'C:\\Hermes\\venv\\Scripts\\hermes.exe',
-      '"C:\\Hermes\\venv\\Scripts\\hermes.exe" gateway run --external-supervisor',
+      'C:\\Hermes\\venv\\Scripts\\loki.exe',
+      '"C:\\Hermes\\venv\\Scripts\\loki.exe" gateway run --external-supervisor',
       SCRIPTS
     ),
     true

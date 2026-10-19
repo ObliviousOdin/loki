@@ -11,7 +11,7 @@ import pytest
 
 @pytest.fixture
 def multiplex_root(tmp_path, monkeypatch):
-    root = tmp_path / "hermes"
+    root = tmp_path / "loki"
     (root / "profiles" / "coder").mkdir(parents=True)
     (root / "config.yaml").write_text("model: {default: x}\n")
     (root / "profiles" / "coder" / "config.yaml").write_text("model: {default: x}\n")
@@ -82,9 +82,9 @@ def test_named_gateway_is_never_the_default_profile_process(tmp_path, cmdline, m
 @pytest.mark.parametrize(
     ("cmdline", "expected"),
     [
-        ("HERMES_HOME={home}2 hermes gateway run", []),        # longer sibling home
-        ("HERMES_HOME={home}/ hermes gateway run", [424242]),  # trailing-separator spelling
-        ("HERMES_HOME={home} hermes gateway run", [424242]),   # exact home
+        ("HERMES_HOME={home}2 loki gateway run", []),        # longer sibling home
+        ("HERMES_HOME={home}/ loki gateway run", [424242]),  # trailing-separator spelling
+        ("HERMES_HOME={home} loki gateway run", [424242]),   # exact home
     ],
 )
 def test_scan_gateway_pids_claims_own_home_spellings_not_the_sibling(

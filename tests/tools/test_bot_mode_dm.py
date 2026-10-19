@@ -552,7 +552,7 @@ def test_delivery_pins_the_hermes_entrypoint_beside_this_interpreter(tmp_path, m
     this interpreter instead; a published launcher outranks that sibling (#124868)."""
     venv_bin = tmp_path / "venv" / ("Scripts" if sys.platform == "win32" else "bin")
     venv_bin.mkdir(parents=True)
-    hermes_entry = venv_bin / ("hermes.exe" if sys.platform == "win32" else "hermes")
+    hermes_entry = venv_bin / ("loki.exe" if sys.platform == "win32" else "loki")
     hermes_entry.write_text("#!/bin/sh\n", encoding="utf-8")
     monkeypatch.setattr(sys, "executable", str(venv_bin / "python3"))
     # An install without a published launcher keeps the sibling fallback; keep this
@@ -731,7 +731,7 @@ def test_live_dm_runner_retry_never_reexecutes_failed_admission(tmp_path, monkey
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: pytest.fail("must not launch a model turn"))
     dm_file = tmp_path / "message.txt"
     dm_file.write_text("hello", encoding="utf-8")
-    argv = ["hermes", "-p", "researcher"]
+    argv = ["loki", "-p", "researcher"]
     assert bot_mode_dm._run_delivery(argv, str(dm_file), stdin_file=False) == 0
     queued = json.loads(capsys.readouterr().out)
     assert queued["status"] == "queued"

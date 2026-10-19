@@ -16,6 +16,7 @@ import pytest
 
 from hermes_cli import update_cmd_commit as commit
 from hermes_cli.update_host_obligation import host_obligation_path
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
 
 
 @pytest.fixture(autouse=True)
@@ -131,6 +132,7 @@ def test_a_refused_pull_after_the_branch_switch_owes_the_head_the_switch_landed_
     up, clone = tmp_path / "up", tmp_path / "clone"
     up.mkdir()
     _git(up, "init", "-q", "-b", "main")
+    write_loki_source(up)
     (up / "f").write_text("A", encoding="utf-8")
     _git(up, "add", "-A")
     _git(up, "commit", "-qm", "A")
@@ -203,6 +205,7 @@ def _abc_clone(tmp_path, monkeypatch):
     up, clone = tmp_path / "up", tmp_path / "clone"
     up.mkdir()
     _git(up, "init", "-q", "-b", "main")
+    write_loki_source(up)
     shas = []
     for name in "ABC":
         (up / "f").write_text(name, encoding="utf-8")
@@ -277,6 +280,7 @@ def _repo_at_a(tmp_path, monkeypatch) -> tuple[Path, str]:
     repo = tmp_path / "repo"
     repo.mkdir()
     _git(repo, "init", "-q", "-b", "main")
+    write_loki_source(repo)
     (repo / "f").write_text("A", encoding="utf-8")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-qm", "A")

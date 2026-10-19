@@ -42,5 +42,5 @@ def test_delete_removes_a_pre_bat_windows_wrapper(home):
     profile_dir = create_profile("imported", no_alias=True)
     wrapper = home / ".local" / "bin" / "imported"
     wrapper.parent.mkdir(parents=True, exist_ok=True)
-    wrapper.write_text("@echo off\r\nhermes -p imported %*\r\n", encoding="utf-8")
+    wrapper.write_text("@echo off\r\nloki -p imported %*\r\n", encoding="utf-8")
     _delete_and_check(profile_dir, wrapper)

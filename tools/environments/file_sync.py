@@ -55,7 +55,7 @@ _SYNC_BACK_MAX_RETRIES = 3
 _SYNC_BACK_BACKOFF = (2, 4, 8)  # seconds between retries
 _SYNC_BACK_MAX_BYTES = 2 * 1024 * 1024 * 1024  # 2 GiB — refuse to extract larger tars
 _SYNC_BACK_MAX_BYTES_KEY = "sync_back_max_bytes"  # config.yaml terminal.<key>
-_SYNC_BACK_TEMP_PREFIX = "hermes-sync-back-"
+_SYNC_BACK_TEMP_PREFIX = "loki-sync-back-"
 # A sync-back temp entry (the downloaded tar or the extraction staging dir) is only leaked by
 # a hard kill (SIGKILL/OOM/power loss — the ``finally`` never runs). Entry names embed the
 # owning PID, so a dead owner's entry is reclaimed at once; the age cutoff covers the rest

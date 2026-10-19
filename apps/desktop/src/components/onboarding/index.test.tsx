@@ -53,7 +53,8 @@ describe('onboarding Picker', () => {
     render(<Picker ctx={ctx} />)
 
     expect(screen.getByText('Nous Portal')).toBeTruthy()
-    expect(screen.getByText('Recommended')).toBeTruthy()
+    expect(screen.queryByText('Recommended')).toBeNull()
+    expect(screen.getByText('Requires your own Nous account and an authorized OAuth client configured for Loki.')).toBeTruthy()
     // Fireworks stays behind the disclosure with the other alternatives; only
     // Nous Portal is visible before the user expands the list.
     expect(screen.queryByText('Fireworks AI')).toBeNull()
@@ -78,6 +79,31 @@ describe('onboarding Picker', () => {
     expect(screen.getByText('ChatGPT or Codex Subscription')).toBeTruthy()
     expect(screen.queryByText('Other sign-in options')).toBeNull()
     expect(screen.queryByText('Recommended')).toBeNull()
+  })
+
+  it('keeps Nous provider selection available after explaining its setup requirements', async () => {
+    const provider = makeOAuthProvider('nous', 'Nous Portal')
+    const start = vi.spyOn(await import('@/store/onboarding'), 'startProviderOAuth').mockResolvedValue()
+
+    try {
+      setProviders([provider])
+      render(<Picker ctx={ctx} />)
+      fireEvent.click(screen.getByRole('button', { name: /Nous Portal/ }))
+      expect(start).toHaveBeenCalledWith(provider, ctx)
+    } finally {
+      start.mockRestore()
+    }
+  })
+
+  it.each([
+    { badge: 'Connected', freeTier: false },
+    { badge: 'Free tier', freeTier: true }
+  ])('retains the backend-reported $badge badge', ({ badge, freeTier }) => {
+    const provider = makeOAuthProvider('nous', 'Nous Portal')
+    provider.status = { logged_in: true, free_tier: freeTier }
+    setProviders([provider])
+    render(<Picker ctx={ctx} />)
+    expect(screen.getByText(badge)).toBeTruthy()
   })
 
   it('offers "choose later" on first run and persists the skip', () => {

@@ -27,8 +27,10 @@ def test_selected_sqlite_controls_completion_and_action_receipt(tmp_path, monkey
     assert (message in output) is (verdict != 'unsafe')
     assert ('=== hermes-update completed' in output) is (verdict != 'unsafe' and action_id != 'invalid')
     if verdict == 'unsafe':
-        for text in ('SQLite (3.46.1)', 'corruption bug', 'run the installer again', 'hermes doctor'):
+        for text in ('SQLite (3.46.1)', 'corruption bug', 'run the installer again', 'loki doctor'):
             assert text in output
+        assert "https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md" in output
+        assert "hermes-agent.nousresearch.com/install" not in output
     elif action_id != 'invalid':
         assert f'=== hermes-update completed {action_id} ===' in output
 

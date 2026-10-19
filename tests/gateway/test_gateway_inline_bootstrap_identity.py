@@ -27,7 +27,7 @@ from hermes_cli.update_cmd_windows import _hermes_holder_subcommand
 
 ROOT = Path("/opt/Hermes Agent/hermes-agent")
 PY = "/opt/venv/bin/python3"
-_SCRIPT = _launchers._launcher_script("hermes", ROOT, None)
+_SCRIPT = _launchers._launcher_script("loki", ROOT, None)
 _JOINS = {"space-joined": " ".join, "windows": subprocess.list2cmdline}
 
 
@@ -35,7 +35,7 @@ def _payload_launcher(argv: list[str]) -> list[str]:
     """The payload ``bin/hermes`` exec line, rendered by the real payload builder."""
     from scripts.build.launchers import posix_launcher
 
-    script = posix_launcher("hermes", "hermes_cli.main:main", python="tools/python/bin/python3",
+    script = posix_launcher("loki", "loki:main", python="tools/python/bin/python3",
                             repo="hermes-agent", site="venv/lib/python3.14/site-packages", target="linux-x64")
     exec_line = next(line for line in script.splitlines() if line.startswith("exec "))
     _, _python, *launch, _args = shlex.split(exec_line)
@@ -109,11 +109,12 @@ def test_payload_launcher_maps_to_the_module_spelling(split) -> None:
 
 
 @pytest.mark.parametrize("join", _JOINS)
-@pytest.mark.parametrize("module", ["not_hermes_cli.main", "foreign.hermes_cli.main", "hermes_cli.main_x"])
+@pytest.mark.parametrize("module", ["not_hermes_cli.main", "foreign.hermes_cli.main", "hermes_cli.main_x",
+                                    "not_loki", "foreign.loki", "loki_x"])
 def test_payload_launcher_shape_with_another_entry_module_is_not_hermes(module: str, join: str) -> None:
     launch = _payload_launcher(["gateway", "run"])
     launch[launch.index("-c") + 1] = launch[launch.index("-c") + 1].replace(
-        "from hermes_cli.main import", f"from {module} import")
+        "from loki import", f"from {module} import")
     command_line = _JOINS[join](launch)
     assert inline_bootstrap_argv(launch) is None
     assert not looks_like_gateway_command_line(command_line)
@@ -153,14 +154,14 @@ def test_live_payload_launched_gateway_is_found_for_its_home(argv, profile, foun
     started through the payload ``bin/hermes`` proves its home's runtime record (#127865)."""
     import hermes_constants
 
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     home = root / "profiles" / profile if profile else root
     home.mkdir(parents=True)
     monkeypatch.setattr(hermes_constants.Path, "home", lambda: tmp_path)
     monkeypatch.setenv("HERMES_HOME", str(root))
     monkeypatch.setattr(hermes_constants, "_default_hermes_root_memo", None, raising=False)
     record = {
-        "pid": 4242, "kind": "hermes-gateway", "gateway_state": "running", "start_time": 1000,
+        "pid": 4242, "kind": "loki-gateway", "gateway_state": "running", "start_time": 1000,
         "argv": ["/opt/hermes/hermes-agent/hermes_cli/main.py", *argv], "hermes_home": str(home),
     }
     (home / "gateway_state.json").write_text(json.dumps(record), encoding="utf-8")

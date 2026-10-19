@@ -1,7 +1,7 @@
 import React from 'react'
 import { describe, expect, it, vi } from 'vitest'
 
-import { StatusRule } from '../components/appChrome.js'
+import { displayStatus, StatusRule } from '../components/appChrome.js'
 import { DEFAULT_THEME } from '../theme.js'
 
 type ReactNodeLike = React.ReactNode
@@ -105,6 +105,13 @@ const baseProps = {
 }
 
 describe('StatusRule model label', () => {
+  it('brands only known startup states and preserves model and live progress text', () => {
+    expect(displayStatus('summoning hermes…')).toBe('summoning Loki…')
+    expect(displayStatus('summoning Loki…')).toBe('summoning Loki…')
+    expect(textContent(StatusRule({ ...baseProps, status: 'summoning Loki…' }))).toContain('summoning Loki…')
+    expect(displayStatus('loading Hermes-3 from my provider')).toBe('loading Hermes-3 from my provider')
+  })
+
   it('shows a clamped effort as what the route sends, never as a distinct level (#61634)', () => {
     const clamped = textContent(
       StatusRule({ ...baseProps, modelReasoningEffort: 'ultra', modelReasoningEffortWire: 'max' })

@@ -48,7 +48,7 @@ test('backend runs the store toolchain even after the login-shell PATH is merged
   // `hermes desktop` hands Electron a PATH with the PM store first; the
   // login-shell merge then puts nvm/Homebrew ahead of it in process.env.
   const env: Record<string, string> = {
-    PATH: '/Users/u/.hermes/tools/node-26.7.0-darwin-arm64/bin:/Users/u/.hermes/tools/uv-0.12.3-darwin-arm64:/usr/bin:/bin'
+    PATH: '/Users/u/.loki/tools/node-26.7.0-darwin-arm64/bin:/Users/u/.loki/tools/uv-0.12.3-darwin-arm64:/usr/bin:/bin'
   }
 
   const loginPath = '/Users/u/.nvm/versions/node/v20.0.0/bin:/opt/homebrew/bin:/usr/bin'
@@ -65,8 +65,8 @@ test('backend runs the store toolchain even after the login-shell PATH is merged
   const backend = buildDesktopBackendEnv({ currentEnv: env, platform: 'darwin', homedir: '/Users/u' })
 
   assert.deepEqual(backend.PATH.split(':').slice(0, 5), [
-    '/Users/u/.hermes/tools/node-26.7.0-darwin-arm64/bin',
-    '/Users/u/.hermes/tools/uv-0.12.3-darwin-arm64',
+    '/Users/u/.loki/tools/node-26.7.0-darwin-arm64/bin',
+    '/Users/u/.loki/tools/uv-0.12.3-darwin-arm64',
     '/Users/u/.nvm/versions/node/v20.0.0/bin',
     '/opt/homebrew/bin',
     '/usr/bin'
@@ -79,7 +79,7 @@ test('HERMES_RUNTIME_DIR names the store; look-alike prefixes are not Hermes-own
   const backend = buildDesktopBackendEnv({
     currentEnv: {
       HERMES_RUNTIME_DIR: store,
-      PATH: `/opt/homebrew/bin:/Users/u/.hermes/tools-old/bin:${store}/npm-12.0.2-darwin-arm64/bin:/usr/bin`
+      PATH: `/opt/homebrew/bin:/Users/u/.loki/tools-old/bin:${store}/npm-12.0.2-darwin-arm64/bin:/usr/bin`
     },
     platform: 'darwin',
     homedir: '/Users/u'
@@ -88,7 +88,7 @@ test('HERMES_RUNTIME_DIR names the store; look-alike prefixes are not Hermes-own
   assert.deepEqual(backend.PATH.split(':').slice(0, 4), [
     `${store}/npm-12.0.2-darwin-arm64/bin`,
     '/opt/homebrew/bin',
-    '/Users/u/.hermes/tools-old/bin',
+    '/Users/u/.loki/tools-old/bin',
     '/usr/bin'
   ])
 })
@@ -121,30 +121,30 @@ test('buildDesktopBackendEnv forces PYTHONUTF8 unless the user set it explicitly
 
 test('normalizeHermesHomeRoot expands a literal leading ~ against the home directory, not cwd', () => {
   assert.equal(
-    normalizeHermesHomeRoot('~/.hermes', { pathModule: path.posix, homedir: '/Users/test' }),
-    '/Users/test/.hermes'
+    normalizeHermesHomeRoot('~/.loki', { pathModule: path.posix, homedir: '/Users/test' }),
+    '/Users/test/.loki'
   )
   assert.equal(
-    normalizeHermesHomeRoot('~/.hermes/profiles/oracle', { pathModule: path.posix, homedir: '/Users/test' }),
-    '/Users/test/.hermes'
+    normalizeHermesHomeRoot('~/.loki/profiles/oracle', { pathModule: path.posix, homedir: '/Users/test' }),
+    '/Users/test/.loki'
   )
   assert.equal(
-    normalizeHermesHomeRoot('~\\.hermes', { pathModule: path.win32, homedir: 'C:\\Users\\test' }),
-    'C:\\Users\\test\\.hermes'
+    normalizeHermesHomeRoot('~\\.loki', { pathModule: path.win32, homedir: 'C:\\Users\\test' }),
+    'C:\\Users\\test\\.loki'
   )
   assert.equal(normalizeHermesHomeRoot('~', { pathModule: path.posix, homedir: '/Users/test' }), '/Users/test')
 })
 
 test('normalizeHermesHomeRoot maps profile homes back to the global Hermes root', () => {
   assert.equal(
-    normalizeHermesHomeRoot('/Users/test/.hermes/profiles/oracle', { pathModule: path.posix }),
-    '/Users/test/.hermes'
+    normalizeHermesHomeRoot('/Users/test/.loki/profiles/oracle', { pathModule: path.posix }),
+    '/Users/test/.loki'
   )
   assert.equal(
     normalizeHermesHomeRoot('C:\\Users\\test\\AppData\\Local\\hermes\\profiles\\oracle', { pathModule: path.win32 }),
     'C:\\Users\\test\\AppData\\Local\\hermes'
   )
-  assert.equal(normalizeHermesHomeRoot('/Users/test/.hermes', { pathModule: path.posix }), '/Users/test/.hermes')
+  assert.equal(normalizeHermesHomeRoot('/Users/test/.loki', { pathModule: path.posix }), '/Users/test/.loki')
 })
 
 test('pathEnvKey finds the platform-cased PATH key', () => {

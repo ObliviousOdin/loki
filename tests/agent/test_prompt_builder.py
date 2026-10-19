@@ -361,7 +361,8 @@ class TestBuildContextFilesPrompt:
         with patch("pathlib.Path.home", return_value=fake_home):
             result = build_context_files_prompt(cwd=str(tmp_path))
         assert "Project Context" in result
-        assert "Hermes Agent" in result
+        assert "You are Loki, a personal AI agent." in result
+        assert "Hermes Agent" not in result
 
     def test_loads_agents_md(self, tmp_path):
         (tmp_path / "AGENTS.md").write_text("Use Ruff for linting.")
@@ -441,7 +442,7 @@ class TestBuildContextFilesPrompt:
         assert "Project Context" in result
 
     def test_hermes_md_still_wins_over_agents_override(self, tmp_path):
-        (tmp_path / ".hermes.md").write_text("Hermes-first context.")
+        (tmp_path / ".loki.md").write_text("Hermes-first context.")
         (tmp_path / "AGENTS.override.md").write_text("Override context.")
         result = build_context_files_prompt(cwd=str(tmp_path))
         assert "Hermes-first context" in result
@@ -477,7 +478,7 @@ class TestBuildContextFilesPrompt:
 
 
 
-    # --- .hermes.md / HERMES.md discovery ---
+    # --- .loki.md / LOKI.md discovery ---
 
 
 
@@ -514,14 +515,14 @@ class TestBuildContextFilesPrompt:
 
 
 # =========================================================================
-# .hermes.md helper functions
+# .loki.md helper functions
 # =========================================================================
 
 
 class TestFindHermesMd:
     def test_finds_in_cwd(self, tmp_path):
-        (tmp_path / ".hermes.md").write_text("rules")
-        assert _find_hermes_md(tmp_path) == tmp_path / ".hermes.md"
+        (tmp_path / ".loki.md").write_text("rules")
+        assert _find_hermes_md(tmp_path) == tmp_path / ".loki.md"
 
 
 
@@ -541,10 +542,10 @@ class TestFindHermesMd:
 
     def test_walks_to_git_root(self, tmp_path):
         (tmp_path / ".git").mkdir()
-        (tmp_path / ".hermes.md").write_text("root rules")
+        (tmp_path / ".loki.md").write_text("root rules")
         sub = tmp_path / "a" / "b"
         sub.mkdir(parents=True)
-        assert _find_hermes_md(sub) == tmp_path / ".hermes.md"
+        assert _find_hermes_md(sub) == tmp_path / ".loki.md"
 
 
 
@@ -552,14 +553,14 @@ class TestFindHermesMd:
         """Outside a git repo, only cwd is checked — parents are NOT walked.
 
         Walking parents with no git root to stop the loop would climb all
-        the way to / and pick up a .hermes.md planted in /tmp, /home, or /
+        the way to / and pick up a .loki.md planted in /tmp, /home, or /
         on a shared system — a cross-user prompt-injection vector.
         """
         from unittest.mock import patch
 
         parent = tmp_path / "parent"
         parent.mkdir()
-        (parent / ".hermes.md").write_text("planted by another user")
+        (parent / ".loki.md").write_text("planted by another user")
         cwd = parent / "work"
         cwd.mkdir()
         # No git root anywhere up the tree.
@@ -1013,7 +1014,7 @@ class TestBuildSkillsSystemPromptConditional:
 class TestContextFileReadTimeout:
     def test_slow_hermes_md_is_skipped_and_agents_md_still_loads(self, tmp_path, monkeypatch, caplog):
         (tmp_path / ".git").mkdir()
-        (tmp_path / ".hermes.md").write_text("Hermes project rules.")
+        (tmp_path / ".loki.md").write_text("Hermes project rules.")
         (tmp_path / "AGENTS.md").write_text("Agent fallback rules.")
         # Patch the module object build_context_files_prompt actually closes
         # over: an earlier test re-imports agent.prompt_builder, so the
@@ -1024,7 +1025,7 @@ class TestContextFileReadTimeout:
         original_read_text = Path.read_text
 
         def slow_read_text(self, *args, **kwargs):
-            if self.name == ".hermes.md":
+            if self.name == ".loki.md":
                 time.sleep(0.6)
             return original_read_text(self, *args, **kwargs)
 

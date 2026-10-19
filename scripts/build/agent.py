@@ -13,7 +13,8 @@ from scripts.build.inputs import AgentInputs, RESOURCE_ENV, project_entries, val
 from scripts.build.launchers import write_launchers
 
 
-def _copy(source: Path, destination: Path, *, replace: bool = False) -> None:
+def _copy(source: Path, destination: Path, *, replace: bool = False,
+          root_excludes: tuple[str, ...] = ()) -> None:
     if source.resolve() == destination.resolve():
         return
     if destination.resolve().is_relative_to(source.resolve()) or source.resolve().is_relative_to(destination.resolve()):
@@ -22,8 +23,12 @@ def _copy(source: Path, destination: Path, *, replace: bool = False) -> None:
         shutil.rmtree(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
     if source.is_dir():
-        shutil.copytree(source, destination, symlinks=True, dirs_exist_ok=True,
-                        ignore=shutil.ignore_patterns("__pycache__", ".git"))
+        def ignore(directory, names):
+            excluded = set(shutil.ignore_patterns("__pycache__", ".git")(directory, names))
+            if Path(directory) == source:
+                excluded.update(set(names).intersection(root_excludes))
+            return excluded
+        shutil.copytree(source, destination, symlinks=True, dirs_exist_ok=True, ignore=ignore)
     else:
         shutil.copy2(source, destination)
 
@@ -34,10 +39,10 @@ def plant_surfaces(repo: Path, frontends: dict[str, Path]) -> None:
     if "tui" in frontends:
         tui = frontends["tui"]
         destination = repo / "hermes_cli/tui_dist"
-        _copy(tui / "dist", destination, replace=True)
+        _copy(tui / "dist", destination, replace=True, root_excludes=("hermes-build.json",))
         _copy(tui / "package.json", destination / "package.json")
     if "web" in frontends:
-        _copy(frontends["web"], repo / "hermes_cli/web_dist", replace=True)
+        _copy(frontends["web"], repo / "hermes_cli/web_dist", replace=True, root_excludes=("hermes-build.json",))
 
 
 def write_metadata(project_path: Path, repo: Path) -> None:
@@ -143,7 +148,9 @@ def assemble(inputs: AgentInputs, out: Path) -> dict:
                 "launchers": list(entries), "runtime": {
                     "repoDir": str(inputs.code) if referenced else inputs.repo,
                     "toolsDir": tools, "storePython": python,
-                    "sitePackages": site, "commands": commands}}
+                    "sitePackages": site, "commands": {
+                        {"loki": "hermes", "loki-agent": "hermes-agent", "loki-acp": "hermes-acp"}.get(name, name): command
+                        for name, command in commands.items()}}}
     if inputs.ref is not None:
         manifest["ref"] = inputs.ref
     manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

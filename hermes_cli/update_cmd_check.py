@@ -90,11 +90,11 @@ def channel_compare_branch(selected_channel: str, git_cmd: list[str], root: Path
         print(f"✓ Up to date with the latest release ({target.label}).")
     elif _git(git_cmd, root, ["merge-base", "--is-ancestor", target.commit, "HEAD"]).returncode == 0:
         print(f"→ This checkout is newer than the selected release: {target.label}.")
-        print("  `hermes update` moves it back to that release"
-              " (`hermes update --set-channel main` follows every commit).")
+        print("  `loki update` moves it back to that release"
+              " (`loki update --set-channel main` follows every commit).")
     else:
         print(f"→ Selected release available: {target.label}")
-        print("  Run `hermes update` to install it.")
+        print("  Run `loki update` to install it.")
     return None
 
 

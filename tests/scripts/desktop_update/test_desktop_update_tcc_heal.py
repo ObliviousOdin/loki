@@ -132,7 +132,7 @@ class TestAnchorHeal:
             assert alias.read_text(encoding="utf-8") == GOOD_STUB
         assert (bin_dir / ".tcc-anchor-source").exists()
         assert not list(bin_dir.glob("*tcc-heal*"))
-        assert "invoke=" in out and out.endswith("/venv/bin/hermes")
+        assert "invoke=" in out and out.endswith("/venv/bin/loki")
 
     def test_full_brick_restored_to_symlinks(self, tmp_path):
         """Anchored copy AND aliases dead, marker source alive: restore the
@@ -215,7 +215,7 @@ class TestUpdateInvokeFallback:
         root = make_venv(tmp_path, python=GOOD_STUB, python3=GOOD_STUB,
                          marker=None)
         out = run_selftest(root)
-        assert out.endswith("/venv/bin/hermes")
+        assert out.endswith("/venv/bin/loki")
 
 
 @requires_bash
@@ -223,7 +223,7 @@ class TestHandoffSurvivesBrickAB:
     """A/B analog of the reported loop: `venv/bin/hermes` execs python3."""
 
     def _make_hermes(self, root: Path) -> Path:
-        hermes = root / "venv/bin/hermes"
+        hermes = root / "venv/bin/loki"
         _write_exe(
             hermes,
             "#!/usr/bin/env bash\n"

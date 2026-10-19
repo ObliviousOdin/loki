@@ -1,4 +1,4 @@
-"""Safe Hermes Console command engine."""
+"""Safe Loki Console command engine."""
 
 from __future__ import annotations
 
@@ -93,7 +93,8 @@ def _strip_console_status_footer(text: str) -> str:
     if len(lines) < 2:
         return text.rstrip()
     last, prev = (_strip_ansi(lines[i]).strip() for i in (-1, -2))
-    if not (prev.startswith("Run 'hermes doctor'") and last.startswith("Run 'hermes setup'")):
+    if not any(prev.startswith(f"Run '{brand} doctor'") and last.startswith(f"Run '{brand} setup'")
+               for brand in ("loki", "hermes")):
         return text.rstrip()
     lines = lines[:-2]
     _drop_trailing_blank(lines)
@@ -151,7 +152,7 @@ def _clean_summary(text: str | None) -> str:
     if not text or text is argparse.SUPPRESS:
         return ""
     summary = " ".join(str(text).split())
-    return "" if summary.startswith("Run `hermes ") else summary
+    return "" if summary.startswith(("Run `loki ", "Run `hermes ")) else summary
 
 
 def _choice_help(action: argparse._SubParsersAction, name: str) -> str:
@@ -200,7 +201,7 @@ class _CliSurface:
 
     def build(self, root: str, *, live: bool) -> _ArgumentParser:
         """Build a throwaway parser; ``live=False`` wires no-op handlers (summary extraction)."""
-        parser = _ArgumentParser(prog="hermes", add_help=False)
+        parser = _ArgumentParser(prog="loki", add_help=False)
         subparsers = parser.add_subparsers(dest="_console_command")
         module = importlib.import_module(self.module)
         entry = getattr(module, self.builder)
@@ -220,6 +221,8 @@ class _CliSurface:
                 top_parser.set_defaults(func=main_handler())
         else:
             entry(subparsers)
+        from hermes_cli.loki_branding import parser_help_templates
+        parser_help_templates(parser)
         return parser
 
 
@@ -345,8 +348,8 @@ def _register_command_family(
             return _dispatch(surface, root, fixed, args, namespace_update)
 
         engine.register(
-            full_path, usage, summaries.get(full_path) or f"Run `hermes {usage}`.", handler,
-            mutating=mutating, confirmation=f"Run `hermes {usage}`?")
+            full_path, usage, summaries.get(full_path) or f"Run `loki {usage}`.", handler,
+            mutating=mutating, confirmation=f"Run `loki {usage}`?")
 
 
 _BLOCKED_TOP = frozenset(
@@ -354,28 +357,28 @@ _BLOCKED_TOP = frozenset(
     "oneshot proxy serve setup uninstall update whatsapp whatsapp-cloud".split())
 
 _BLOCKED_PAIRS = {
-    ("config", "edit"): "`config edit` opens an editor and is not available in Hermes Console.",
-    ("mcp", "serve"): "`mcp serve` starts a server and is not available in Hermes Console.",
-    ("profile", "alias"): "`profile alias` creates shell wrappers and is not available in Hermes Console.",
-    ("skills", "config"): "`skills config` is interactive and is not available in Hermes Console.",
-    ("skills", "publish"): "`skills publish` is not available in Hermes Console.",
-    ("portal", "login"): "`portal login` is interactive and is not available in Hermes Console.",
-    ("portal", "open"): "`portal open` opens a browser and is not available in Hermes Console.",
-    ("kanban", "tail"): "`kanban tail` streams output and is not available in Hermes Console.",
-    ("kanban", "watch"): "`kanban watch` streams output and is not available in Hermes Console.",
-    ("kanban", "daemon"): "`kanban daemon` starts a service and is not available in Hermes Console.",
-    ("kanban", "dispatcher"): "`kanban dispatcher` starts a worker and is not available in Hermes Console.",
-    ("kanban", "swarm"): "`kanban swarm` starts agent work and is not available in Hermes Console.",
-    ("kanban", "decompose"): "`kanban decompose` starts agent work and is not available in Hermes Console.",
-    ("kanban", "specify"): "`kanban specify` starts agent work and is not available in Hermes Console.",
-    ("kanban", "gc"): "`kanban gc` is not available in Hermes Console.",
-    ("sessions", "delete"): "`sessions delete` and `sessions prune` are not available in Hermes Console.",
-    ("sessions", "prune"): "`sessions delete` and `sessions prune` are not available in Hermes Console.",
+    ("config", "edit"): "`config edit` opens an editor and is not available in Loki Console.",
+    ("mcp", "serve"): "`mcp serve` starts a server and is not available in Loki Console.",
+    ("profile", "alias"): "`profile alias` creates shell wrappers and is not available in Loki Console.",
+    ("skills", "config"): "`skills config` is interactive and is not available in Loki Console.",
+    ("skills", "publish"): "`skills publish` is not available in Loki Console.",
+    ("portal", "login"): "`portal login` is interactive and is not available in Loki Console.",
+    ("portal", "open"): "`portal open` opens a browser and is not available in Loki Console.",
+    ("kanban", "tail"): "`kanban tail` streams output and is not available in Loki Console.",
+    ("kanban", "watch"): "`kanban watch` streams output and is not available in Loki Console.",
+    ("kanban", "daemon"): "`kanban daemon` starts a service and is not available in Loki Console.",
+    ("kanban", "dispatcher"): "`kanban dispatcher` starts a worker and is not available in Loki Console.",
+    ("kanban", "swarm"): "`kanban swarm` starts agent work and is not available in Loki Console.",
+    ("kanban", "decompose"): "`kanban decompose` starts agent work and is not available in Loki Console.",
+    ("kanban", "specify"): "`kanban specify` starts agent work and is not available in Loki Console.",
+    ("kanban", "gc"): "`kanban gc` is not available in Loki Console.",
+    ("sessions", "delete"): "`sessions delete` and `sessions prune` are not available in Loki Console.",
+    ("sessions", "prune"): "`sessions delete` and `sessions prune` are not available in Loki Console.",
 }
 
 
 class HermesConsoleEngine:
-    """Curated line-command executor for Hermes Console."""
+    """Curated line-command executor for Loki Console."""
 
     def __init__(self, *, output_limit: int = 20000):
         self.output_limit = output_limit
@@ -389,14 +392,14 @@ class HermesConsoleEngine:
             return ConsoleResult("ok")
         try:
             tokens = _split_line(raw_line)
-            if tokens and tokens[0] == "hermes":
+            if tokens and tokens[0] in {"loki", "hermes"}:
                 tokens = tokens[1:]
             if not tokens:
                 return ConsoleResult("ok", output=self.help_text())
             if _contains_shell_syntax(raw_line, tokens):
                 raise ConsoleCommandError(
-                    "Hermes Console does not run shell syntax. Use one supported "
-                    "Hermes command at a time.")
+                    "Loki Console does not run shell syntax. Use one supported "
+                    "Loki command at a time.")
             builtin = self._execute_builtin(tokens)
             if builtin is not None:
                 if raw_line not in {"history", "clear"}:
@@ -418,7 +421,7 @@ class HermesConsoleEngine:
         if subject:
             command, _args = self._resolve_command(subject.split())
             return f"{command.usage}\n{command.summary}"
-        lines = ["Hermes Console", "", "Supported commands:"]
+        lines = ["Loki Console", "", "Supported commands:"]
         for command in sorted(self.commands.values(), key=lambda c: c.usage):
             marker = " *" if command.mutating else "  "
             lines.append(f"{marker} {command.usage:<32} {_table_summary(command.summary)}")
@@ -472,14 +475,14 @@ class HermesConsoleEngine:
         probe = " ".join(tokens[:2]) if len(tokens) > 1 else tokens[0]
         suggestions = difflib.get_close_matches(probe, available, n=3, cutoff=0.45)
         suffix = f" Did you mean: {', '.join(suggestions)}?" if suggestions else ""
-        raise ConsoleCommandError(f"Unsupported Hermes Console command: {probe}.{suffix}")
+        raise ConsoleCommandError(f"Unsupported Loki Console command: {probe}.{suffix}")
 
     def _rejection_for(self, tokens: Sequence[str]) -> str:
         first = tokens[0]
         if first.startswith("-"):
-            return f"{first} is not available in Hermes Console."
+            return f"{first} is not available in Loki Console."
         if first in _BLOCKED_TOP:
-            return f"`hermes {first}` is not available in Hermes Console."
+            return f"`loki {first}` is not available in Loki Console."
         return _BLOCKED_PAIRS.get(tuple(tokens[:2]), "")
 
     def _cap_output(self, output: str) -> str:
@@ -539,7 +542,7 @@ def _apply_confirmed_defaults(args: argparse.Namespace) -> None:
         auth_type = getattr(args, "auth_type", None)
         if auth_type in {"api-key", "api_key"} and not getattr(args, "api_key", None):
             raise ConsoleCommandError(
-                "auth add --type api-key requires --api-key in Hermes Console.")
+                "auth add --type api-key requires --api-key in Loki Console.")
     if getattr(args, "import_name", None) is not None:
         return  # profile import has no prompt flag; leave it alone.
     if getattr(args, "skills_action", None) in {"install", "reset", "opt-out", "repair-official"}:
@@ -567,7 +570,7 @@ _cron_status = _simple_command("cron status", "hermes_cli.cron", "cron_status")
 
 def _logs(_engine: HermesConsoleEngine, args: list[str]) -> str:
     if "-f" in args or "--follow" in args:
-        raise ConsoleCommandError("`logs -f` is not available in Hermes Console.")
+        raise ConsoleCommandError("`logs -f` is not available in Loki Console.")
     ns = _parse(
         "logs", args, (("log_name",), dict(nargs="?", default="agent")),
         (("-n", "--lines"), dict(type=int, default=50)),
@@ -766,7 +769,7 @@ def _cron_pause(_engine: HermesConsoleEngine, args: list[str]) -> str:
     from cron.jobs import pause_job
     return _cron_job_action(
         args, "cron pause <job>", "Paused",
-        lambda ref: pause_job(ref, reason="paused from hermes console"))
+        lambda ref: pause_job(ref, reason="paused from loki console"))
 
 
 def _cron_resume(_engine: HermesConsoleEngine, args: list[str]) -> str:
@@ -838,9 +841,9 @@ def run_console_repl(
         if interactive:
             print(text, file=stdout, **kw)
 
-    say("Hermes Console. Type `help` for commands, `exit` to quit.")
+    say("Loki Console. Type `help` for commands, `exit` to quit.")
     while True:
-        say("hermes> ", end="", flush=True)
+        say("loki> ", end="", flush=True)
         line = stdin.readline()
         if line == "":
             say("")

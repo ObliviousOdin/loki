@@ -73,7 +73,7 @@ public static class HermesUtf8Host {
     $profileName = ([string][char]0x5F20) + [char]0x4E09 + ' Ren' + [char]0xE9 + " O'Brien Pawe" + [char]0x142
     $profileDir = Join-Path $testRoot $profileName
     New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
-    $env:HERMES_HOME = Join-Path $profileDir 'hermes-home'
+    $env:LOKI_HOME = Join-Path $profileDir 'hermes-home'
     $testInstallDir = Join-Path $profileDir 'hermes-agent'
     $packageDir = Join-Path $testInstallDir 'pm'
     New-Item -ItemType Directory -Path $packageDir -Force | Out-Null
@@ -122,15 +122,15 @@ class Fixture {
     # Prestage uv at its pinned store path so setup needs no download or mocks.
     $setupScript = Join-Path $testInstallDir 'setup-hermes.ps1'
     Copy-Item -LiteralPath (Join-Path $repoRoot 'setup-hermes.ps1') -Destination $setupScript
-    $env:HERMES_RUNTIME_DIR = Join-Path $profileDir 'tools'
+    $env:LOKI_RUNTIME_DIR = Join-Path $profileDir 'tools'
     foreach ($arch in @('x64', 'arm64')) {
-        $uvEntry = Join-Path $env:HERMES_RUNTIME_DIR "uv-fixture-win32-$arch"
+        $uvEntry = Join-Path $env:LOKI_RUNTIME_DIR "uv-fixture-win32-$arch"
         New-Item -ItemType Directory -Path $uvEntry -Force | Out-Null
         Copy-Item -LiteralPath $env:UTF8_PROBE_PYTHON -Destination (Join-Path $uvEntry 'uv.exe')
     }
     $env:UTF8_PROBE_FIND_EXIT = '0'
 
-    . $installer -InstallDir $testInstallDir -HermesHome $env:HERMES_HOME
+    . $installer -InstallDir $testInstallDir -HermesHome $env:LOKI_HOME
     # Override acquisition only. Production Get-BootstrapPython, both native
     # find call sites, caching and Stage-PythonDeps still execute unchanged.
     function Get-Uv { return $env:UTF8_PROBE_PYTHON }

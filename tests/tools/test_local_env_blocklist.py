@@ -707,7 +707,7 @@ def test_hermes_bin_resolution_and_unresolved_noop(child_env, monkeypatch):
     bin_dir = child_env / "bin"
     bin_dir.mkdir()
     monkeypatch.setattr(local, "_HERMES_BIN_DIR", local._SENTINEL)
-    monkeypatch.setattr(local.shutil, "which", lambda name: str(bin_dir / "hermes") if name == "hermes" else None)
+    monkeypatch.setattr(local.shutil, "which", lambda name: str(bin_dir / "loki") if name == "loki" else None)
     assert local._resolve_hermes_bin_dir() == str(bin_dir)
     monkeypatch.setattr(local, "_HERMES_BIN_DIR", None)
     assert local._prepend_hermes_bin_dir("/usr/bin") == "/usr/bin"

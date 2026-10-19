@@ -7,6 +7,8 @@ from pathlib import Path
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("loki_oauth_test_apps")
+
 from hermes_cli.auth import (
     AuthError,
     DEFAULT_XAI_OAUTH_BASE_URL,

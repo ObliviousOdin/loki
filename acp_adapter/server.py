@@ -545,7 +545,7 @@ class HermesACPAgent(SlashCommandsMixin, acp.Agent):
 
         return InitializeResponse(
             protocol_version=acp.PROTOCOL_VERSION,
-            agent_info=Implementation(name="hermes-agent", version=get_version_info().base_version),
+            agent_info=Implementation(name="loki", version=get_version_info().base_version),
             agent_capabilities=AgentCapabilities(
                 load_session=True,
                 prompt_capabilities=PromptCapabilities(image=True),

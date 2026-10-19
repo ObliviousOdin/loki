@@ -1,4 +1,6 @@
 """OAuth control commands against a loopback token endpoint."""
+from tests.loki_auth_fixture import configure_auth
+
 import json
 import threading
 import time
@@ -31,6 +33,7 @@ def _rows():
 
 @pytest.mark.parametrize("status", [200, 503, 401])
 def test_refresh_uses_target_grant_and_preserves_sibling(monkeypatch, status):
+    configure_auth(monkeypatch, clients=("openai-codex",))
     from hermes_cli import auth_codex
     requests = []
 
@@ -64,7 +67,7 @@ def test_refresh_uses_target_grant_and_preserves_sibling(monkeypatch, status):
                 auth_commands.auth_refresh_command(args)
         after = {e["id"]: e for e in read_credential_pool("openai-codex")}
         assert requests == [{"grant_type": ["refresh_token"], "refresh_token": ["fixture-refresh-1"],
-                             "client_id": [auth_codex.CODEX_OAUTH_CLIENT_ID]}]
+                             "client_id": ["loki-test-openai-codex-app"]}]
         assert after["row0"] == before[0], (after["row0"], before[0])
         target = after["row1"]
         if status == 200:

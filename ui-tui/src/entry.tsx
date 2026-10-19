@@ -1,6 +1,7 @@
 #!/usr/bin/env -S node --max-old-space-size=8192 --expose-gc
 // Must be first import. If the user explicitly opts into truecolor, this
 // nudges chalk / supports-color before either package is initialized.
+import '@hermes/shared/loki-bootstrap'
 import './lib/forceTruecolor.js'
 
 import type { FrameEvent } from '@hermes/ink'

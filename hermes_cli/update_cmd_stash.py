@@ -135,7 +135,7 @@ def _push_stash(git_cmd: list[str], cwd: Path, stash_name: str, prev_stash: str)
             # No entry created: changes NOT saved — bail before touching HEAD.
             print("✗ Could not stash local changes — update aborted.")
             _print_first_line(push.stderr)
-            print("  Commit, stash, or clean up your local changes manually, then re-run `hermes update`.")
+            print("  Commit, stash, or clean up your local changes manually, then re-run `loki update`.")
             print("  (An index entry from `git add -N` is the usual cause of this error; `git add` the")
             print("   paths it names, or `git reset` them, and the update will proceed.)")
             raise subprocess.CalledProcessError(push.returncode, push.args, output=push.stdout, stderr=push.stderr)
@@ -180,7 +180,7 @@ def _unrestored_autostash_notice() -> Optional[str]:
     if _pending_autostash is None:
         return None
     stash_ref, file_count = _pending_autostash
-    return (f"⚠ hermes update stashed {file_count} local modification(s) and did NOT restore them.\n"
+    return (f"⚠ loki update stashed {file_count} local modification(s) and did NOT restore them.\n"
             f"  Stash ref: {stash_ref}\n"
             f"  Review with: git stash show --stat {stash_ref}\n"
             f"  Re-apply with: git stash show -p {stash_ref} | git apply --3way")

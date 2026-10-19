@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import requests
 
+from loki_identity import CLIENT_USER_AGENT
 from agent.secret_scope import get_secret
 from agent.image_gen_provider import DEFAULT_ASPECT_RATIO, resolve_aspect_ratio, save_url_image, success_response
 from plugins.image_gen._common import (
@@ -80,7 +81,7 @@ _TERMINAL_STATES = {"completed", "failed", "cancelled"}
 # Krea Enhance — the optional ``upscale`` pass after generation (max 8K).
 _ENHANCE_PATH = "/generate/enhance/krea/enhance"
 _ENHANCE_SCALE_FACTOR = 2
-_USER_AGENT = "Hermes-Agent/1.0 (krea-image-gen)"
+_USER_AGENT = f"{CLIENT_USER_AGENT} (krea-image-gen)"
 
 # Fatal poll outcome (``_poll_krea_job`` ``kind``) → (error_type, message builder).
 _POLL_FAILURES: dict[str, tuple[str, Callable[[str, Any], str]]] = {
@@ -412,7 +413,7 @@ def _submit_job(
                     "Krea's shared-key concurrency cap was hit — retry shortly." if status == 429 else
                     f"Model '{model_id}' may not be enabled/priced on the Nous Portal's Krea gateway. "
                     "Set KREA_API_KEY to use Krea directly, or pick a different model via "
-                    "`hermes tools` → Image Generation.")
+                    "`loki tools` → Image Generation.")
                 return None, submit_fail(
                     f"Nous Subscription Krea gateway rejected '{model_id}' "
                     f"(HTTP {status}): {err_msg}. {hint}",
@@ -502,11 +503,11 @@ class KreaImageGenProvider(StaticImageGenProvider):
             auth_token = get_secret("KREA_API_KEY")
             if not auth_token:
                 return error_factory("krea", aspect)(
-                    "KREA_API_KEY not set. Run `hermes tools` → Image "
+                    "KREA_API_KEY not set. Run `loki tools` → Image "
                     "Generation → Krea to configure, get a key at "
                     "https://www.krea.ai/settings/api-tokens, or sign in to "
                     "a Nous account with the managed Krea gateway enabled "
-                    "(`hermes setup`).",
+                    "(`loki setup`).",
                     "auth_required")
 
         model_id, meta = _resolve_model(kwargs.get("model"))

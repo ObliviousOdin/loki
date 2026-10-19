@@ -6,7 +6,7 @@ proactor event loop with the DEFAULT verb handlers, then drives the real
 sync client and the real fleet consumers against it — no mocks anywhere.
 
 Proves, on windows-latest:
-  1. `GatewayControlServer` binds ``\\\\.\\pipe\\hermes-gateway-<hash>`` via
+  1. `GatewayControlServer` binds ``\\\\.\\pipe\\loki-gateway-<hash>`` via
      ``loop.start_serving_pipe`` and answers ``identify``/``status``.
   2. The sync client's pipe transport (open/write/read/busy-retry) works
      against a live server and returns the child's true pid + code identity.
@@ -31,6 +31,7 @@ from pathlib import Path
 import pytest
 
 from tests.live_process_fixtures import sleeper_script_path
+from tests.loki_child_fixture import bind_fixture_child_env
 
 pytestmark = pytest.mark.platforms("windows")  # live Windows named-pipe E2E
 
@@ -89,7 +90,7 @@ asyncio.run(main())
 
 @pytest.fixture()
 def live_server(tmp_path: Path):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".loki"
     home.mkdir()
     proc = subprocess.Popen(
         [sys.executable, "-c", _CHILD_CODE, str(PROJECT_ROOT), str(home)],
@@ -97,6 +98,7 @@ def live_server(tmp_path: Path):
         stderr=subprocess.PIPE,
         text=True,
         cwd=str(PROJECT_ROOT),
+        env=bind_fixture_child_env({**os.environ, "HERMES_HOME": str(home)}),
     )
     line = _readline(proc.stdout).strip()
     if not line.startswith("SERVER_STARTED"):
@@ -129,7 +131,7 @@ def test_named_pipe_identify_status_and_fleet_consumer(live_server, monkeypatch)
     # Windows trampoline makes the spawner's view wrong (see _CHILD_CODE).
     assert ident["pid"] == server_pid
     assert ident["protocol"] == 1
-    assert ident["kind"] == "hermes-gateway"
+    assert ident["kind"] == "loki-gateway"
     assert ident["supervisor"] in {"systemd", "launchd", "desktop", "external", "manual"}
 
     status = query_gateway_control(home, "status", timeout=5.0)
@@ -186,7 +188,7 @@ def test_pipe_gone_after_kill_falls_back(live_server, monkeypatch):
             json.dumps(
                 {
                     "pid": pid, "gateway_state": "running",
-                    "code_sha": "OLD", "kind": "hermes-gateway",
+                    "code_sha": "OLD", "kind": "loki-gateway",
                 }
             ),
             encoding="utf-8",
@@ -197,7 +199,7 @@ def test_pipe_gone_after_kill_falls_back(live_server, monkeypatch):
         # whose PID differs from the process running the command line. The
         # stand-in runs a SCRIPT, not `-c`: gateway identity is no longer
         # inferred from inline `-c` source (#107002).
-        [sys._base_executable, sleeper_script_path(), "hermes", "gateway", "run"],
+        [sys._base_executable, sleeper_script_path(), "loki", "gateway", "run"],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

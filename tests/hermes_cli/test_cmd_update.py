@@ -121,9 +121,9 @@ class TestGitTrampolineSelfHeal:
         monkeypatch.setattr(hermes_constants, "get_hermes_home", lambda: profile_home)
 
         candidates = _portable_git_candidates()
-        assert candidates[0] == (
-            root / "git" / "mingw64" / "libexec" / "git-core" / "git.exe"
-        )
-        assert candidates[1] == (
-            profile_home / "git" / "mingw64" / "libexec" / "git-core" / "git.exe"
-        )
+        root_candidates = [path for path in candidates if path.is_relative_to(root / "git")]
+        profile_candidates = [path for path in candidates if path.is_relative_to(profile_home / "git")]
+        assert root / "git/mingw64/libexec/git-core/git.exe" in root_candidates
+        assert root / "git/ucrt64/bin/git.exe" in root_candidates
+        assert profile_home / "git/mingw64/libexec/git-core/git.exe" in profile_candidates
+        assert candidates.index(root_candidates[-1]) < candidates.index(profile_candidates[0])

@@ -54,9 +54,9 @@ def test_macos_handoff_opens_no_browser_window_when_chrome_is_default(tmp_path):
         "HOME": str(tmp_path),
         "TMPDIR": str(tmp_path),
         "PATH": f"{Path(sys.executable).parent}:/usr/bin:/bin",
-        "HERMES_SELFTEST_HOLD_SECONDS": "3",
+        "LOKI_SELFTEST_HOLD_SECONDS": "3",
     }
-    env.pop("HERMES_SELFTEST_FAIL", None)
+    env.pop("LOKI_SELFTEST_FAIL", None)
 
     proc = subprocess.Popen(
         ["bash", str(SHIM), "--install-root", str(install), "--self-test-ui"],

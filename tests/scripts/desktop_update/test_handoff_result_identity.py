@@ -27,8 +27,8 @@ def test_powershell_result_keeps_identity_after_actual_heartbeat(tmp_path: Path,
     harness.write_text(r'''
 param([string]$HandoffPath, [string]$Install, [string]$Run)
 $started = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() - 10
-$env:HERMES_UPDATE_STARTED_AT = [string]$started
-$marker = Join-Path $env:HERMES_HOME '.hermes-update-in-progress'
+$env:LOKI_UPDATE_STARTED_AT = [string]$started
+$marker = Join-Path $env:LOKI_HOME '.hermes-update-in-progress'
 $invoke = @{ InstallRoot = $Install; NoUi = $true }
 if ($Run) {
     $ct = [DateTimeOffset]::new([Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime()).ToUnixTimeMilliseconds() / 1000.0
@@ -51,7 +51,7 @@ Remove-PSBreakpoint $breakpoint
         [POWERSHELL, "-NoProfile", "-NonInteractive", "-File", str(harness),
          "-HandoffPath", str(ROOT / "scripts/desktop-update/windows.ps1"),
          "-Install", str(install), "-Run", run_id],
-        env={**os.environ, "HOME": str(home), "HERMES_HOME": str(home),
+        env={**os.environ, "HOME": str(home), "LOKI_HOME": str(home),
              "TEMP": str(tmp_path), "TMP": str(tmp_path)},
         capture_output=True, text=True, timeout=60,
         check=False,

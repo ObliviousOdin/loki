@@ -13,7 +13,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-IMAGE_PROVENANCE_PATH = Path("/etc/hermes/image-provenance.json")
+IMAGE_PROVENANCE_PATH = Path("/etc/loki/image-provenance.json")
 IMAGE_PROVENANCE_SCHEMA = 1
 
 

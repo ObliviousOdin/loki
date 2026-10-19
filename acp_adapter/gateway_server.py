@@ -47,11 +47,11 @@ def _bypass_route():
     model = (os.environ.get("HERMES_MODEL") or os.environ.get("HERMES_INFERENCE_MODEL") or "").strip()
     if not model:
         raise GatewayClientError("--safe-mode / --ignore-user-config read no profile default model: launch "
-                                 "with one, e.g. hermes -m <model> --provider <provider> --safe-mode acp")
+                                 "with one, e.g. loki -m <model> --provider <provider> --safe-mode acp")
     provider = os.environ.get("HERMES_INFERENCE_PROVIDER", "").strip()
     if not provider:
         raise GatewayClientError("--safe-mode / --ignore-user-config read no profile provider: launch with "
-                                 "--provider too, e.g. hermes -m <model> --provider <provider> --safe-mode acp")
+                                 "--provider too, e.g. loki -m <model> --provider <provider> --safe-mode acp")
     return {"model": model, "provider": provider}
 
 
@@ -130,7 +130,7 @@ class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
         from hermes_cli import __version__
         from acp_adapter.auth import build_auth_methods
         return InitializeResponse(protocol_version=acp.PROTOCOL_VERSION,
-            agent_info=Implementation(name="hermes-agent", version=__version__),
+            agent_info=Implementation(name="loki", version=__version__),
             agent_capabilities=AgentCapabilities(load_session=True,
                 prompt_capabilities=PromptCapabilities(image=True),
                 session_capabilities=SessionCapabilities(fork=SessionForkCapabilities(), list=SessionListCapabilities(),
@@ -715,7 +715,7 @@ class GatewayACPAgent(GatewayReplyMixin, acp.Agent):
         lost = [row["admission_id"] for row in self._snapshots.get(session_id, {}).get("pending", [])
                 if row.get("status") == "unknown"] or [admission_id]
         profile = profile_name_for_home(self._home)
-        command = "hermes" + (f" -p {profile}" if profile not in (None, "default") else "")
+        command = "loki" + (f" -p {profile}" if profile not in (None, "default") else "")
         state = ("your input is accepted and kept" if submitted else "nothing was submitted")
         return (f"unknown_execution: do not resend accepted input; a turn in this session was lost when the "
                 f"gateway restarted and its outcome is unknown ({state}). Resolve it in a terminal with "

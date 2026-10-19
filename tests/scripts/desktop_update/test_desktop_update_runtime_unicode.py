@@ -64,7 +64,7 @@ def _run_helper(script: str, home: Path, env_extra: dict[str, str], out: Path) -
     represent ``ł``, so stdout would lose the very characters under test.
     """
     result = subprocess.run(['powershell', '-NoProfile', '-Command', f"$out = '{out}'; " + script],
-                            env={**os.environ, 'HERMES_HOME': str(home), **env_extra},
+                            env={**os.environ, 'LOKI_HOME': str(home), **env_extra},
                             capture_output=True, timeout=120, check=False)
     assert result.returncode == 0, (result.stdout + result.stderr).decode('utf-8', 'replace')
     return out.read_text(encoding='utf-8-sig').splitlines()
@@ -103,7 +103,7 @@ def test_runtime_command_survives_a_non_ascii_profile_path(tmp_path: Path, code_
     script = (prefix + f". '{HELPER}'; "
               f"$c = @(Get-HermesRuntimeCommand -InstallRoot '{target}'); "
               + _WRITE.format(lines="$c[0], [Console]::OutputEncoding.CodePage"))
-    lines = _run_helper(script, home, {'HERMES_RUNTIME_DIR': str(store)}, tmp_path / 'answer.txt')
+    lines = _run_helper(script, home, {'LOKI_RUNTIME_DIR': str(store)}, tmp_path / 'answer.txt')
     assert lines[0] == str(python), (
         f"interpreter path was mojibaked under code page {code_page}: {lines[0]!r}")
     assert int(lines[1]) == code_page, 'the capture must leave the caller console encoding unchanged'

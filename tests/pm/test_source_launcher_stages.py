@@ -84,7 +84,7 @@ exit 0
     assert calls.read_text(encoding='utf-8-sig').splitlines() == [
         f'python find --managed-python --no-project {py_request}',
     ]
-    for name in ('hermes', 'hermes-acp'):
+    for name in ('loki', 'loki-acp'):
         command = home / 'bin' / (name + ('.exe' if (home / 'bin' / (name + '.exe')).is_file() else '.cmd'))
         child_env = dict(env)
         child_env.pop('HERMES_HOME', None)

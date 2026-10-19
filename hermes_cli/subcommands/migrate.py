@@ -5,6 +5,7 @@ from __future__ import annotations
 
 def build_migrate_parser(subparsers) -> None:
     """Attach the ``migrate`` subcommand to ``subparsers``."""
+    from hermes_cli.loki_branding import literal_help
     from hermes_cli.migrate import cmd_migrate, cmd_migrate_xai
 
     migrate_parser = subparsers.add_parser(
@@ -28,7 +29,7 @@ def build_migrate_parser(subparsers) -> None:
     migrate_xai.set_defaults(func=cmd_migrate_xai)
 
     migrate_relay = migrate_subparsers.add_parser(
-        "relay", help="Convert legacy HERMES_NEMO_RELAY_ATIF_*/ATOF_* exporter vars into relay-plugins.toml",
+        "relay", help=literal_help("Convert legacy HERMES_NEMO_RELAY_ATIF_*/ATOF_* exporter vars into relay-plugins.toml"),
         description="The NeMo Relay cutover stopped reading the legacy exporter variables. Generate "
             "<hermes home>/relay-plugins.toml from them, point HERMES_NEMO_RELAY_PLUGINS_TOML at it, "
             "and comment the legacy lines out. `hermes update` runs this for every profile automatically.")

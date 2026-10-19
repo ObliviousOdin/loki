@@ -38,6 +38,13 @@ def _workflow() -> dict:
     return yaml.safe_load(_WORKFLOW.read_text(encoding="utf-8"))
 
 
+def test_inherited_release_admission_refuses_loki_repository():
+    job = _workflow()["jobs"]["validate"]
+    assert gate(job["if"], DOWNLOADABLE_DISPATCHES["tag"], {})
+    assert not gate(job["if"], DOWNLOADABLE_DISPATCHES["tag"], {},
+                    github={"repository": "ObliviousOdin/loki"})
+
+
 # ---------------------------------------------------------------------------
 # Structure: the admitted SHA is the only build input privileged jobs see.
 # ---------------------------------------------------------------------------

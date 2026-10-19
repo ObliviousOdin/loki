@@ -39,6 +39,16 @@ class TestManifest:
         assert "updatedAt" in payload
         assert load_manifest(tmp_path) == recipe
 
+    def test_loki_ignores_a_foreign_hermes_verification_manifest(self, tmp_path):
+        foreign = tmp_path / ".hermes" / "environment.json"
+        foreign.parent.mkdir()
+        foreign.write_text(json.dumps({"name": "Foreign", "test": ["false"]}), encoding="utf-8")
+        assert load_manifest(tmp_path) is None
+        own = save_manifest(tmp_path, Recipe(name="Loki", test=["true"]))
+        assert own == tmp_path / ".loki" / "environment.json"
+        assert load_manifest(tmp_path).name == "Loki"
+        assert json.loads(foreign.read_text(encoding="utf-8-sig"))["name"] == "Foreign"
+
     def test_missing_file(self, tmp_path):
         assert load_manifest(tmp_path) is None
 

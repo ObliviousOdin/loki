@@ -4,7 +4,7 @@ import path from 'node:path'
 import { spawnSync } from 'node:child_process'
 import { createRequire } from 'node:module'
 import { isMain } from './utils.mjs'
-import { readPackagingInputs, preparationRequired } from './prepared-packaging.mjs'
+import { readPackagingInputs, preparationRequired, stageElectronLicenseNotices } from './prepared-packaging.mjs'
 import { readNativeInputs } from './prepared-native-deps.mjs'
 import { pinnedPackageRoot } from './prepare-packaging-tools.mjs'
 
@@ -145,6 +145,7 @@ export function runElectronBuilder(args, { spawn = spawnSync } = {}) {
   if (!nativeDeps) throw preparationRequired('--native-deps is required with --prepared')
   readNativeInputs({ source, nativeDeps, platform, arch })
   if (validateOnly) return 0
+  stageElectronLicenseNotices(inputs.electron, path.join(app, 'build/electron-runtime-licenses'))
   const builder = pinnedPackageRoot(source, 'electron-builder')
   pinnedPackageRoot(source, 'app-builder-lib')
   const require = createRequire(path.join(builder, 'package.json'))

@@ -86,7 +86,7 @@ def _handoff(tmp_path: Path, *args: str, verify: str = 'pass\n', timeout: int = 
         ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
          '-InstallRoot', str(install), '-NoUi', *args],
         cwd=tmp_path, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        env={**os.environ, 'HERMES_HOME': str(home), 'HERMES_RUNTIME_DIR': str(tmp_path / 'empty-store'),
+        env={**os.environ, 'LOKI_HOME': str(home), 'LOKI_RUNTIME_DIR': str(tmp_path / 'empty-store'),
              'HANDOFF_CALLS': str(calls), 'PYTHONIOENCODING': 'utf-8', **env},
     )
     try:
@@ -107,7 +107,7 @@ def test_verify_failure_after_a_committed_update_is_ok_with_warnings(tmp_path: P
     assert code == 0, out
     assert (result['ok'], result['exit_code'], result['manual']) == (True, 0, True), result
     assert [w.split(':')[0] for w in result['warnings']] == ['verify'], result
-    assert result['message'].startswith('Hermes was updated, but'), result
+    assert result['message'].startswith('Loki was updated, but'), result
     assert 'previous version' not in result['message']
     # The fleet the Desktop stopped is still brought back.
     assert argv[-1] == ['gateway', 'start', '--all'], argv
@@ -116,7 +116,7 @@ def test_verify_failure_after_a_committed_update_is_ok_with_warnings(tmp_path: P
 @pytest.mark.platforms('windows')
 def test_result_is_atomic_json_carrying_started_at_and_warnings(tmp_path: Path) -> None:
     started = int(time.time()) - 5
-    code, out, _, result, home = _handoff(tmp_path, HERMES_UPDATE_STARTED_AT=str(started))
+    code, out, _, result, home = _handoff(tmp_path, LOKI_UPDATE_STARTED_AT=str(started))
     assert code == 0, out
     assert (result['ok'], result['started_at'], result['warnings']) == (True, started, []), result
     assert not list(home.glob('.hermes-update-result.json.*.tmp'))
@@ -144,7 +144,7 @@ def test_nonzero_exit_after_the_commit_point_is_installed_with_a_followup(tmp_pa
     if ok:
         assert code == 0, out
         assert (result['ok'], result['exit_code'], result['manual']) == (True, 0, True), result
-        assert result['message'].startswith('Hermes was updated, but'), result
+        assert result['message'].startswith('Loki was updated, but'), result
         assert [w.split(':')[0] for w in result['warnings']] == ['update'], result
         assert argv[-1] == ['gateway', 'start', '--all'], argv   # the post-commit steps still run
     else:
@@ -201,7 +201,7 @@ def test_marker_with_a_live_delegate_is_handed_to_it_at_finish(tmp_path: Path) -
 def test_watchdog_remap_after_banner_reports_interrupted_followups(tmp_path: Path) -> None:
     code, out, _argv, result, _ = _handoff(
         tmp_path, '-NoGateway', HANDOFF_HANG='Update complete! (v1.0.0)',
-        HERMES_UPDATE_STEP_IDLE_SECONDS='3',
+        LOKI_UPDATE_STEP_IDLE_SECONDS='3',
     )
     assert code == 0, out
     assert (result['ok'], result['manual']) == (True, True), result
@@ -211,7 +211,7 @@ def test_watchdog_remap_after_banner_reports_interrupted_followups(tmp_path: Pat
 @pytest.mark.platforms('windows')
 def test_cpu_busy_pipe_silent_update_is_not_killed_by_the_idle_watchdog(tmp_path: Path) -> None:
     code, out, _argv, result, _ = _handoff(
-        tmp_path, '-NoGateway', HANDOFF_BUSY_SECONDS='15', HERMES_UPDATE_STEP_IDLE_SECONDS='4',
+        tmp_path, '-NoGateway', HANDOFF_BUSY_SECONDS='15', LOKI_UPDATE_STEP_IDLE_SECONDS='4',
     )
     assert code == 0, out
     assert (result['ok'], result['warnings']) == (True, []), result

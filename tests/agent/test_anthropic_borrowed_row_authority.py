@@ -28,6 +28,8 @@ reading an actually persisted, actually sanitized row.
 
 from __future__ import annotations
 
+from tests.loki_auth_fixture import write_auth_config
+
 import json
 import time
 from dataclasses import replace as dc_replace
@@ -65,6 +67,7 @@ def hermes_home(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "hermes_cli.auth.is_provider_explicitly_configured", lambda pid: True
     )
+    write_auth_config(home, clients=("anthropic",), adopt_external_logins=True)
     return home
 
 

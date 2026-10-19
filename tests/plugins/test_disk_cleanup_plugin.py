@@ -93,6 +93,25 @@ def _load_plugin_init():
 # ---------------------------------------------------------------------------
 
 class TestIsSafePath:
+    @pytest.mark.platforms("posix")
+    def test_foreign_hermes_tmp_data_is_rejected_and_never_deleted(self, _isolate_env):
+        dg = _load_lib()
+        temporary = Path(tempfile.mkdtemp(prefix="hermes-foreign-cleanup-", dir="/tmp"))
+        try:
+            sentinel = temporary / "preserve.txt"
+            sentinel.write_text("foreign", encoding="utf-8")
+            assert dg.is_safe_path(sentinel) is False
+            assert dg.track(str(sentinel), "test", silent=True) is False
+            # Revalidate persisted records too: an earlier version or edited record
+            # cannot authorize cleanup outside the current Loki namespace.
+            dg.save_tracked([{"path": str(sentinel), "category": "temp", "size": 7,
+                              "timestamp": (datetime.now(UTC) - timedelta(days=30)).isoformat()}])
+            assert dg.dry_run() == ([], [])
+            assert dg.quick()["deleted"] == 0
+            assert sentinel.read_text(encoding="utf-8") == "foreign"
+        finally:
+            shutil.rmtree(temporary)
+
     def test_accepts_path_under_hermes_home(self, _isolate_env):
         dg = _load_lib()
         p = _isolate_env / "subdir" / "file.txt"
@@ -103,7 +122,7 @@ class TestIsSafePath:
     @pytest.mark.platforms("macos")
     def test_track_accepts_tmp_hermes_path_after_platform_resolution(self, _isolate_env):
         dg = _load_lib()
-        temporary = Path(tempfile.mkdtemp(prefix="hermes-disk-cleanup-", dir="/tmp"))
+        temporary = Path(tempfile.mkdtemp(prefix="loki-disk-cleanup-", dir="/tmp"))
         try:
             assert dg.track(str(temporary), "temp", silent=True) is True
         finally:
@@ -122,7 +141,7 @@ class TestIsSafePath:
     @pytest.mark.skipif(sys.platform == "win32", reason="POSIX symlink contract")
     def test_rejects_final_and_nested_symlink_escapes(self, _isolate_env):
         dg = _load_lib()
-        temporary = Path(tempfile.mkdtemp(prefix="hermes-disk-cleanup-", dir="/tmp"))
+        temporary = Path(tempfile.mkdtemp(prefix="loki-disk-cleanup-", dir="/tmp"))
         outside_dir = Path(tempfile.mkdtemp(prefix="disk-cleanup-outside-", dir="/tmp"))
         outside_file = outside_dir / "file.txt"
         outside_file.write_text("outside", encoding="utf-8")

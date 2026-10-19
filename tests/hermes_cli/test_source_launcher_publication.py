@@ -14,7 +14,7 @@ from pm.environments import install_state_dir, site_packages
 
 ROOT = Path(__file__).resolve().parents[2]
 BOOT_FILES = (
-    "hermes_bootstrap.py", "hermes_constants.py", "hermes_cli/__init__.py", "hermes_cli/_launchers.py",
+    "loki_identity.py", "hermes_bootstrap.py", "hermes_constants.py", "hermes_cli/__init__.py", "hermes_cli/_launchers.py",
     "pm/environments.py", "pm/filesystem.py", "pm/paths.py", "hermes_cli/runtime_state.py",
     "hermes_cli/_early_recovery.py", "hermes_cli/_parser.py",
     "hermes_cli/venv_sync.py", "hermes_cli/steward.py",
@@ -45,7 +45,7 @@ def fixture_tree(tmp_path, monkeypatch):
     # Windows resolves its default under LOCALAPPDATA, not HOME.
     if os.name == "nt":
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
-    home = tmp_path / ("hermes" if os.name == "nt" else ".hermes")
+    home = tmp_path / ("loki" if os.name == "nt" else ".loki")
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.delenv("HERMES_RUNTIME_DIR", raising=False)
@@ -116,16 +116,16 @@ def test_launcher_resolves_default_home_at_use_not_publication(tmp_path, monkeyp
     new_user_home = tmp_path / "second-user"
     new_user_home.mkdir()
     monkeypatch.setenv("HOME", str(new_user_home))
-    monkeypatch.setenv("HERMES_HOME", str(new_user_home / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(new_user_home / ".loki"))
     select_generation(repo, "second", "from-second-user")
     env = dict(os.environ)
     env.pop("HERMES_HOME")
     result = subprocess.run([str(launcher)], cwd=tmp_path, env=env,
                             capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
     assert result.returncode == 7, result.stdout + result.stderr
-    assert json.loads(result.stdout)["home"] == str(new_user_home / ".hermes")
+    assert json.loads(result.stdout)["home"] == str(new_user_home / ".loki")
     assert json.loads(result.stdout)["value"] == "from-second-user"
-    assert published_home != new_user_home / ".hermes"
+    assert published_home != new_user_home / ".loki"
 
 
 @pytest.mark.parametrize("publisher", [
@@ -205,16 +205,16 @@ def test_posix_materializer_publishes_only_executable_shell_launchers(tmp_path, 
     assert {p.name for p in launchers} == set(_launchers.ENTRY_POINTS)
     assert all(os.access(p, os.X_OK) for p in launchers)
     assert set(out.iterdir()) == set(launchers)
-    local = repo / ".hermes" / "bin"
+    local = repo / ".loki" / "bin"
     assert {p.name for p in local.iterdir()} == set(_launchers.ENTRY_POINTS)
-    launcher = local / "hermes"
+    launcher = local / "loki"
     expected = launcher.read_bytes()
     launcher.write_bytes(b"\xef\xbb\xbf" + expected if corruption == "bom" else expected.replace(b"\n", b"\r\n"))
     assert _launchers.ensure_install_launchers(repo, out)
     # Shell executables need exact bytes: neither a BOM before #! nor CRLF is
     # interchangeable with the generated script, even if text decoding agrees.
     assert launcher.read_bytes() == expected
-    result = subprocess.run([str(out / "hermes"), "--print-runtime-command"],
+    result = subprocess.run([str(out / "loki"), "--print-runtime-command"],
                             capture_output=True, text=True, encoding="utf-8", timeout=30, check=False)
     assert result.returncode == 0, result.stderr
     assert Path(json.loads(result.stdout)[0]).samefile(_interpreter)
@@ -247,22 +247,22 @@ def test_boot_migrates_legacy_conveniences_to_selected_runtime(tmp_path, monkeyp
     out = home / ".local" / "bin"
     out.mkdir(parents=True)
     # Old venv and sibling-ACP wrappers, with an unrelated command sharing bin.
-    old_wrapper = (f'#!/bin/sh\nexec "{repo}/venv/bin/python" "{repo}/hermes" "$@"\n'
+    old_wrapper = (f'#!/bin/sh\nexec "{repo}/venv/bin/python" "{repo}/loki" "$@"\n'
                    if legacy_hermes == "venv-python" else
                    f'#!/usr/bin/env bash\nunset PYTHONPATH\nunset PYTHONHOME\n'
-                   f'exec "{repo}/venv/bin/hermes" "$@"\n')
-    (out / "hermes").write_text(old_wrapper, encoding="utf-8")
-    (out / "hermes-acp").write_text(
+                   f'exec "{repo}/venv/bin/loki" "$@"\n')
+    (out / "loki").write_text(old_wrapper, encoding="utf-8")
+    (out / "loki-acp").write_text(
         '#!/usr/bin/env bash\n# Hermes Agent — ACP launcher (written by `hermes update`).\n'
-        f'exec "{out}/hermes" acp "$@"\n', encoding="utf-8")
+        f'exec "{out}/loki" acp "$@"\n', encoding="utf-8")
     # Mentions this install only in a comment and runs another checkout's venv.
-    foreign = f'#!/bin/sh\n# user note about {repo}/venv/bin/hermes\nexec "{tmp_path}/other/venv/bin/hermes" "$@"\n'
-    (out / "hermes-agent").write_text(foreign, encoding="utf-8")
+    foreign = f'#!/bin/sh\n# user note about {repo}/venv/bin/loki\nexec "{tmp_path}/other/venv/bin/loki" "$@"\n'
+    (out / "loki-agent").write_text(foreign, encoding="utf-8")
 
     result = _launchers.expose_cli()
     assert result["ok"], result
-    assert set(result["written"]) == {"hermes", "hermes-acp"}
-    for name in ("hermes", "hermes-acp"):
+    assert set(result["written"]) == {"loki", "loki-acp"}
+    for name in ("loki", "loki-acp"):
         run = subprocess.run([str(out / name), "quoted argument"], cwd=tmp_path,
                              capture_output=True, text=True, timeout=30, encoding="utf-8", check=False)
         assert run.returncode == 7, run.stderr
@@ -270,7 +270,7 @@ def test_boot_migrates_legacy_conveniences_to_selected_runtime(tmp_path, monkeyp
         assert receipt["value"] == "migrated"
         assert receipt["argv"] == ["quoted argument"]
         assert Path(receipt["exe"]).samefile(interpreter)
-    assert (out / "hermes-agent").read_text(encoding="utf-8-sig") == foreign
+    assert (out / "loki-agent").read_text(encoding="utf-8-sig") == foreign
     before = {p: p.stat().st_mtime_ns for p in out.iterdir()}
     assert _launchers.expose_cli()["written"] == []
     assert before == {p: p.stat().st_mtime_ns for p in out.iterdir()}
@@ -283,7 +283,7 @@ def _command_survives_generation_collection(tmp_path, monkeypatch, surface):
     out = tmp_path / "bin"
     out.mkdir()
     _launchers.ensure_install_launchers(repo, out)
-    launcher = next(path for path in out.iterdir() if path.stem == "hermes")
+    launcher = next(path for path in out.iterdir() if path.stem == "loki")
     args = ["café ' quoted", "", "$HOME; not a shell"]
     command = []
     for value in ("old", "new"):
@@ -359,17 +359,17 @@ def test_running_source_launcher_can_republish_itself(tmp_path, monkeypatch, lau
         "from hermes_cli._launchers import ensure_install_launchers, ENTRY_POINTS\n"
         "def main():\n"
         "    root = Path(__file__).resolve().parents[1]\n"
-        "    written = ensure_install_launchers(root, root / '.hermes/bin')\n"
+        "    written = ensure_install_launchers(root, root / '.loki/bin')\n"
         "    print('published', len(written), len(ENTRY_POINTS), flush=True)\n"
         "    return 0 if len(written) == len(ENTRY_POINTS) else 1\n",
         encoding="utf-8",
     )
-    out = repo / ".hermes/bin"
+    out = repo / ".loki/bin"
     if launcher_form == "cmd":
         monkeypatch.setattr(_launchers, "_load_script_maker", lambda: None)
     launchers = _launchers.ensure_install_launchers(repo, out)
     assert len(launchers) == len(_launchers.ENTRY_POINTS)
-    command = next(Path(p) for p in launchers if Path(p).stem == "hermes")
+    command = next(Path(p) for p in launchers if Path(p).stem == "loki")
     assert command.suffix == (".cmd" if launcher_form == "cmd" else ".exe")
     result = subprocess.run([str(command)], cwd=tmp_path, capture_output=True,
                             text=True, encoding="utf-8", timeout=30, check=False)
@@ -383,7 +383,7 @@ def test_running_source_launcher_can_republish_itself(tmp_path, monkeypatch, lau
 @pytest.mark.platforms("windows")
 def test_repin_without_distlib_retires_stale_native_launcher(tmp_path, monkeypatch):
     repo, home, _interpreter = fixture_tree(tmp_path, monkeypatch)
-    local = repo / ".hermes/bin"
+    local = repo / ".loki/bin"
     original = Path(_launchers.ensure_install_launchers(repo, local)[0])
     assert original.suffix == ".exe"
     new_python = home / "tools" / "repinned" / "python.exe"
@@ -392,8 +392,8 @@ def test_repin_without_distlib_retires_stale_native_launcher(tmp_path, monkeypat
     (home / "tools/facts.json").write_text(
         json.dumps({"packages": {"python": {"entry": "repinned"}}}), encoding="utf-8")
     monkeypatch.setattr(_launchers, "_load_script_maker", lambda: None)
-    result = _launchers.stage_launcher("hermes", repo, local)
-    assert result == local / "hermes.cmd"
+    result = _launchers.stage_launcher("loki", repo, local)
+    assert result == local / "loki.cmd"
     assert not original.exists()  # cmd.exe must not run the old exe first
     assert result is not None and str(new_python) in result.read_text(encoding="utf-8-sig")
 
@@ -410,10 +410,10 @@ def test_windows_repair_upgrades_healthy_old_pm_external_launchers(tmp_path, mon
     for name in _launchers.ENTRY_POINTS:
         (external / f"{name}.exe").write_bytes(b"old PM launcher without a venv binding")
     assert ensure_windows_bin_launchers(managed, user_path_entries=[])
-    local = managed / ".hermes" / "bin"
-    launcher = local / "hermes.exe"
+    local = managed / ".loki" / "bin"
+    launcher = local / "loki.exe"
     if not launcher.exists():
-        launcher = local / "hermes.cmd"
+        launcher = local / "loki.cmd"
     result = subprocess.run([str(launcher), "--print-runtime-command"], capture_output=True,
                             text=True, timeout=30, encoding="utf-8", check=False)
     assert result.returncode == 0, result.stderr
@@ -518,18 +518,18 @@ def test_sync_migrates_old_store_wrapper_before_python_collection(tmp_path, monk
         python.symlink_to(interpreter)
         (store / "facts.json").write_text(json.dumps({"schema": 1, "packages": {"python": {"entry": version}}}), encoding="utf-8")
         if version == "python-A":
-            _launchers.mint_launcher("hermes", repo, out, python, None)
+            _launchers.mint_launcher("loki", repo, out, python, None)
         else:
             if create:
                 publish_launchers(repo)
             else:
                 publish_launchers(repo, create=False)
-                assert set(out.iterdir()) == {out / "hermes"}
+                assert set(out.iterdir()) == {out / "loki"}
                 assert not (home / "bin").exists()
                 assert not (home / "config.yaml").exists()
                 assert not (home / "skills").exists()
     shutil.rmtree(store / "python-A")
-    result = subprocess.run([str(out / "hermes")], cwd=tmp_path,
+    result = subprocess.run([str(out / "loki")], cwd=tmp_path,
                             capture_output=True, text=True, timeout=30, encoding="utf-8", check=False)
     assert result.returncode == 7, result.stderr
     assert json.loads(result.stdout)["value"] == "ready"
@@ -590,8 +590,8 @@ def test_a_merge_killed_writing_hermes_constants_is_repaired_by_the_next_launch(
     if surface == "launcher":
         out = tmp_path / "commands"
         out.mkdir()
-        command = [str(_launchers._mint_shell_launcher("hermes", out, interpreter,
-                                                       _launchers._launcher_script("hermes", repo, None)))]
+        command = [str(_launchers._mint_shell_launcher("loki", out, interpreter,
+                                                       _launchers._launcher_script("loki", repo, None)))]
     else:
         command = _launchers.runtime_command(repo, python=interpreter)
     result = subprocess.run(command, cwd=tmp_path, env=env, capture_output=True,
@@ -650,9 +650,9 @@ def test_stage_launcher_ignores_an_inherited_runtime_directory(tmp_path, monkeyp
 
     # Publication callers create the bin dir before staging (see
     # ensure_install_launchers); the launcher writer does not invent it.
-    out = repo / ".hermes" / "bin"
+    out = repo / ".loki" / "bin"
     out.mkdir(parents=True, exist_ok=True)
-    published = _launchers.stage_launcher("hermes", repo, out)
+    published = _launchers.stage_launcher("loki", repo, out)
 
     assert published is not None
     wrapper = published.read_text(encoding="utf-8-sig")
@@ -683,7 +683,7 @@ def test_service_launcher_binds_the_tree_store_despite_inherited_runtime_overrid
 
     gateway._prepare_service_launcher()
 
-    wrapper = (repo / ".hermes" / "bin" / "hermes").read_text(encoding="utf-8-sig")
+    wrapper = (repo / ".loki" / "bin" / "loki").read_text(encoding="utf-8-sig")
     assert "python-A" in wrapper
     assert "python-foreign" not in wrapper
 
@@ -727,7 +727,7 @@ def test_install_launchers_never_bind_a_fixture_store_under_scratch(tmp_path, mo
     _record_store_python(fixture, interpreter)
     monkeypatch.setenv("HERMES_RUNTIME_DIR", str(fixture))
 
-    written = _launchers.ensure_install_launchers(repo, repo / ".hermes" / "bin")
+    written = _launchers.ensure_install_launchers(repo, repo / ".loki" / "bin")
 
     assert len(written) == len(_launchers.WINDOWS_BIN_LAUNCHERS)
     for path in written:
@@ -747,7 +747,7 @@ def test_publication_uses_the_runtime_store_when_the_tree_records_none(tmp_path,
     python = _record_store_python(runtime, interpreter)
     monkeypatch.setenv("HERMES_RUNTIME_DIR", str(runtime))
 
-    written = _launchers.ensure_install_launchers(repo, repo / ".hermes" / "bin")
+    written = _launchers.ensure_install_launchers(repo, repo / ".loki" / "bin")
 
     assert len(written) == len(_launchers.WINDOWS_BIN_LAUNCHERS)
     for path in written:

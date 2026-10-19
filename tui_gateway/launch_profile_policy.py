@@ -64,7 +64,7 @@ def _servable_profile_homes() -> set:
 
     homes = {Path(home).resolve() for name, home in profiles_to_serve(multiplex=True, include_standalone=True, include_parked=True)
              if name == "default" or named_profile_has_servable_identity(home)}
-    homes.add(Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes").resolve())
+    homes.add(Path(os.environ.get("HERMES_HOME") or Path.home() / ".loki").resolve())
     return homes
 
 

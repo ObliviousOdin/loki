@@ -1751,12 +1751,12 @@ DEFAULT_CONFIG = {
     # "tone", "style"}}.
     "personalities": {},
     "auth": {  # Login policy (credentials themselves live in auth.json / .env).
-        # Borrow and refresh the Codex CLI (~/.codex/auth.json) and Claude Code (~/.claude/.credentials.json)
-        # logins automatically when Hermes has no usable login of its own. Their refresh tokens are single-use
-        # and rotate, so two programs on one login can log each other out; set false to make Hermes use only
-        # its own logins (`hermes auth add <provider>`). `hermes auth add openai-codex` still offers the import
-        # interactively.
-        "adopt_external_logins": True,
+        # Borrowing external single-use OAuth grants requires an explicit opt-in.
+        "adopt_external_logins": False,
+        # Provider entries are {client_id: "..."}; upstream app identities are never defaults.
+        "oauth_clients": {},
+        # Hosted Nous account provisioning requires an explicitly configured app.
+        "hosted_services": False,
         # How `hermes auth add openai-codex` / `hermes model` sign in to OpenAI Codex.
         # "device_code" (default): open a URL, enter a code. "browser": authorization-code + PKCE on
         # the loopback listener http://localhost:1455/auth/callback (the redirect OpenAI registered
@@ -2332,7 +2332,7 @@ DEFAULT_CONFIG = {
             "send": False,
             # Ingest endpoint (override for staging/local). Deliberately NOT env- overridable.
             # Non-HTTPS refused unless the host is localhost.
-            "endpoint": "https://telemetry.nousresearch.com/v1/telemetry",
+            "endpoint": "",
         },
     },
 
@@ -2778,7 +2778,7 @@ OPTIONAL_ENV_VARS = {
     "GEMINI_BASE_URL": _base_url("Google AI Studio", "Gemini"),
     "VERTEX_CREDENTIALS_PATH": _prov(
         "Path to a Google Cloud service account JSON for Vertex AI (Gemini). Vertex uses "
-        "OAuth2, not a static API key — this points at the credentials Hermes mints short-lived "
+        "OAuth2, not a static API key — this points at the credentials Loki mints short-lived "
         "tokens from. Falls back to GOOGLE_APPLICATION_CREDENTIALS, then to ADC (gcloud auth "
         "application-default login). Set project/region under vertex: in config.yaml.",
         "Vertex service account JSON path (leave empty to use ADC / "
@@ -2869,7 +2869,7 @@ OPTIONAL_ENV_VARS = {
     "AZURE_FOUNDRY_API_KEY": _prov("Azure Foundry API key for custom Azure endpoints",
         "Azure Foundry API Key", "https://ai.azure.com/", advanced=False),
     "AZURE_FOUNDRY_BASE_URL": _prov(
-        "Azure Foundry base URL (set via 'hermes model' for endpoint-specific config)",
+        "Azure Foundry base URL (set via 'loki model' for endpoint-specific config)",
         "Azure Foundry base URL", None, password=False),
     # ── Tool API keys ──
     "EXA_API_KEY": _tool("Exa API key for AI-native web search and contents", "Exa API key",
@@ -2902,7 +2902,7 @@ OPTIONAL_ENV_VARS = {
         None, password=False, advanced=True),
     "TOOL_GATEWAY_USER_TOKEN": _tool(
         "Explicit Nous Subscriber access token for tool-gateway requests (optional; otherwise "
-        "read from the Hermes auth store)", "Tool-gateway user token", None, advanced=True),
+        "read from the Loki auth store)", "Tool-gateway user token", None, advanced=True),
     "TAVILY_API_KEY": _tool(
         "Tavily API key for AI-native web search and extract (optional — keyless works when "
         "Tavily is selected)", "Tavily API key", "https://app.tavily.com/home",
@@ -2966,7 +2966,7 @@ OPTIONAL_ENV_VARS = {
     "MISTRAL_API_KEY": _tool("Mistral API key for Voxtral TTS and transcription (STT)",
         "Mistral API key", "https://console.mistral.ai/"),
     "PORCUPINE_ACCESS_KEY": _tool(
-        "Picovoice access key for the Porcupine 'Hey Hermes' wake word engine (optional; "
+        "Picovoice access key for the Porcupine wake word engine (optional; "
         "openWakeWord is the free default)", "Picovoice access key",
         "https://console.picovoice.ai/"),
     "GITHUB_TOKEN": _tool("GitHub token for Skills Hub (higher API rate limits, skill publish)",
@@ -3047,7 +3047,7 @@ OPTIONAL_ENV_VARS = {
         help=("In your Slack app, enable Socket Mode, then create Basic Information > App-Level "
         "Tokens with the connections:write scope."), password=True),
     "SLACK_ALLOWED_USERS": _msg(
-        "Comma-separated Slack member IDs allowed to use Hermes, e.g. U01ABC2DEF3. Without "
+        "Comma-separated Slack member IDs allowed to use Loki, e.g. U01ABC2DEF3. Without "
         "this, Slack may connect but deny messages by default.", "Allowed Slack member IDs",
         "https://api.slack.com/apps",
         help=("In Slack, open your profile, choose More or the three-dot menu, then Copy member "
@@ -3144,13 +3144,13 @@ OPTIONAL_ENV_VARS = {
         "for the default profile). Useful for multi-user setups with OpenWebUI.",
         "API server model name", None, advanced=True),
     "GATEWAY_PROXY_URL": _msg(
-        "URL of a remote Hermes API server to forward messages to (proxy mode). When set, the "
+        "URL of a remote Loki API server to forward messages to (proxy mode). When set, the "
         "gateway handles platform I/O only — all agent work is delegated to the remote server. "
         "Use for Docker E2EE containers that relay to a host agent. Also configurable via "
         "gateway.proxy_url in config.yaml.",
-        "Remote Hermes API server URL (e.g. http://192.168.1.100:8642)", None, advanced=True),
+        "Remote Loki API server URL (e.g. http://192.168.1.100:8642)", None, advanced=True),
     "GATEWAY_PROXY_KEY": _msg(
-        "Bearer token for authenticating with the remote Hermes API server (proxy mode). Must "
+        "Bearer token for authenticating with the remote Loki API server (proxy mode). Must "
         "match the API_SERVER_KEY on the remote host.", "Remote API server auth key", None,
         password=True, advanced=True),
     "WEBHOOK_ENABLED": _msg(
@@ -3160,14 +3160,12 @@ OPTIONAL_ENV_VARS = {
     "WEBHOOK_SECRET": _msg(
         "Global HMAC secret for webhook signature validation (overridable per route in "
         "config.yaml).", "Webhook secret", None, password=True),
-    # ── Agent settings ── (MESSAGING_CWD is gone: use terminal.cwd in config.yaml, which the
-    # gateway bridges to TERMINAL_CWD.)
+    # ── Agent settings ── MESSAGING_CWD moved to terminal.cwd (bridged to TERMINAL_CWD).
     "SUDO_PASSWORD": _setting(
         "Sudo password for terminal commands requiring root access; set to an explicit empty "
         "string to try empty without prompting", "Sudo password", None, password=True),
-    # HERMES_TOOL_PROGRESS_MODE (deprecated; use display.tool_progress) is intentionally NOT listed:
-    # this dict feeds user-facing surfaces (dashboard keys page, setup checklists), so deprecated
-    # knobs stay in config._EXTRA_ENV_KEYS only. HERMES_TOOL_PROGRESS is unsupported.
+    # Deprecated HERMES_TOOL_PROGRESS_MODE stays in config._EXTRA_ENV_KEYS, outside user-facing
+    # catalogs; use display.tool_progress. HERMES_TOOL_PROGRESS is unsupported.
     "HERMES_PREFILL_MESSAGES_FILE": _setting(
         "Path to JSON file with ephemeral prefill messages for few-shot priming",
         "Prefill messages file path", None),
@@ -3175,3 +3173,5 @@ OPTIONAL_ENV_VARS = {
         "Ephemeral system prompt injected at API-call time (never persisted to sessions)",
         "Ephemeral system prompt", None),
 }
+
+BUILTIN_ENV_VAR_NAMES = frozenset(OPTIONAL_ENV_VARS)

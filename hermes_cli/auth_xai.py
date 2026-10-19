@@ -6,6 +6,8 @@ Split out of ``hermes_cli/auth.py``; origin helpers are imported lazily per func
 
 from __future__ import annotations
 
+from hermes_cli.loki_auth_policy import require_oauth_client_id
+
 import logging
 import base64
 import json
@@ -26,7 +28,7 @@ if TYPE_CHECKING:  # annotation-only; the runtime import would be a cycle
     from hermes_cli.auth import ProviderConfig
 logger = logging.getLogger("hermes_cli.auth")
 
-_RELOGIN = "Re-authenticate with `hermes model`."
+_RELOGIN = "Re-authenticate with `loki model`."
 
 
 def _clean(value: Any) -> str:
@@ -79,7 +81,7 @@ def _read_xai_oauth_tokens(*, _lock: bool = True) -> dict[str, Any]:
             state = global_state
     if not state:
         raise _xai_err(
-            "No xAI OAuth credentials stored. Select xAI Grok OAuth (SuperGrok / Premium+) in `hermes model`.",
+            "No xAI OAuth credentials stored. Select xAI Grok OAuth (SuperGrok / Premium+) in `loki model`.",
             "xai_auth_missing", relogin=True,
         )
     tokens = state.get("tokens")
@@ -108,11 +110,11 @@ def _write_through_xai_oauth_to_global_root(state: dict[str, Any]) -> None:
     global_path = _global_auth_file_path()
     if global_path is None:  # classic mode (profile == root); the profile save already hit root
         return
-    # Seat belt: under pytest never write the real ~/.hermes/auth.json (mirrors the read-side guard
+    # Seat belt: under pytest never write the real ~/.loki/auth.json (mirrors the read-side guard
     # in _load_global_auth_store). Uses raw HOME, not Path.home(), which fixtures may monkeypatch.
     real_home_env = os.environ.get("HOME", "") if os.environ.get("PYTEST_CURRENT_TEST") else ""
     if real_home_env:
-        real_root = Path(real_home_env) / ".hermes" / "auth.json"
+        real_root = Path(real_home_env) / ".loki" / "auth.json"
         try:
             if global_path.resolve(strict=False) == real_root.resolve(strict=False):
                 return
@@ -226,7 +228,7 @@ def _xai_validate_oauth_endpoint(url: str, *, field: str) -> str:
             f"xAI OIDC discovery {field} host {host!r} is not on the xAI origin "
             f"(expected x.ai or a *.x.ai subdomain). Refusing to use a cached "
             f"endpoint that may have been substituted by a MITM during initial "
-            f"discovery; re-authenticate with `hermes model` to re-fetch."
+            f"discovery; re-authenticate with `loki model` to re-fetch."
         ),
     }[problem]
     raise _xai_err(message, "xai_discovery_invalid")
@@ -315,7 +317,7 @@ def refresh_xai_oauth_pure(
     with httpx.Client(timeout=timeout, headers={"Accept": "application/json"}) as client:
         response = client.post(
             endpoint, headers={"Content-Type": "application/x-www-form-urlencoded"},
-            data={"grant_type": "refresh_token", "client_id": XAI_OAUTH_CLIENT_ID, "refresh_token": refresh_token},
+            data={"grant_type": "refresh_token", "client_id": require_oauth_client_id("xai-oauth", XAI_OAUTH_CLIENT_ID), "refresh_token": refresh_token},
         )
     if response.status_code != 200:
         detail = response.text.strip()
@@ -479,7 +481,7 @@ def _login_xai_oauth(args, pconfig: ProviderConfig, *, force_new_login: bool = F
 
     print()
     print("Signing in to xAI Grok OAuth (SuperGrok / Premium+)...")
-    print("(Hermes creates its own local OAuth session)")
+    print("(Loki creates its own local OAuth session)")
     print()
 
     timeout_seconds = float(getattr(args, "timeout", None) or 20.0)
@@ -503,7 +505,7 @@ def _login_xai_oauth(args, pconfig: ProviderConfig, *, force_new_login: bool = F
 
 def _xai_oauth_request_device_code(client: httpx.Client, *, scope: str = XAI_OAUTH_SCOPE) -> dict[str, Any]:
     response = client.post(
-        XAI_OAUTH_DEVICE_CODE_URL, headers=_FORM_JSON_HEADERS, data={"client_id": XAI_OAUTH_CLIENT_ID, "scope": scope},
+        XAI_OAUTH_DEVICE_CODE_URL, headers=_FORM_JSON_HEADERS, data={"client_id": require_oauth_client_id("xai-oauth", XAI_OAUTH_CLIENT_ID), "scope": scope},
     )
     if response.status_code != 200:
         raise _xai_err(
@@ -541,7 +543,7 @@ def _xai_oauth_poll_device_token(
     return _poll_device_token_generic(
         lambda: client.post(
             token_endpoint, headers=_FORM_JSON_HEADERS,
-            data={"grant_type": DEVICE_CODE_GRANT_TYPE, "client_id": XAI_OAUTH_CLIENT_ID, "device_code": device_code},
+            data={"grant_type": DEVICE_CODE_GRANT_TYPE, "client_id": require_oauth_client_id("xai-oauth", XAI_OAUTH_CLIENT_ID), "device_code": device_code},
         ),
         expires_in=int(expires_in),
         poll_interval=max(1, int(poll_interval)),

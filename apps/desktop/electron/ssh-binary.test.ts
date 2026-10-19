@@ -13,7 +13,7 @@ const ENV: WindowsSshEnv = {
 
 const SYSTEM32_SSH = 'C:\\Windows\\System32\\OpenSSH\\ssh.exe'
 const PROGRAM_FILES_GIT_SSH = 'C:\\Program Files\\Git\\usr\\bin\\ssh.exe'
-const PORTABLE_GIT_SSH = 'C:\\Users\\me\\AppData\\Local\\hermes\\git\\usr\\bin\\ssh.exe'
+const PORTABLE_GIT_SSH = 'C:\\Users\\me\\AppData\\Local\\loki\\git\\usr\\bin\\ssh.exe'
 
 // Compare on win32 separators whatever the host OS joins with.
 const norm = (p: string) => p.replace(/\//g, '\\')

@@ -1,4 +1,4 @@
-"""LC-4: the gateway runs every local session and never loads ``./.hermes/plugins``. A session whose
+"""LC-4: the gateway runs every local session and never loads ``./.loki/plugins``. A session whose
 client opted in (``HERMES_ENABLE_PROJECT_PLUGINS``, forwarded in ``client_env``) from a folder that has
 project plugins gets a gateway.log line and a client-visible ``config_warning`` saying so."""
 import logging
@@ -36,8 +36,8 @@ async def test_an_opted_in_session_is_told_project_plugins_do_not_load(tmp_path,
     (home / 'config.yaml').write_text(
         'platform_toolsets: {cli: []}\nmodel: {provider: custom, default: m, base_url: http://x.invalid/v1}\n')
     repo, plain = tmp_path / 'repo', tmp_path / 'plain'
-    (repo / '.hermes' / 'plugins' / 'mine').mkdir(parents=True)
-    (plain / '.hermes' / 'plugins').mkdir(parents=True)  # opted in, but no plugin in it
+    (repo / '.loki' / 'plugins' / 'mine').mkdir(parents=True)
+    (plain / '.loki' / 'plugins').mkdir(parents=True)  # opted in, but no plugin in it
     monkeypatch.delenv('HERMES_ENABLE_PROJECT_PLUGINS', raising=False)
     owner, connection = await _owner(home, monkeypatch)
 
@@ -49,7 +49,7 @@ async def test_an_opted_in_session_is_told_project_plugins_do_not_load(tmp_path,
     try:
         with caplog.at_level(logging.WARNING):
             warning = create('opted', repo, client_env={'HERMES_ENABLE_PROJECT_PLUGINS': 'true'})
-        assert warning and 'not loaded' in warning and str(repo / '.hermes' / 'plugins') in warning
+        assert warning and 'not loaded' in warning and str(repo / '.loki' / 'plugins') in warning
         assert any('project plugins' in record.getMessage() and str(repo) in record.getMessage()
                    for record in caplog.records)
         assert create('off', repo, client_env={'HERMES_ENABLE_PROJECT_PLUGINS': '0'}) is None
@@ -71,7 +71,7 @@ async def test_session_create_carries_the_notice_through_its_strict_wire_contrac
     home.mkdir()
     (home / 'config.yaml').write_text(
         'platform_toolsets: {cli: []}\nmodel: {provider: custom, default: m, base_url: http://x.invalid/v1}\n')
-    (repo / '.hermes' / 'plugins' / 'mine').mkdir(parents=True)
+    (repo / '.loki' / 'plugins' / 'mine').mkdir(parents=True)
     monkeypatch.delenv('HERMES_ENABLE_PROJECT_PLUGINS', raising=False)
     owner, connection = await _owner(home, monkeypatch)
 
@@ -96,7 +96,7 @@ async def test_an_unlistable_plugins_folder_never_blocks_the_session(tmp_path, m
     the session is still created and described."""
     import pathlib
     from gateway.session_local import create_local_session, local_session_info
-    home, folder = tmp_path / 'home', tmp_path / 'repo' / '.hermes' / 'plugins'
+    home, folder = tmp_path / 'home', tmp_path / 'repo' / '.loki' / 'plugins'
     home.mkdir()
     (home / 'config.yaml').write_text(
         'platform_toolsets: {cli: []}\nmodel: {provider: custom, default: m, base_url: http://x.invalid/v1}\n')

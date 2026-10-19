@@ -16,6 +16,7 @@ from contextlib import ExitStack, suppress
 
 import pytest
 
+from tests.hermes_cli.anon_portal import install_portal
 from tools.connectors import live
 from tools.connectors.contract import Actor, TargetState
 from tools.connectors.operation import ConnectionOperation, Target
@@ -58,7 +59,8 @@ SID = "op-rpc-session"
 
 
 @pytest.fixture
-def owned(monkeypatch):
+def owned(monkeypatch, tmp_path):
+    install_portal(monkeypatch, tmp_path)  # Exercise guest setup against the explicit fake service.
     live.reset_for_tests()
     with ExitStack() as stack:
         owner, stranger = PipeClient(stack), PipeClient(stack)

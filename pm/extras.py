@@ -178,7 +178,7 @@ def _evaluate_in_runtime(marker: str, environment: dict[str, str]) -> bool:
 
 def install_hint(extra: str) -> str:
     """The one command users are told to run for a missing extra."""
-    return f"hermes pm install --extra {extra}"
+    return f"loki pm install --extra {extra}"
 
 
 def ensure_import(extra: str) -> None:

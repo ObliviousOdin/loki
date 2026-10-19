@@ -77,7 +77,7 @@ cd /opt/data
 cd "$_hermes_orig_cwd"
 
 if [ $# -eq 0 ]; then
-    drop hermes
+    drop loki
 fi
 
 # A leading flag is a hermes global option (`-p <profile> gateway run`), never an executable:
@@ -94,4 +94,4 @@ case "$1" in
 esac
 
 # Hermes subcommand pass-through.
-drop hermes "$@"
+drop loki "$@"

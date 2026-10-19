@@ -9,6 +9,8 @@ import asyncio
 import os
 from pathlib import Path
 import subprocess
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import sys
 import threading
 from types import SimpleNamespace
@@ -126,7 +128,7 @@ def test_cli_turn_batch_answered_by_clarify_lock_from_a_second_viewer_end_to_end
     env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(state), PYTHONPATH=str(repo))
     result = subprocess.run(
         [sys.executable, str(Path(__file__).parent / 'fixtures' / 'authority_clarify_lock_peer.py')],
-        cwd=tmp_path, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=90, check=False)
+        cwd=tmp_path, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=90, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     assert (state / 'lock-passed').read_text() == 'both locked answers reached the real model'
 

@@ -422,14 +422,16 @@ def cmd_peer(args) -> int:
 
 def build_peer_parser(subparsers) -> None:
     """Attach the ``peer`` subcommand to ``subparsers``."""
+    from hermes_cli.loki_branding import literal_help
+
     parser = subparsers.add_parser(
-        "peer", help="Bot-to-bot DMs across machines (peer Hermes gateways)",
-        description="Register other Hermes gateways as peers and message their agents. "
-            "'hermes peer dm <peer>[/<agent>] \"...\"' delivers into the remote "
+        "peer", help="Bot-to-bot DMs across machines (compatible peer gateways)",
+        description=literal_help("Register compatible Loki or Hermes gateways as peers and message their agents. "
+            "'loki peer dm <peer>[/<agent>] \"...\"' delivers into the remote "
             "agent's canonical Bot Chat over the peer's API server and prints "
-            "the reply — the cross-machine twin of 'hermes -p <bot> chat'. "
+            "the reply — the cross-machine twin of 'loki -p <bot> chat'. "
             "The peer must run the api_server platform; its API_SERVER_KEY is "
-            "stored locally as a credential in ~/.hermes/.env.",
+            "stored locally as a credential in ~/.loki/.env."),
         epilog=(
             "Examples:\n"
             "  hermes peer add spark --url http://spark.lan:8377 --key <API_SERVER_KEY>\n"

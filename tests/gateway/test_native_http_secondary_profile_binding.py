@@ -1,4 +1,6 @@
 """A secondary-profile native ticket binds every implicit profile selector to its own home."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import json
 import os
 from pathlib import Path
@@ -36,7 +38,7 @@ def test_secondary_native_ticket_implicit_selectors_touch_only_the_secondary_hom
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED='1', HERMES_DASHBOARD_SESSION_TOKEN='normal-http-owner')
     with (tmp_path / 'gateway.log').open('w+') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 60

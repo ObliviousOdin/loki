@@ -438,8 +438,8 @@ class PluginLoaderMixin:
         if missing:
             logger.warning(
                 "Plugin %s declares Python dependencies that are not "
-                "installed: %s. For an enabled plugin, run hermes pm repair, "
-                "then restart Hermes. Discovery does not install dependencies.",
+                "installed: %s. For an enabled plugin, run loki pm repair, "
+                "then restart Loki. Discovery does not install dependencies.",
                 key, ", ".join(missing),
             )
         else:

@@ -1,6 +1,6 @@
-# Hermes Agent bootstrap: git checkout + venv + hermes command on PATH.
+# Loki Agent bootstrap: git checkout + venv + loki command on PATH.
 # Heavy dependencies (tool binaries, browsers, node) are pm's job after
-# this: `hermes pm install`. Stage protocol kept for Hermes-Setup:
+# this: `loki pm install`. Stage protocol kept for Loki-Setup:
 #   -Manifest             print the stage list as JSON
 #   -Stage NAME [-Json]   run one stage
 #   -NonInteractive       skip stages that need input
@@ -9,25 +9,26 @@
 #   -ProtocolVersion      print the stage protocol version
 #   -SkipBrowser          do not install the browser tools (agent-browser +
 #                         Chromium); remembered by later
-#                         installs and `hermes update`, undone by
-#                         `hermes pm install agent-browser`
+#                         installs and `loki update`, undone by
+#                         `loki pm install agent-browser`
 #   -SkipComputerUse      do not install the computer-use driver (cua-driver);
 #                         remembered the same way, undone by
-#                         `hermes pm install cua-driver`
+#                         `loki pm install cua-driver`
 #   -Verbose              stream every child command's output (the default
 #                         with redirected output and in CI)
 #   -Channel stable|main  stable (default): the latest published release, then
 #                         release to release; main: every commit. Also
-#                         $env:HERMES_INSTALL_CHANNEL (the only way under
+#                         $env:LOKI_INSTALL_CHANNEL (the only way under
 #                         `irm | iex`); an explicit choice is saved like
-#                         `hermes update --set-channel`
+#                         `loki update --set-channel`
 [CmdletBinding(PositionalBinding=$false)]
 param(
     [string]$Branch = "main",
     [string]$Commit = "",
-    [string]$Channel = $(if ($env:HERMES_INSTALL_CHANNEL) { $env:HERMES_INSTALL_CHANNEL } else { "" }),
-    [string]$HermesHome = $(if ($env:HERMES_HOME) { $env:HERMES_HOME } else { "$env:LOCALAPPDATA\hermes" }),
-    [string]$InstallDir = $(if ($env:HERMES_HOME) { "$env:HERMES_HOME\hermes-agent" } else { "$env:LOCALAPPDATA\hermes\hermes-agent" }),
+    [string]$Channel = $env:LOKI_INSTALL_CHANNEL,
+    [Alias("LokiHome")]
+    [string]$HermesHome = $(if ($env:LOKI_HOME) { $env:LOKI_HOME } else { "$env:LOCALAPPDATA\loki" }),
+    [string]$InstallDir = $(if ($env:LOKI_HOME) { "$env:LOKI_HOME\hermes-agent" } else { "$env:LOCALAPPDATA\loki\hermes-agent" }),
     [switch]$Manifest,
     [string]$Stage,
     [switch]$ProtocolVersion,
@@ -38,8 +39,8 @@ param(
     [switch]$Json,
     [switch]$IncludeDesktop,
     # Same opt-out as install.sh --skip-browser: PM records it, so later
-    # installs and `hermes update` keep the browser tools off until
-    # `hermes pm install agent-browser` opts back in.
+    # installs and `loki update` keep the browser tools off until
+    # `loki pm install agent-browser` opts back in.
     [switch]$SkipBrowser,
     [switch]$SkipComputerUse,
     # Print the paths this install would use, as JSON on stdout, and exit
@@ -51,6 +52,13 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Own the installer environment before entering the engine. No inherited Hermes
+# activation, profile, runtime, or secrets are adopted by a new Loki install.
+Get-ChildItem Env: | Where-Object { $_.Name -like 'HERMES_*' -or $_.Name -like '__HERMES_*' } | ForEach-Object { Remove-Item "Env:$($_.Name)" }
+Get-ChildItem Env: | Where-Object { $_.Name -like 'LOKI_*' } | ForEach-Object { Set-Item "Env:HERMES_$($_.Name.Substring(5))" $_.Value }
+$env:__LOKI_ENV_BOUND = '1'
+
 
 # -SkipSetup is the pre-rework spelling of -NonInteractive.
 if ($SkipSetup) { $NonInteractive = $true }
@@ -77,7 +85,7 @@ $script:BoundParams = $PSBoundParameters
 # Under iex, script scope is the caller's session and outlives a run; start
 # each run without the previous run's answer (see Set-LauncherUserPath).
 $script:BinDirOnCallerPath = $null
-$RepoUrl = if ($env:HERMES_REPO_URL) { $env:HERMES_REPO_URL } else { "https://github.com/NousResearch/hermes-agent.git" }
+$RepoUrl = if ($env:LOKI_REPO_URL) { $env:LOKI_REPO_URL } else { "https://github.com/ObliviousOdin/loki.git" }
 
 # --- BEGIN GENERATED: bootstrap pins (scripts/gen-bootstrap-pins.py) ---
 # Derived from pm/lock.json. DO NOT EDIT BY HAND:
@@ -86,12 +94,12 @@ $script:UvPinVersion = "0.12.3"
 $script:UvPinFiles = @{
     "win32-x64" = @{
         Url    = "https://github.com/astral-sh/uv/releases/download/0.12.3/uv-x86_64-pc-windows-msvc.zip"
-        MirrorUrl = "https://hermes-assets.nousresearch.com/upstream/sha256/b23350c79e8ad0192b8124af13a0f17e8d4e4549524785e1aef389ae5a06990e"
+        MirrorUrl = ""
         Sha256 = "b23350c79e8ad0192b8124af13a0f17e8d4e4549524785e1aef389ae5a06990e"
     }
     "win32-arm64" = @{
         Url    = "https://github.com/astral-sh/uv/releases/download/0.12.3/uv-aarch64-pc-windows-msvc.zip"
-        MirrorUrl = "https://hermes-assets.nousresearch.com/upstream/sha256/4343217d668727b8a8eb5cad92389a1d2eeead93c89940d1b955ba1bb15462eb"
+        MirrorUrl = ""
         Sha256 = "4343217d668727b8a8eb5cad92389a1d2eeead93c89940d1b955ba1bb15462eb"
     }
 }
@@ -100,12 +108,12 @@ $script:GitPinVersion = "2.53.0+3"
 $script:GitPinFiles = @{
     "win32-x64" = @{
         Url    = "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.3/PortableGit-2.53.0.3-64-bit.7z.exe"
-        MirrorUrl = "https://hermes-assets.nousresearch.com/upstream/sha256/b365da794b1d2225eb24d5f5e09ef7792cfd5fa26c3a3586210280c80dff3a2a"
+        MirrorUrl = ""
         Sha256 = "b365da794b1d2225eb24d5f5e09ef7792cfd5fa26c3a3586210280c80dff3a2a"
     }
     "win32-arm64" = @{
         Url    = "https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.3/PortableGit-2.53.0.3-arm64.7z.exe"
-        MirrorUrl = "https://hermes-assets.nousresearch.com/upstream/sha256/0db54010054c01f35501cf69e1e32d3710138ecb934d188bd77093afed24300e"
+        MirrorUrl = ""
         Sha256 = "0db54010054c01f35501cf69e1e32d3710138ecb934d188bd77093afed24300e"
     }
 }
@@ -328,7 +336,7 @@ function Initialize-ResolvedPaths {
         ConvertTo-LongPath $HermesHome
     } else {
         ConvertTo-LongPath $(
-            if ($env:HERMES_HOME) { $env:HERMES_HOME } else { "$env:LOCALAPPDATA\hermes" }
+            if ($env:LOKI_HOME) { $env:LOKI_HOME } else { "$env:LOCALAPPDATA\loki" }
         )
     }
     $resolvedDir = if ($script:BoundParams.ContainsKey('InstallDir')) {
@@ -361,7 +369,10 @@ function Initialize-ResolvedPaths {
     # (-File, scriptblock, dot-source).
     Set-Variable -Scope 1 -Name HermesHome -Value $resolvedHome
     Set-Variable -Scope 1 -Name InstallDir -Value $resolvedDir
+    $env:UV_CACHE_DIR = Join-Path $resolvedHome "cache/bootstrap-uv"
+    $env:UV_PYTHON_INSTALL_DIR = Join-Path $resolvedHome "cache/bootstrap-python"
     $env:HERMES_HOME = $resolvedHome
+    $env:LOKI_HOME = $resolvedHome
 
     # Captured here, where the values are final. The report goes to STDOUT as
     # JSON under -ShowResolvedPaths: on Windows a child's stderr does not
@@ -518,12 +529,12 @@ function Invoke-DownloadWithProgress {
 # (<store>\uv-<version>-<target>\), sha256-verified, so pm adopts the same
 # bytes — no astral-latest, no irm|iex. Returns the uv.exe path.
 function Get-Uv {
-    # Always the pinned artifact, never a uv already on PATH: Hermes runs only
+    # Always the pinned artifact, never a uv already on PATH: Loki runs only
     # its own packaged toolchain.
     $target = "win32-$(Get-WindowsArch)"
     $pin = $script:UvPinFiles[$target]
     if (-not $pin) {
-        Fail "no pinned uv artifact for $target; Hermes does not support this host" unsupported_platform
+        Fail "no pinned uv artifact for $target; Loki does not support this host" unsupported_platform
     }
     $entry = Join-Path (Get-PmStoreRoot) "uv-$($script:UvPinVersion)-$target"
     $uvExe = Join-Path $entry "uv.exe"
@@ -622,7 +633,7 @@ function Write-Err([string]$msg) { Write-Host "[X] $msg" -ForegroundColor Red }
 function Write-Banner {
     Write-Host ""
     Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
-    Write-Host "|             * Hermes Agent Installer                    |" -ForegroundColor Magenta
+    Write-Host "|             * Loki Agent Installer                    |" -ForegroundColor Magenta
     Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
     Write-Host "|  An open source AI agent by Nous Research.              |" -ForegroundColor Magenta
     Write-Host "+---------------------------------------------------------+" -ForegroundColor Magenta
@@ -656,7 +667,7 @@ function Invoke-Native([scriptblock]$Command, [switch]$Utf8Output) {
 
 # Interactive runs collapse child-process output (git, uv, pm, the builds)
 # into one status line. CI, -Verbose and redirected output -- the
-# Hermes-Setup -Json driver, E2E transcripts -- keep the full stream those
+# Loki-Setup -Json driver, E2E transcripts -- keep the full stream those
 # readers parse.
 function Test-QuietOutput {
     if ($env:CI -or $env:GITHUB_ACTIONS -or $env:HERMES_INSTALL_VERBOSE) { return $false }
@@ -671,7 +682,7 @@ function Write-StatusLine([string]$Text, [int]$Width) {
 }
 
 # The error line of a failed command's output: the first fatal:/error: line (git's
-# cause; later ones are generic), else the last non-empty one. Fail reasons carry it, and Hermes-Setup shows the reason
+# cause; later ones are generic), else the last non-empty one. Fail reasons carry it, and Loki-Setup shows the reason
 # as-is, so the screen names the cause (git's "fatal: ...") and not just the step.
 $script:NativeError = $null
 function Select-ErrorLine($Lines) {
@@ -715,7 +726,7 @@ function Invoke-Logged {
     }
     if (-not $logWriter) {
         Log $StatusLabel
-        # stderr stays on stderr (Hermes-Setup logs it); the lines are kept so a
+        # stderr stays on stderr (Loki-Setup logs it); the lines are kept so a
         # failure reason can name the cause.
         # Named -TypeName: a positional New-Object binds to callers' New-Object shims.
         $outputLines = New-Object -TypeName 'System.Collections.Generic.Queue[string]'
@@ -779,7 +790,7 @@ function Fail([string]$msg, [string]$Class = "other") {
 
 # One local receipt per full-ladder run, under the profile's shared-metrics dir.
 # Only closed tokens and two timestamps (never the error text, paths or URLs);
-# the installer never sends anything. Hermes reports it as hermes.install.run on
+# the installer never sends anything. Loki reports it as hermes.install.run on
 # a later start only while shared metrics collection is on, and deletes it
 # unreported when collection is off. Best effort: never fails the install.
 function Write-InstallReceipt([string]$Outcome, [string]$FailedStage, [string]$Class) {
@@ -821,11 +832,11 @@ function Emit-Frame([bool]$ok, [string]$name, [bool]$skipped, [string]$reason = 
 $ProductTitle = if ($IncludeDesktop) { "Install command and app + desktop" } else { "Install command and app" }
 $Stages = @(
     @{ name = "prerequisites"; title = "System prerequisites"; category = "runtime"; needs_user_input = $false },
-    @{ name = "repository"; title = "Download Hermes Agent"; category = "runtime"; needs_user_input = $false },
+    @{ name = "repository"; title = "Download Loki Agent"; category = "runtime"; needs_user_input = $false },
     @{ name = "venv"; title = "Create Python environment"; category = "runtime"; needs_user_input = $false },
     @{ name = "python-deps"; title = "Install Python dependencies"; category = "runtime"; needs_user_input = $false },
     @{ name = "config"; title = "Prepare config and skills"; category = "configuration"; needs_user_input = $false },
-    # The shared completion tail -- the same call `hermes update` makes -- so
+    # The shared completion tail -- the same call `loki update` makes -- so
     # the manifest and the run cannot disagree. -IncludeDesktop selects the
     # desktop product inside this stage instead of adding a second build stage.
     @{ name = "products"; title = $ProductTitle; category = "runtime"; needs_user_input = $false },
@@ -842,7 +853,7 @@ function Stage-Prerequisites {
 
 # A treeless checkout must never write a commit-graph: over a graph with changed-path
 # data that lazy-fetches the trees of every unseen commit, in a loop (#127711).
-# gc.auto stays on: `hermes update` folds lazy-fetch packs with `gc --auto`.
+# gc.auto stays on: `loki update` folds lazy-fetch packs with `gc --auto`.
 function Disable-TreelessGraphWrites([string]$Dir) {
     foreach ($key in 'maintenance.commit-graph.enabled', 'gc.writeCommitGraph', 'fetch.writeCommitGraph') {
         Invoke-Native { git -C $Dir config $key false } | Out-Null
@@ -850,7 +861,7 @@ function Disable-TreelessGraphWrites([string]$Dir) {
     }
 }
 
-# A YAML scalar as Hermes writes it: unquoted, or one pair of matching quotes; trailing comment dropped.
+# A YAML scalar as Loki writes it: unquoted, or one pair of matching quotes; trailing comment dropped.
 function ConvertFrom-YamlScalar([string]$Text) {
     $s = ($Text -replace '\s+#.*$', '').Trim()
     if ($s.Length -gt 1 -and ($s[0] -eq '"' -or $s[0] -eq "'") -and $s[-1] -eq $s[0]) { $s = $s.Substring(1, $s.Length - 2) }
@@ -859,7 +870,7 @@ function ConvertFrom-YamlScalar([string]$Text) {
 
 # The update channel this install chose (config.yaml update.installs.<id>.channel, id = sha16 of
 # the canonical install path, as hermes_cli.update_channel keys it; a record naming this path also
-# counts, since Windows paths can differ only in case). Pre-Python reader of the block YAML Hermes
+# counts, since Windows paths can differ only in case). Pre-Python reader of the block YAML Loki
 # writes; anything it cannot read returns '', which keeps the plain branch behaviour.
 function Get-ChosenChannel {
     $config = Join-Path $HermesHome 'config.yaml'
@@ -896,7 +907,7 @@ function Get-ChosenChannel {
     return ''
 }
 
-# The latest published stable release (vX.Y.Z), the release `hermes update` resolves for the
+# The latest published stable release (vX.Y.Z), the release `loki update` resolves for the
 # stable channel. github.com's /releases/latest redirect answers when the API quota is spent, and
 # origin's highest vX.Y.Z tag (final tags are pushed by the publication run) when github.com's web
 # endpoints are unreachable but git is not. Returns '' when none answers.
@@ -904,13 +915,13 @@ function Get-LatestStableRelease([string]$Origin) {
     $pattern = '^v(0|[1-9]\d{0,2})\.(0|[1-9]\d*)\.(0|[1-9]\d*)$'  # update_channel.STABLE_TAG_RE
     $tag = ''
     try {
-        $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/NousResearch/hermes-agent/releases/latest' `
+        $release = Invoke-RestMethod -Uri 'https://api.github.com/repos/ObliviousOdin/loki/releases/latest' `
             -Headers @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'hermes-installer' } -TimeoutSec 20
         $tag = "$($release.tag_name)"
     } catch { }
     if ($tag -cnotmatch $pattern) {
         try {
-            $request = [Net.HttpWebRequest]::Create('https://github.com/NousResearch/hermes-agent/releases/latest')
+            $request = [Net.HttpWebRequest]::Create('https://github.com/ObliviousOdin/loki/releases/latest')
             $request.Method = 'HEAD'
             $request.AllowAutoRedirect = $false
             $request.Timeout = 20000
@@ -933,11 +944,7 @@ function Get-LatestStableRelease([string]$Origin) {
 # release could be looked up: an explicit -Channel, else stable for the official repository's main line (forks and mirrors publish no official
 # releases; hermes_cli.update_channel.default_channel decides the same way).
 function Get-StableTarget([string]$Origin) {
-    if ($Commit -or $Channel -ceq 'main') { return '' }
-    if ($Channel -cne 'stable') {
-        if ($Branch -cne 'main') { return '' }
-        if ($Origin -notmatch '^(https://github\.com/|git@github\.com:|ssh://git@github\.com/)NousResearch/hermes-agent(\.git)?/?$') { return '' }
-    }
+    if ($Commit -or $Channel -cne 'stable') { return '' }
     $release = Get-LatestStableRelease $Origin
     if ($release) { return $release }
     return '-'
@@ -950,7 +957,7 @@ function Receive-StableRelease([string]$Dir, [string]$Release) {
 }
 
 # Stable applies but cannot be reached. A fresh install stops (installing main instead would be a
-# channel nobody chose); a rerun keeps its checkout for `hermes update`, unless stable was asked
+# channel nobody chose); a rerun keeps its checkout for `loki update`, unless stable was asked
 # for by name. $What says what failed.
 function Confirm-StableUnreachable([string]$What) {
     if ((Test-Path (Join-Path $InstallDir '.git')) -and $Channel -cne 'stable') {
@@ -958,6 +965,14 @@ function Confirm-StableUnreachable([string]$What) {
         return
     }
     Fail "$What$(Get-NativeDetail). Rerun the installer to retry, or pass -Channel main to install main's tip" git_fetch_failed
+}
+
+function Test-LokiSourceRoot([string]$Root) {
+    $project = Join-Path $Root 'pyproject.toml'
+    if (-not (Test-Path -LiteralPath $project -PathType Leaf)) { return $false }
+    $text = [IO.File]::ReadAllText($project)
+    $body = [regex]::Match($text, '(?ms)^\[project\]\s*\r?\n(?<body>.*?)(?=^\[|\z)').Groups['body'].Value
+    return [regex]::IsMatch($body, '(?m)^\s*name\s*=\s*"obliviousodin-loki-agent"\s*(?:#.*)?$')
 }
 
 function Stage-Repository {
@@ -973,8 +988,12 @@ function Stage-Repository {
         $item = Get-Item -LiteralPath $InstallDir -Force
         $empty = $item.PSIsContainer -and -not $item.LinkType -and -not (Get-ChildItem -LiteralPath $InstallDir -Force | Select-Object -First 1)
         if (-not $empty) {
-            Fail "$InstallDir exists and is not a Hermes git checkout. Move it aside, or install elsewhere with -InstallDir <path>." dir_not_checkout
+            Fail "$InstallDir exists and is not a Loki git checkout. Move it aside, or install elsewhere with -InstallDir <path>." dir_not_checkout
         }
+    }
+    # Prove project ownership before provisioning Git or changing an existing checkout.
+    if ((Test-Path (Join-Path $InstallDir '.git')) -and -not (Test-LokiSourceRoot $InstallDir)) {
+        Fail "$InstallDir is a foreign Git checkout; Loki will not modify it. Choose a new -InstallDir." dir_not_checkout
     }
     if (-not (Ensure-Git)) { Fail "no pinned Git artifact for this Windows architecture" unsupported_platform }
     # An interrupted clone from an older installer can leave a .git with no
@@ -990,7 +1009,7 @@ function Stage-Repository {
         }
     }
     if (Test-Path (Join-Path $InstallDir ".git")) {
-        # A chosen channel (stable, a preview) owns where this checkout sits: `hermes update`
+        # A chosen channel (stable, a preview) owns where this checkout sits: `loki update`
         # moves it. Switching it to the installer's branch would leave it on main while its
         # channel still says otherwise, and the next check would offer the release as an update.
         # Only an explicit -Commit pin outranks the choice.
@@ -1000,11 +1019,11 @@ function Stage-Repository {
         Invoke-Native { git -C $InstallDir config core.longpaths true } | Out-Null
         # An explicit HERMES_REPO_URL names the source for reruns too, not
         # just the first clone.
-        if ($env:HERMES_REPO_URL) {
+        if ($env:LOKI_REPO_URL) {
             Invoke-Native { git -C $InstallDir remote set-url origin $RepoUrl }
             if ($LASTEXITCODE) { Fail "cannot point origin at $RepoUrl" git_fetch_failed }
         }
-        # No recorded choice: an official checkout tracks stable, as `hermes update` does.
+        # No recorded choice: an official checkout tracks stable, as `loki update` does.
         if (-not $chosen) {
             # The configured URL, as hermes_cli.update_channel reads it (`remote get-url`
             # applies insteadOf rewrites).
@@ -1037,12 +1056,12 @@ function Stage-Repository {
             Disable-TreelessGraphWrites $InstallDir
             # A treeless (tree:0) checkout from a late-September installer downloads whole
             # directory snapshots again on every history walk (#129514). Fetch its trees once; the
-            # new filter is recorded only after that succeeds, so `hermes update` retries otherwise.
+            # new filter is recorded only after that succeeds, so `loki update` retries otherwise.
             $partialFilter = Invoke-Native { git -C $InstallDir config --get remote.origin.partialclonefilter }
             if ("$partialFilter".Trim() -eq 'tree:0') {
                 Invoke-Logged -MayFail "Fetching directory history once (treeless checkout)" { git -C $InstallDir -c gc.auto=0 -c maintenance.auto=false fetch --refetch --filter=blob:none origin "+refs/heads/${Branch}:refs/remotes/origin/${Branch}" }
                 if ($LASTEXITCODE) {
-                    Write-Warn "could not fetch the directory history; the next hermes update retries it"
+                    Write-Warn "could not fetch the directory history; the next loki update retries it"
                 } else {
                     Invoke-Native { git -C $InstallDir config remote.origin.partialclonefilter blob:none }
                     if ($LASTEXITCODE) { Write-Warn "could not record the blobless filter in $InstallDir" }
@@ -1050,7 +1069,7 @@ function Stage-Repository {
             }
         }
         if ($chosen) {
-            Log "Keeping its checkout: ``hermes update`` moves it (``hermes update --set-channel main`` follows main)"
+            Log "Keeping its checkout: ``loki update`` moves it (``loki update --set-channel main`` follows main)"
             return
         }
         if ($release -and -not (Receive-StableRelease $InstallDir $release)) {
@@ -1060,16 +1079,16 @@ function Stage-Repository {
         if ($release) {
             # A rerun only moves a checkout forward onto the release. Any other move (a main
             # checkout diverged from a release cut on release/*, one already past it, a shallow
-            # one that cannot tell) is `hermes update`'s: it refuses a release that predates the
+            # one that cannot tell) is `loki update`'s: it refuses a release that predates the
             # session stores this checkout wrote (update_downgrade_guard).
             Invoke-Native { git -C $InstallDir merge-base --is-ancestor $release HEAD 2>$null } | Out-Null
             if (-not $LASTEXITCODE) {
-                Log "Keeping its checkout: it already has $release (``hermes update`` moves it to the next release)"
+                Log "Keeping its checkout: it already has $release (``loki update`` moves it to the next release)"
                 return
             }
             Invoke-Native { git -C $InstallDir merge-base --is-ancestor HEAD $release 2>$null } | Out-Null
             if ($LASTEXITCODE) {
-                Log "Keeping its checkout: $release does not descend from it (``hermes update`` decides that move)"
+                Log "Keeping its checkout: $release does not descend from it (``loki update`` decides that move)"
                 return
             }
         } else {
@@ -1095,7 +1114,7 @@ function Stage-Repository {
             Write-Warn "local changes stashed as hermes-install-autostash-$stamp"
         }
         if ($release) {
-            # Detached at the release commit, the way `hermes update` places a stable checkout;
+            # Detached at the release commit, the way `loki update` places a stable checkout;
             # branches (and any commits on them) stay where they are.
             Invoke-Logged "Checking out $release" { git -C $InstallDir checkout --detach $release }
             if ($LASTEXITCODE) { Fail "git checkout failed$(Get-NativeDetail)" git_checkout_failed }
@@ -1111,7 +1130,7 @@ function Stage-Repository {
         }
         if ($LASTEXITCODE) { Fail "git checkout failed$(Get-NativeDetail)" git_checkout_failed }
         # --no-stat: across a large gap (v2026.7.1 -> today is ~27k lines) the
-        # diffstat arrives as one burst. Hermes-Setup.exe forwards every line
+        # diffstat arrives as one burst. Loki-Setup.exe forwards every line
         # to its window as a separate event; the burst overflows the Windows
         # posted-message queue (10k), events drop, and the installer's Launch
         # button can then hang on "Launching" forever.
@@ -1120,7 +1139,7 @@ function Stage-Repository {
             # A release cut off the main line, a force-pushed remote, or the
             # user's own commits cannot fast-forward. Every stage below reads
             # files only the new tree has (pm/), so an install left on the old
-            # tree cannot finish -- match the remote the way `hermes update`
+            # tree cannot finish -- match the remote the way `loki update`
             # does, after parking the old tip. Mirrors scripts/install.sh.
             # Keep commits absent from origin in the updater's rescue namespace.
             $droppedText = (Invoke-Native { git -C $InstallDir rev-list --count "origin/$Branch..HEAD" 2>$null })
@@ -1169,7 +1188,7 @@ function Stage-Repository {
         if ($Commit -or $release) { $checkout = @('--no-checkout') }
         # Staging dir + deepest tracked path (~160) pass MAX_PATH (260) once LOCALAPPDATA
         # is longer than ~55 characters (a ~33-character user name), and checkout dies with
-        # "Filename too long". --config lands before checkout and stays for `hermes update`.
+        # "Filename too long". --config lands before checkout and stays for `loki update`.
         $longPaths = @('--config', 'core.longpaths=true')
         try {
             $cloned = $false
@@ -1224,7 +1243,7 @@ function Stage-Repository {
             }
             Move-Item -LiteralPath $tree -Destination $InstallDir
             Disable-TreelessGraphWrites $InstallDir
-            Write-Ok "Hermes Agent cloned"
+            Write-Ok "Loki Agent cloned"
         } finally {
             Remove-Item -LiteralPath $staged -Recurse -Force -ErrorAction SilentlyContinue
         }
@@ -1249,7 +1268,7 @@ function Stage-Venv {
 
 # Delegate the whole python+venv+tools install to pm: stage the pinned uv,
 # let uv locate Python and exit before PM starts. PM provisions the interpreter,
-# the venv (default extras = [all], matching `hermes update`), and the
+# the venv (default extras = [all], matching `loki update`), and the
 # tool store — all hash-verified against pm/lock.json + uv.lock. install.ps1
 # no longer runs `uv sync` directly; pm is the single install authority
 # (the run_locked_uv_sync contract moved into pm/environment.py).
@@ -1311,13 +1330,13 @@ function Invoke-SourceCompletion([bool]$Desktop) {
     if ($Desktop) { $completionArgs += '--desktop' }
     Push-Location $InstallDir
     try {
-        Invoke-Logged "Building the hermes command and apps" { & $bootPy @completionArgs }
+        Invoke-Logged "Building the loki command and apps" { & $bootPy @completionArgs }
         $code = $LASTEXITCODE
     } finally {
         Pop-Location
     }
     if ($code) { Fail "app products or command publication failed (exit $code)" products_build_failed }
-    Write-Ok "app products and hermes command ready"
+    Write-Ok "app products and loki command ready"
 }
 
 function Publish-UserCommand {
@@ -1328,14 +1347,14 @@ function Publish-UserCommand {
     $bootPy = Get-BootstrapPython
     Push-Location $InstallDir
     try {
-        Invoke-Logged "Publishing the hermes command" { & $bootPy -I -X utf8 hermes_cli/_launchers.py $binDir }
+        Invoke-Logged "Publishing the loki command" { & $bootPy -I -X utf8 hermes_cli/_launchers.py $binDir }
         $code = $LASTEXITCODE
     } finally {
         Pop-Location
     }
     if ($code) { Fail "launcher staging failed" products_build_failed }
     Set-LauncherUserPath $binDir
-    Write-Ok "hermes command installed at $binDir"
+    Write-Ok "loki command installed at $binDir"
 }
 
 function Test-DesktopProductPresent {
@@ -1368,7 +1387,7 @@ function Set-LauncherUserPath([string]$binDir) {
         Write-Ok "added $binDir to your user PATH (new shells pick it up)"
     }
     # The registry write only reaches shells started later. $env:Path is
-    # process-wide, so prepending it here makes `hermes` resolve in the
+    # process-wide, so prepending it here makes `loki` resolve in the
     # caller's own window whenever this code runs in the caller's process
     # (`irm | iex`, `& .\install.ps1`); a -File child just discards it.
     # Recorded before the first prepend only (the -IncludeDesktop ladder
@@ -1383,9 +1402,9 @@ function Write-PathReloadHint {
     # A script file may be a separate powershell.exe (-File), whose $env:Path
     # dies with it; the parent keeps the PATH it started with until reloaded.
     # iex'd text always runs in the caller's process, where the prepend in
-    # Set-LauncherUserPath already made `hermes` resolvable.
+    # Set-LauncherUserPath already made `loki` resolvable.
     if (-not $script:RunAsFile -or $script:BinDirOnCallerPath -ne $false) { return }
-    Log 'Restart your terminal to use hermes, or run: $env:Path = [Environment]::GetEnvironmentVariable(''Path'',''User'') + '';'' + [Environment]::GetEnvironmentVariable(''Path'',''Machine'')'
+    Log 'Restart your terminal to use loki, or run: $env:Path = [Environment]::GetEnvironmentVariable(''Path'',''User'') + '';'' + [Environment]::GetEnvironmentVariable(''Path'',''Machine'')'
 }
 
 function Stage-Config {
@@ -1417,7 +1436,7 @@ function Invoke-InstalledHermes([string[]]$CommandArgs) {
     Invoke-Native { & $runtimeCommand[0] @runtimeArgs }
     if ($LASTEXITCODE) {
         $class = @{ setup = 'setup_failed'; gateway = 'gateway_failed' }[$CommandArgs[0]]
-        Fail "hermes $($CommandArgs -join ' ') failed (exit $LASTEXITCODE)" $(if ($class) { $class } else { 'other' })
+        Fail "loki $($CommandArgs -join ' ') failed (exit $LASTEXITCODE)" $(if ($class) { $class } else { 'other' })
     }
 }
 
@@ -1449,16 +1468,16 @@ function Confirm-DesktopArtifact {
     try {
         $desktopDir = Join-Path $InstallDir "apps\desktop"
         $candidates = @(
-            (Join-Path $desktopDir "release\win-unpacked\Hermes.exe"),
-            (Join-Path $desktopDir "release\win-ia32-unpacked\Hermes.exe"),
-            (Join-Path $desktopDir "release\win-arm64-unpacked\Hermes.exe")
+            (Join-Path $desktopDir "release\win-unpacked\Loki.exe"),
+            (Join-Path $desktopDir "release\win-ia32-unpacked\Loki.exe"),
+            (Join-Path $desktopDir "release\win-arm64-unpacked\Loki.exe")
         )
         $desktopExe = $null
         foreach ($cand in $candidates) {
             if (Test-Path $cand) { $desktopExe = $cand; break }
         }
         if (-not $desktopExe) {
-            Fail "desktop build produced no Hermes.exe under $desktopDir\release\*-unpacked" products_build_failed
+            Fail "desktop build produced no Loki.exe under $desktopDir\release\*-unpacked" products_build_failed
         }
         Write-Ok "Desktop ready: $desktopExe"
 
@@ -1500,7 +1519,7 @@ function Stage-Complete {
         $marker | ConvertTo-Json -Depth 4 | Set-Content (Join-Path $InstallDir ".hermes-bootstrap-complete") -Encoding UTF8
     }
     if ($Channel) { Invoke-InstalledHermes @('update', '--set-channel', $Channel) }
-    if ($commit) { Write-Ok "Hermes Agent install complete (pinned $commit). Run: hermes" }
+    if ($commit) { Write-Ok "Loki Agent install complete (pinned $commit). Run: loki" }
 }
 
 function New-DesktopShortcuts {
@@ -1526,8 +1545,8 @@ function New-DesktopShortcuts {
         }
 
         $targets = @(
-            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Hermes.lnk'),
-            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Hermes.lnk')
+            (Join-Path ([Environment]::GetFolderPath('Programs')) 'Loki.lnk'),
+            (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Loki.lnk')
         )
 
         foreach ($lnkPath in $targets) {
@@ -1540,7 +1559,7 @@ function New-DesktopShortcuts {
                 $sc.TargetPath = $TargetExe
                 $sc.WorkingDirectory = $workDir
                 $sc.IconLocation = $iconLocation
-                $sc.Description = 'Hermes Agent'
+                $sc.Description = 'Loki Agent'
                 $sc.Save()
                 Write-Ok "Shortcut created: $lnkPath"
             } catch {
@@ -1551,7 +1570,7 @@ function New-DesktopShortcuts {
         # Bust the Windows shell icon cache so the desktop/Start-Menu shortcut
         # repaints with the (possibly newly-stamped) icon instead of a stale
         # cached bitmap. Critical on the --update path: the exe was re-stamped
-        # with the Hermes icon, but without this the shortcut can keep drawing
+        # with the Loki icon, but without this the shortcut can keep drawing
         # the old Electron icon until the user manually refreshes / reboots.
         # Best-effort and silent -- never fail the install over a cosmetic cache.
         try {

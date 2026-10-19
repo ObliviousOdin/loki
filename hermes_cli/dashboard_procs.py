@@ -163,9 +163,39 @@ def _pid_passwd_home(pid: int) -> str | None:
     return None
 
 
+def _backend_public_entry(argv: list[str]) -> str:
+    """Public launcher identity; Python may carry a script as its first argument."""
+    if not argv:
+        return ""
+    entry = str(argv[0]).replace("\\", "/").rsplit("/", 1)[-1].lower()
+    if entry.startswith("python"):
+        index = 1
+        while index < len(argv):
+            arg = argv[index]
+            if arg in {"-m", "-c"}:
+                return ""  # Shared module/inline entry: it needs independent ownership proof.
+            if arg in {"-X", "-W"}:
+                index += 2
+            elif arg.startswith("-"):
+                index += 1
+            else:
+                return str(arg).replace("\\", "/").rsplit("/", 1)[-1].lower()
+    return entry
+
+
+def _backend_launch_kind(argv: list[str], env: dict[str, str]) -> str:
+    """Shared public launch identity; bound children may retain internal module names."""
+    entry = _backend_public_entry(argv)
+    family = entry.removesuffix(".exe")
+    if family in {"hermes", "fabric"} or family.endswith("-fabric"):
+        return "foreign"
+    if entry in {"loki", "loki.exe", "loki.py"}:
+        return "public"
+    return "bound" if env.get("__LOKI_ENV_BOUND") == "1" else "unbound"
+
+
 def _hermes_home_for_pid(pid: int) -> str | None:
-    """The Hermes home *pid* runs on, tri-state: ``None`` ONLY when its environment is unreadable
-    (another user, hardened ``/proc``) — callers spare those, never guess.
+    """The Loki home *pid* runs on; unknown or foreign identity is spared, never guessed.
 
     A readable environment always resolves, replaying ``_apply_profile_override`` on the target's
     exec-time env + argv (``hermes -p X serve`` rewrites ``HERMES_HOME`` in ``os.environ`` AFTER
@@ -182,18 +212,31 @@ def _hermes_home_for_pid(pid: int) -> str | None:
     from hermes_cli.main_dashboard import _dashboard_cmdline_for_pid
     from hermes_cli.profiles import get_active_profile, normalize_profile_name, profile_root_for_env_home
     argv = _dashboard_cmdline_for_pid(pid) or []
+    launch_kind = _backend_launch_kind(argv, env)
+    if launch_kind == "foreign":
+        return None  # Foreign public commands do not become Loki by inheriting its environment.
+    if launch_kind == "public" and env.get("__LOKI_ENV_BOUND") != "1":
+        from loki_identity import with_loki_aliases
+        env = with_loki_aliases({k: v for k, v in env.items() if not k.startswith("HERMES_")})
+    elif launch_kind == "unbound":
+        # Internal module names are shared with upstream. Only this install's live
+        # spawn ledger can identify an unbound module process; HOME alone cannot.
+        from hermes_cli.process_identity import ledger_entries
+        with contextlib.suppress(Exception):
+            for row in ledger_entries(verified_only=True):
+                if row.get("pid") == pid and row.get("purpose") in {"serve", "dashboard", "gateway"}:
+                    return row.get("hermes_home") or None
+        return None
     env_home = env.get("HERMES_HOME", "").strip()
     profile = _profile_flag_value(argv)
     if profile is None and env_home and (
         Path(env_home).parent.name == "profiles" or env.get("HERMES_UPDATE_POST_SWAP") == "1"
     ):
         return env_home
-    if sys.platform == "win32":
-        local_appdata = env.get("LOCALAPPDATA", "").strip()
-        base = Path(local_appdata) if local_appdata else Path(env.get("USERPROFILE") or Path.home()) / "AppData" / "Local"
-        default_home = base / "hermes"
-    else:
-        default_home = Path(env.get("HOME") or _pid_passwd_home(pid) or Path.home()) / ".hermes"
+    from hermes_constants import _platform_default_hermes_home
+    user_home = (env.get("USERPROFILE") if sys.platform == "win32" else
+                 env.get("HOME") or _pid_passwd_home(pid))
+    default_home = _platform_default_hermes_home(env, lambda: Path(user_home) if user_home else Path.home())
     root = profile_root_for_env_home(env_home, default_home)
     fixed_identity = any(env.get(k) for k in ("HERMES_SUPERVISED_CHILD", "HERMES_S6_SUPERVISED_CHILD",
                                                "HERMES_GATEWAY_EXTERNAL_SUPERVISOR")) or is_desktop_ssh_backend_argv(argv)
@@ -611,10 +654,10 @@ def _kill_stale_dashboard_processes(
     """
     from hermes_cli import main_dashboard as _dash
 
-    if restart_managed and _dash._restart_managed_dashboard_service(reason):
+    if restart_managed and _dash._restart_managed_dashboard_service(reason, scope_home=scope_home):
         # The dashboard unit is handled but other backends (e.g. hermes-serve.service) are not:
         # mark the unit handled so the filter below drops its PIDs, and keep going.
-        _dash_unit = getattr(_dash, "_DASHBOARD_SYSTEMD_UNIT", "hermes-dashboard.service")
+        _dash_unit = getattr(_dash, "_DASHBOARD_SYSTEMD_UNIT", "loki-dashboard.service")
         already_restarted_units = set(already_restarted_units or ()) | {
             str(_dash_unit).removesuffix(".service")}
     exclude = _exclude_pids_from_env()
@@ -641,31 +684,37 @@ def _kill_stale_dashboard_processes(
     def _launchd_owner(pid: int, cmdline: list[str] | None):
         return _dash._launchd_job_owning_backend(pid, cmdline, launchd_jobs, ancestors=_process_ancestors(pid))
 
-    if restart_managed and sys.platform != "win32":
+    protected: set[int] = set()
+    if sys.platform != "win32":
         for pid in pids:
             pid_cgroup[pid] = _dash._get_pid_cgroup_path(pid)
             pid_service[pid] = _dash._get_systemd_service_for_pid(pid)
+            pid_home[pid] = _hermes_home_for_pid(pid)
             if pid_service[pid]:
+                if (_dash._foreign_backend_service(pid_service[pid])
+                        or not _dash._backend_service_home_owned(pid_home[pid], scope_home)):
+                    protected.add(pid)
                 continue
             cmdline = _dash._dashboard_cmdline_for_pid(pid)
             if launchd_jobs and (job := _launchd_owner(pid, cmdline)):
                 pid_launchd[pid] = job
-            elif cmdline:
+                if (_dash._foreign_backend_service(job[1])
+                        or not _dash._backend_service_home_owned(pid_home[pid], scope_home)):
+                    protected.add(pid)
+            elif restart_managed and cmdline:
                 # Manual process: exact argv + HERMES_HOME for the respawn and its profile cap.
                 # Manually-started process: preserve its exact argv so we can respawn it after the update
                 # (#40449, #68934). Snapshot HERMES_HOME before the kill so per-profile caps still work
                 # after the process is gone (#78821).
                 pid_cmdline[pid] = cmdline
-                pid_home[pid] = _hermes_home_for_pid(pid)
+        pids = [pid for pid in pids if pid not in protected]
+        if not pids:
+            return _empty_result()
         if already_restarted_units:
             pids = [pid for pid in pids if (pid_service.get(pid) or "").removesuffix(".service")
                     not in already_restarted_units]
             if not pids:
                 return _empty_result()
-    elif launchd_jobs:
-        for pid in pids:
-            if job := _launchd_owner(pid, _dash._dashboard_cmdline_for_pid(pid)):
-                pid_launchd[pid] = job
     print(f"\n⟲ Stopping {len(pids)} dashboard process(es) ({reason})")
     killed: list[int] = []
     failed: list[tuple[int, str]] = []
@@ -685,7 +734,7 @@ def _kill_stale_dashboard_processes(
             print(f"  ⚠ PID(s) supervised by launchd job {target}: a KeepAlive job restarts itself.\n"
                   f"    To keep it down: launchctl bootout {target}")
         if any(p not in pid_launchd for p in killed):
-            print("  Restart the dashboard when you're ready:\n    hermes dashboard --port <port>")
+            print("  Restart the dashboard when you're ready:\n    loki dashboard --port <port>")
     return {"matched": list(pids), "killed": list(killed), "failed": list(failed),
             "unrecovered": list(unrecovered)}
 
@@ -709,11 +758,19 @@ def _restart_killed_backends(
     for pid in killed:
         svc_name = pid_service.get(pid)
         launchd_job = (pid_launchd or {}).get(pid)
+        if (svc_name or launchd_job) and (
+            _dash._foreign_backend_service(svc_name or launchd_job[1])
+            or not _dash._backend_service_home_owned(pid_home.get(pid))
+        ):
+            unrecovered.append(pid)
+            continue
         if svc_name:
             if svc_name in seen_services:
                 continue
             seen_services.add(svc_name)
-            if _dash._try_restart_systemd_service(svc_name, pid_cgroup.get(pid)):
+            if _dash._try_restart_systemd_service(
+                svc_name, pid_cgroup.get(pid), ownership_home=pid_home.get(pid),
+            ):
                 print(f"    ✓ restarted systemd service {svc_name}")
             else:
                 failed_restarts.append((svc_name, "systemctl restart returned non-zero"))
@@ -727,7 +784,7 @@ def _restart_killed_backends(
             if target in seen_services:
                 continue
             seen_services.add(target)
-            if _dash._restart_launchd_job(domain, label, old_pid):
+            if _dash._restart_launchd_job(domain, label, old_pid, ownership_home=pid_home.get(pid)):
                 print(f"    ✓ restarted launchd job {target}")
             else:
                 # A LaunchDaemon (system domain) can only be kickstarted by root; the hint must
@@ -747,7 +804,7 @@ def _restart_killed_backends(
     if failed_cmds:
         unrecovered.extend(p for p in killed if pid_cmdline.get(p) in failed_cmds)
     if failed_restarts or unrecovered:
-        print("  Restart anything not auto-restarted when you're ready:\n    hermes dashboard --port <port>")
+        print("  Restart anything not auto-restarted when you're ready:\n    loki dashboard --port <port>")
     return unrecovered
 
 
@@ -932,7 +989,7 @@ def _process_age_seconds(pid: int) -> float:
 
 
 def _reap_orphaned_desktop_local_serves(
-    *, reason: str = "orphaned desktop-local hermes serve", signal_term=None, signal_kill=None,
+    *, reason: str = "orphaned desktop-local loki serve", signal_term=None, signal_kill=None,
     sleep_fn=None, lock_owned_pids_fn=None, process_age_seconds_fn=None) -> dict[str, list]:
     """Kill leftover Desktop-local ``hermes serve`` backends with no parent. Never raises.
 

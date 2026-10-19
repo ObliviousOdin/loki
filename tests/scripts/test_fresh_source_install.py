@@ -33,7 +33,7 @@ def test_current_installer_publishes_real_dependencies_and_warm_path(tmp_path, s
     minor = ".".join(map(str, sys.version_info[:2]))
     home = tmp_path / "home"
     home.mkdir()
-    managed = tmp_path / "bootstrap-python"
+    managed = home / ".loki" / "cache" / "bootstrap-python"
     arch = {"x64": "x86_64", "arm64": "aarch64"}[current_target().split("-")[1]]
     bootstrap = managed / f"cpython-{version}-linux-{arch}-gnu"
     (bootstrap / "bin").mkdir(parents=True)
@@ -44,8 +44,8 @@ def test_current_installer_publishes_real_dependencies_and_warm_path(tmp_path, s
     shutil.copy2(python, bootstrap / f"bin/python{minor}")
     (bootstrap / "bin/python3").symlink_to(f"python{minor}")
     env = {"PATH": os.environ["PATH"], "HOME": str(home), "LANG": "C.UTF-8",
-           "HERMES_HOME": str(home / ".hermes"), "UV_PYTHON_INSTALL_DIR": str(managed),
-           "UV_PYTHON_DOWNLOADS": "never", "UV_CACHE_DIR": str(tmp_path / "cache")}
+           "LOKI_HOME": str(home / ".loki"), "UV_PYTHON_INSTALL_DIR": str(managed),
+           "UV_PYTHON_DOWNLOADS": "never", "UV_CACHE_DIR": str(home / ".loki" / "cache" / "bootstrap-uv")}
     canary = tmp_path / "ambient-bin"
     canary.mkdir()
     npm_called = tmp_path / "npm-called"
@@ -67,7 +67,7 @@ def test_current_installer_publishes_real_dependencies_and_warm_path(tmp_path, s
     source.mkdir()
     for name in ("pm", "hermes_cli", "hermes_platform"):
         shutil.copytree(ROOT / name, source / name, ignore=shutil.ignore_patterns("__pycache__"))
-    for name in ("utils.py", "hermes_constants.py", "hermes_dir_acl.py", "hermes_yaml.py", "hermes_bootstrap.py",
+    for name in ("utils.py", "loki_identity.py", "hermes_constants.py", "hermes_dir_acl.py", "hermes_yaml.py", "hermes_bootstrap.py",
                  "setup-hermes.sh"):
         shutil.copy2(ROOT / name, source / name)
     # The CLI's user-facing text resolves through the i18n kernel (agent.i18n + the English catalog),
@@ -126,23 +126,23 @@ def test_current_installer_publishes_real_dependencies_and_warm_path(tmp_path, s
          "commit", "-m", "fixture"], cwd=source)
     commit = run(["git", "rev-parse", "HEAD"], cwd=source).stdout.strip()
     install = tmp_path / "installed source"
-    env["HERMES_REPO_URL"] = str(source)
+    env["LOKI_REPO_URL"] = str(source)
     command = ["bash", str(ROOT / "scripts/install.sh"), "--dir", str(install),
                "--branch", "fixture", "--commit", commit, "--non-interactive", "--json"]
     result = run(command, expected=1 if fault else 0)
     assert not npm_called.exists()
     if fault:
         assert not (install / ".hermes-bootstrap-complete").exists()
-        assert not (home / ".local/bin/hermes").exists()
-        for facts in (home / ".hermes/installs").glob("*/facts.json"):
+        assert not (home / ".local/bin/loki").exists()
+        for facts in (home / ".loki/installs").glob("*/facts.json"):
             assert "venv" not in json.loads(facts.read_text())["packages"]
         assert '"stage":"python-deps"' in result.stdout
         return
     assert '"stage":"python-deps"' in result.stdout
     assert json.loads((install / ".hermes-bootstrap-complete").read_text())["pinnedCommit"] == commit
-    facts = next((home / ".hermes/installs").glob("*/facts.json"))
+    facts = next((home / ".loki/installs").glob("*/facts.json"))
     selection = json.loads(facts.read_text())["packages"]["venv"]
-    launcher = home / ".local/bin/hermes"
+    launcher = home / ".local/bin/loki"
     child = json.loads(run([str(launcher), "from elsewhere"]).stdout)
     assert child["argv"] == ["from elsewhere"]
     assert Path(child["module"]).is_relative_to(Path(selection["environment"]))

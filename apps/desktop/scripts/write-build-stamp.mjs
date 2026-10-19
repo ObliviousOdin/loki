@@ -9,6 +9,7 @@
 import { copyFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "fs"
 import { resolve, join, relative, posix } from "path"
 import productIdentity from "../product-identity.cjs"
+import previewIdentity from "../preview-identity.cjs"
 import { channelBuildRequest } from "../../../scripts/msix-shared.mjs"
 import { validateBundleEnvironment } from "./bundle-env.mjs"
 import { execFileSync } from "child_process"
@@ -208,6 +209,8 @@ function main() {
  * The PM bundle builder supplies launch paths only for bundled artifacts.
  */
 export function buildStampPayload(stamp, env = process.env, platform = process.platform, payload = null) {
+  const primaryPreview = previewIdentity.primaryPreviewEnabled(env)
+  if (primaryPreview && stamp.dirty !== false) throw new Error('Primary Loki preview requires a clean source stamp')
   const variant = (env.HERMES_DESKTOP_VARIANT || "").trim()
   const channelBuild = channelBuildRequest(env)
   if (channelBuild && (stamp.commit !== channelBuild.commit || stamp.dirty)) throw new Error('Channel build identity does not match stamp')
@@ -268,6 +271,7 @@ export function buildStampPayload(stamp, env = process.env, platform = process.p
 
     updateMechanism: commitBuild ? 'external' : updateMechanism,
     tag: channelBuild?.receiverCandidate ? channelBuild.releaseTag : env.HERMES_PAYLOAD_TAG || null,
+    ...(primaryPreview ? { lokiPreviewPrimary: true } : {}),
     ...(bundleEnv ? { bundleEnv } : {}),
     ...(bundled ? { runtime: payload.runtime } : {})
   }

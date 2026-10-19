@@ -88,6 +88,8 @@ def prepare(args) -> None:
     values["bootstrap-python"] = sys.executable
     file_commands("GITHUB_OUTPUT", values)
     file_commands("GITHUB_ENV", {
+        "LOKI_HOME": home,
+        "__LOKI_ENV_BOUND": "1",
         "HERMES_HOME": home,
         "HERMES_RUNTIME_DIR": home / "tools",
         "PYTHONUTF8": "1",
@@ -234,6 +236,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.toolchain == "node" and (args.extras is not None or args.test_environment):
         parser.error("Python dependencies require the python or all toolchain")
+    os.environ["LOKI_HOME"] = str(args.home.resolve())
+    os.environ["__LOKI_ENV_BOUND"] = "1"
     os.environ["HERMES_HOME"] = str(args.home.resolve())
     os.environ["HERMES_RUNTIME_DIR"] = str(args.home.resolve() / "tools")
     phases[args.phase](args)

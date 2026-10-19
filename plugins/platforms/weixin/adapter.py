@@ -770,8 +770,8 @@ class WeixinAdapter(OwnAccessPolicyMixin, BasePlatformAdapter):
             logger.warning(
                 "[%s] WEIXIN_GROUP_POLICY=%s is set, but QR-login connects an iLink bot identity (e.g. ...@im.bot) "
                 "which typically cannot be invited into ordinary WeChat groups. iLink usually does not deliver "
-                "ordinary-group events for these accounts, so group messages may never reach Hermes regardless of "
-                "this policy. If group delivery doesn't work, the limitation is on the iLink side, not in Hermes.",
+                "ordinary-group events for these accounts, so group messages may never reach Loki regardless of "
+                "this policy. If group delivery doesn't work, the limitation is on the iLink side, not in Loki.",
                 self.name, self._group_policy)
         self._wire_plugin_handlers(None)  # plugin-registered native handlers
         return True
@@ -1313,16 +1313,16 @@ def interactive_setup() -> None:
     _print_setup_header("💬 Weixin / WeChat")
     print()
     gw._print_info_lines(
-        "  1. Hermes will open Tencent iLink QR login in this terminal.",
+        "  1. Loki will open Tencent iLink QR login in this terminal.",
         "  2. Use WeChat to scan and confirm the QR code.",
-        "  3. Hermes will store the returned account_id/token in ~/.hermes/.env.",
+        "  3. Loki will store the returned account_id/token in the active Loki profile's .env.",
         "  4. This adapter supports native text, image, video, and document delivery.",
     )
     if not _confirm_reconfigure("Weixin", "WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN"):
         return
     if not check_weixin_requirements():
         gw.print_error("  Missing dependencies: Weixin needs aiohttp and cryptography.")
-        gw.print_info("  Install them, then rerun `hermes gateway setup`.")
+        gw.print_info("  Install them, then rerun `loki gateway setup`.")
         return
     print()
     if not gw.prompt_yes_no("  Start QR login now?", True):
@@ -1364,7 +1364,7 @@ def interactive_setup() -> None:
         _save_env_values(WEIXIN_DM_POLICY=policy, WEIXIN_ALLOW_ALL_USERS=allow_all, WEIXIN_ALLOWED_USERS="")
         (gw.print_success if level == "success" else gw.print_warning)(message)
         if access_idx == 0:
-            gw.print_info("  Unknown DM users can request access and you approve them with `hermes pairing approve`.")
+            gw.print_info("  Unknown DM users can request access and you approve them with `loki pairing approve`.")
 
     print()
     gw._print_info_lines(*_WEIXIN_GROUP_NOTE)

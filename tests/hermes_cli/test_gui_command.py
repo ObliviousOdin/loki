@@ -101,11 +101,11 @@ def _make_packaged_executable(root: Path, monkeypatch) -> Path:
     """
     desktop_dir = root / "apps" / "desktop"
     if sys.platform == "darwin":
-        exe = desktop_dir / "release" / "mac-arm64" / "Hermes.app" / "Contents" / "MacOS" / "Hermes"
+        exe = desktop_dir / "release" / "mac-arm64" / "Loki.app" / "Contents" / "MacOS" / "Loki"
     elif sys.platform == "win32":
-        exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+        exe = desktop_dir / "release" / "win-unpacked" / "Loki.exe"
     else:
-        exe = desktop_dir / "release" / "linux-unpacked" / "hermes"
+        exe = desktop_dir / "release" / "linux-unpacked" / "loki"
     exe.parent.mkdir(parents=True, exist_ok=True)
     exe.write_text("", encoding="utf-8")
     if sys.platform not in ("darwin", "win32"):
@@ -125,9 +125,9 @@ def _staging_dir_from(cmd) -> Path:
 def _packaged_exe_rel() -> Path:
     """Packaged-exe path relative to electron-builder's output dir on THIS host."""
     if sys.platform == "darwin":
-        return Path("mac-arm64") / "Hermes.app" / "Contents" / "MacOS" / "Hermes"
+        return Path("mac-arm64") / "Loki.app" / "Contents" / "MacOS" / "Loki"
     if sys.platform == "win32":
-        return Path("win-unpacked") / "Hermes.exe"
+        return Path("win-unpacked") / "Loki.exe"
     return Path("linux-unpacked") / "hermes"
 
 
@@ -188,7 +188,7 @@ def test_source_launch_reads_bom_electron_path_without_provisioning(tmp_path, mo
 
 def _stamped_macos_bundle(app: Path, asar: bytes) -> Path:
     (app / "Contents" / "MacOS").mkdir(parents=True)
-    (app / "Contents" / "MacOS" / "Hermes").write_bytes(b"\xcf\xfa\xed\xfe")
+    (app / "Contents" / "MacOS" / "Loki").write_bytes(b"\xcf\xfa\xed\xfe")
     (app / "Contents" / "Resources").mkdir()
     (app / "Contents" / "Resources" / "app.asar").write_bytes(asar)
     (app / "Contents" / "Resources" / "install-stamp.json").write_text('{"updateMechanism": "self"}')
@@ -197,13 +197,13 @@ def _stamped_macos_bundle(app: Path, asar: bytes) -> Path:
 
 @pytest.mark.platforms("macos")
 def test_packaged_launch_opens_the_refreshed_installed_app(tmp_path, monkeypatch):
-    """#52339: Finder and the Dock open the installed Hermes.app, so ``hermes desktop`` must launch
+    """#52339: Finder and the Dock open the installed Loki.app, so ``hermes desktop`` must launch
     that copy (brought up to the checkout build) instead of a second bundle under release/."""
     import shutil
 
     root = _make_desktop_tree(tmp_path)
-    _stamped_macos_bundle(root / "apps" / "desktop" / "release" / "mac-arm64" / "Hermes.app", b"checkout build")
-    installed = _stamped_macos_bundle(tmp_path / "Applications" / "Hermes.app", b"stale build")
+    _stamped_macos_bundle(root / "apps" / "desktop" / "release" / "mac-arm64" / "Loki.app", b"checkout build")
+    installed = _stamped_macos_bundle(tmp_path / "Applications" / "Loki.app", b"stale build")
     monkeypatch.setattr("hermes_cli.gui_uninstall.packaged_gui_app_paths", lambda: [installed])
     monkeypatch.setattr("hermes_constants.get_default_hermes_root", lambda **kw: tmp_path)  # root is its hermes-agent
     monkeypatch.setattr(main_desktop, "_stage_macos_bundle_copy", lambda src, dst: shutil.copytree(src, dst, symlinks=True))
@@ -220,7 +220,7 @@ def test_packaged_launch_opens_the_refreshed_installed_app(tmp_path, monkeypatch
         main_desktop.cmd_gui(_ns(skip_build=True))
 
     assert exit_info.value.code == 0
-    assert calls == [[str(installed / "Contents" / "MacOS" / "Hermes")]]
+    assert calls == [[str(installed / "Contents" / "MacOS" / "Loki")]]
     assert (installed / "Contents" / "Resources" / "app.asar").read_bytes() == b"checkout build"
 
 
@@ -290,7 +290,7 @@ def test_gui_brew_install_prints_brew_guidance_not_venv_hint(tmp_path, monkeypat
 
 
 def test_gui_brew_install_launches_installed_app_when_present(tmp_path, monkeypatch):
-    """Prefer the separately installed /Applications/Hermes.app over failing."""
+    """Prefer the separately installed /Applications/Loki.app over failing."""
     root = tmp_path / "Cellar" / "hermes-agent" / "2026.7.7.2" / "libexec" / "site-packages"
     root.mkdir(parents=True)
     monkeypatch.setattr(cli_main, "PROJECT_ROOT", root)
@@ -342,7 +342,7 @@ def test_gui_close_preview_flag_forwards_to_packaged_exe(tmp_path, monkeypatch):
 @pytest.mark.parametrize("exists,platform", [(True, "darwin"), (False, "darwin"), (True, "linux")])
 def test_launch_installed_macos_desktop_app_gates_on_bundle_and_platform(tmp_path, monkeypatch, exists, platform):
     monkeypatch.setattr(main_desktop.sys, "platform", platform)
-    exe = Path("/Applications/Hermes.app/Contents/MacOS/Hermes")
+    exe = Path("/Applications/Loki.app/Contents/MacOS/Loki")
     monkeypatch.setattr(main_desktop.Path, "is_file", lambda self: exists if self == exe else Path.is_file(self))
     calls = []
     if exists and platform == "darwin":
@@ -378,16 +378,16 @@ def _write_info_plist(bundle: Path, identifier: str) -> None:
 
 
 def _make_signable_app(desktop_dir: Path) -> Path:
-    """Build a fake packaged Hermes.app with the pieces the signer must find."""
+    """Build a fake packaged Loki.app with the pieces the signer must find."""
     ent_dir = desktop_dir / "electron"
     ent_dir.mkdir(parents=True, exist_ok=True)
     (ent_dir / "entitlements.mac.plist").write_text("<plist/>", encoding="utf-8")
     (ent_dir / "entitlements.mac.inherit.plist").write_text("<plist/>", encoding="utf-8")
 
-    app = desktop_dir / "release" / "mac-arm64" / "Hermes.app"
+    app = desktop_dir / "release" / "mac-arm64" / "Loki.app"
     _write_info_plist(app, "com.nousresearch.hermes")
     (app / "Contents" / "MacOS").mkdir(parents=True)
-    (app / "Contents" / "MacOS" / "Hermes").write_text("", encoding="utf-8")
+    (app / "Contents" / "MacOS" / "Loki").write_text("", encoding="utf-8")
 
     helper = app / "Contents" / "Frameworks" / "Hermes Helper.app"
     _write_info_plist(helper, "com.nousresearch.hermes.helper")
@@ -420,7 +420,7 @@ def test_desktop_macos_local_codesign_signs_native_binaries(tmp_path, monkeypatc
     """The standalone Mach-O pass must actually find files inside the bundle.
 
     Regression: an absolute-path parts check always matches the outer
-    Hermes.app component, silently skipping every .node/.dylib/crashpad
+    Loki.app component, silently skipping every .node/.dylib/crashpad
     binary — codesign then rejects the outer signature (nested code unsigned).
     """
     desktop_dir = tmp_path / "apps" / "desktop"
@@ -470,7 +470,7 @@ def test_setup_tcc_identity_creates_cert_imports_trusts_and_configures(tmp_path,
     )
     monkeypatch.setattr(cli_main.Path, "home", classmethod(lambda cls: tmp_path))
 
-    identity = "Hermes Local Signing"
+    identity = "Loki Local Signing"
     calls = []
     state = {"trusted": False}
 
@@ -494,7 +494,7 @@ def test_setup_tcc_identity_creates_cert_imports_trusts_and_configures(tmp_path,
     # Avoid writing the real user config.
     monkeypatch.setattr("hermes_cli.config.set_config_value", lambda key, value: None)
 
-    assert main_desktop_tcc._desktop_macos_setup_tcc_identity(identity) is True
+    assert main_desktop_tcc._desktop_macos_setup_tcc_identity() is True
 
     # openssl cert generation + pkcs12 export + security import + trust all ran.
     assert any(c[0] == "/usr/bin/openssl" and "req" in c for c in calls)
@@ -672,7 +672,8 @@ def test_setup_tcc_identity_untrusted_existing_cert_is_repaired(tmp_path, monkey
 
 
 
-def test_cmd_gui_setup_tcc_identity_exits_before_build(tmp_path, monkeypatch):
+@pytest.mark.parametrize("identity, expected", [(None, "Loki Local Signing"), ("Custom Local Signing", "Custom Local Signing")])
+def test_cmd_gui_setup_tcc_identity_exits_before_build(tmp_path, monkeypatch, identity, expected):
     """`hermes desktop --setup-tcc-identity` calls the setup and exits 0/1
     without building or launching the app."""
     root = _make_desktop_tree(tmp_path)
@@ -682,10 +683,10 @@ def test_cmd_gui_setup_tcc_identity_exits_before_build(tmp_path, monkeypatch):
     with patch("hermes_cli.main_desktop_tcc._desktop_macos_setup_tcc_identity", return_value=True) as mock_setup, \
          patch("hermes_cli.source_build.prepare_source_dependencies") as mock_install, \
          pytest.raises(SystemExit) as exc:
-        cli_main.cmd_gui(_ns(setup_tcc_identity=True, identity="Hermes Local Signing"))
+        cli_main.cmd_gui(_ns(setup_tcc_identity=True, identity=identity))
 
     assert exc.value.code == 0
-    mock_setup.assert_called_once_with("Hermes Local Signing")
+    mock_setup.assert_called_once_with(expected)
     mock_install.assert_not_called()
 
 
@@ -953,7 +954,7 @@ def test_relaunchable_fixup_failed_identity_uses_pinned_adhoc_before_legacy(tmp_
     """
     root = _make_desktop_tree(tmp_path)
     desktop_dir = root / "apps" / "desktop"
-    exe = desktop_dir / "release" / "mac-arm64" / "Hermes.app" / "Contents" / "MacOS" / "Hermes"
+    exe = desktop_dir / "release" / "mac-arm64" / "Loki.app" / "Contents" / "MacOS" / "Loki"
     exe.parent.mkdir(parents=True)
     exe.write_text("", encoding="utf-8")
 
@@ -995,7 +996,7 @@ def test_relaunchable_fixup_legacy_when_pinned_adhoc_also_fails(tmp_path, monkey
     """Legacy deep ad-hoc still runs when identifier-pinned signing fails too."""
     root = _make_desktop_tree(tmp_path)
     desktop_dir = root / "apps" / "desktop"
-    exe = desktop_dir / "release" / "mac-arm64" / "Hermes.app" / "Contents" / "MacOS" / "Hermes"
+    exe = desktop_dir / "release" / "mac-arm64" / "Loki.app" / "Contents" / "MacOS" / "Loki"
     exe.parent.mkdir(parents=True)
     exe.write_text("", encoding="utf-8")
     app = exe.parents[2]

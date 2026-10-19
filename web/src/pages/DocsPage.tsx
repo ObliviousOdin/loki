@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { PluginSlot } from "@/plugins";
 
 export const HERMES_DOCS_URL = "https://hermes-agent.nousresearch.com/docs/";
+const LOKI_DOCS_URL = "https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md";
 
 const DS_BUTTON_OUTLINED_LINK_CN = cn(
   "group relative inline-grid grid-cols-[auto_1fr_auto] items-center",
@@ -22,7 +23,7 @@ export default function DocsPage() {
   useLayoutEffect(() => {
     setEnd(
       <a
-        href={HERMES_DOCS_URL}
+        href={LOKI_DOCS_URL}
         target="_blank"
         rel="noopener noreferrer"
         className={DS_BUTTON_OUTLINED_LINK_CN}
@@ -44,6 +45,12 @@ export default function DocsPage() {
       )}
     >
       <PluginSlot name="docs:top" />
+      <p className="mb-3 text-sm text-midground">
+        <a href={LOKI_DOCS_URL} target="_blank" rel="noopener noreferrer" className="underline">
+          Loki preview installation and configuration
+        </a>
+        {". The upstream Hermes reference below describes inherited features; use Loki commands and directories."}
+      </p>
       <iframe
         title={t.app.nav.documentation}
         src={HERMES_DOCS_URL}

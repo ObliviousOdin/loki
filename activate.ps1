@@ -27,13 +27,13 @@ try {
     }
 }
 if (Test-Path function:deactivate) { deactivate }
+$homeRoot = if ($env:LOKI_HOME) { $env:LOKI_HOME } else { "$env:LOCALAPPDATA\loki" }
 $py = $null
 foreach ($candidate in @("$repo\.venv\Scripts\python.exe", "$repo\venv\Scripts\python.exe")) {
     if (Test-Path -LiteralPath $candidate) { $py = $candidate; break }
 }
 if (-not $py) {
-    $roots = @($env:HERMES_RUNTIME_DIR, "$repo\..\tools")
-    $homeRoot = if ($env:HERMES_HOME) { $env:HERMES_HOME } else { "$env:LOCALAPPDATA\hermes" }
+    $roots = @($env:LOKI_RUNTIME_DIR, "$repo\..\tools")
     $roots += (Join-Path $homeRoot 'tools')
     foreach ($root in $roots) {
         if (-not $root) { continue }
@@ -47,13 +47,22 @@ if (-not $py) {
 if (-not $py) { throw 'activate: no bootstrap Python found; run setup-hermes.ps1' }
 $priorPath = $env:PYTHONPATH
 $priorHome = $env:PYTHONHOME
+$priorEngineHome = $env:HERMES_HOME
+$priorEngineRuntime = $env:HERMES_RUNTIME_DIR
+$priorLokiBound = $env:__LOKI_ENV_BOUND
 try {
     $env:PYTHONPATH = $repo
+    $env:HERMES_HOME = $homeRoot
+    $env:HERMES_RUNTIME_DIR = $env:LOKI_RUNTIME_DIR
+    $env:__LOKI_ENV_BOUND = "1"
     Remove-Item env:PYTHONHOME -ErrorAction SilentlyContinue
     $json = (& $py -m pm.environments) -join "`n"
     if ($LASTEXITCODE -ne 0) { throw 'activate: could not read the installed environment' }
     $composed = $json | ConvertFrom-Json
 } finally {
+    $env:HERMES_HOME = $priorEngineHome
+    $env:HERMES_RUNTIME_DIR = $priorEngineRuntime
+    $env:__LOKI_ENV_BOUND = $priorLokiBound
     if ($null -eq $priorPath) { Remove-Item env:PYTHONPATH -ErrorAction SilentlyContinue } else { $env:PYTHONPATH = $priorPath }
     if ($null -eq $priorHome) { Remove-Item env:PYTHONHOME -ErrorAction SilentlyContinue } else { $env:PYTHONHOME = $priorHome }
 }
@@ -102,10 +111,10 @@ function global:_hermesWorktreeHere {
     return $here.Equals($root, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
-function global:hermes {
+function global:loki {
     if (-not (_hermesWorktreeHere)) {
         $here = (Get-Location).Path
-        Write-Error "hermes: $here is outside $($global:_hermesWorktree); refusing (the installed command is hidden while this checkout is active)" -ErrorAction Continue
+        Write-Error "loki: $here is outside $($global:_hermesWorktree); refusing (the installed command is hidden while this checkout is active)" -ErrorAction Continue
         $global:LASTEXITCODE = 1
         return
     }
@@ -121,7 +130,7 @@ function global:hermes {
             }
         }
         if (-not $py) { $py = 'python' }
-        & $py hermes @args
+        & $py loki.py @args
     } finally {
         Pop-Location
     }
@@ -152,5 +161,5 @@ function global:deactivate {
     $global:_hermesWorktree = $null
     $global:_hermesWorktreeName = $null
     $global:_hermesSavedPrompt = $null
-    Remove-Item function:deactivate, function:hermes, function:_hermesWorktreeHere -ErrorAction SilentlyContinue
+    Remove-Item function:deactivate, function:loki, function:_hermesWorktreeHere -ErrorAction SilentlyContinue
 }

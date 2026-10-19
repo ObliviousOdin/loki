@@ -13,8 +13,8 @@ import urllib.request
 from hermes_cli.update_channel import STABLE_TAG_RE, is_canary_tag
 
 logger = logging.getLogger(__name__)
-_PUBLIC_BASE = "https://hermes-assets.nousresearch.com"
-OFFICIAL_REPOSITORY = "NousResearch/hermes-agent"
+_PUBLIC_BASE = ""  # Loki has no hosted channel service; never consult upstream infrastructure.
+OFFICIAL_REPOSITORY = "ObliviousOdin/loki"
 _GITHUB_ORIGIN = re.compile(
     r"^(?:https://github\.com/|git@github\.com:|ssh://git@github\.com/)"
     r"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+?)(?:\.git)?/?$", re.IGNORECASE,
@@ -75,6 +75,8 @@ def _resolve_channel(name: str, repository: str):
     """
     from hermes_cli.release_channels import ChannelReader
 
+    if not _PUBLIC_BASE:
+        raise ValueError("No Loki hosted channel is configured. Use `loki update --set-channel main`.")
     return ChannelReader(_PUBLIC_BASE, repository=repository).resolve(name)
 
 
@@ -317,6 +319,8 @@ def _published_fallback(channel: str, base: str) -> dict:
 
 
 def _release_pointer(channel: str) -> tuple[str | None, str | None]:
+    if not _PUBLIC_BASE:
+        return None, None
     # Stable's completion job writes this before publishing the GitHub draft.
     # Publication is checked separately, so that interval fails closed.
     if channel == "stable":

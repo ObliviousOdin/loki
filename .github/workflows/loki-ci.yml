@@ -1,0 +1,219 @@
+name: Loki CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Loki quality
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pm
+        with:
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - name: Run all upstream blocking lint guards
+        env:
+          LOKI_BASE: ${{ github.event.pull_request.base.sha || github.event.before || '18c525b669b6ea4ba62e6967d228af21d89aa9d3' }}
+        run: |
+          if [[ "$LOKI_BASE" =~ ^0+$ ]]; then LOKI_BASE=18c525b669b6ea4ba62e6967d228af21d89aa9d3; fi
+          python scripts/check --base "$LOKI_BASE"
+      - name: Validate installer syntax and pinned bootstrap fragments
+        run: |
+          bash -n scripts/install.sh setup-hermes.sh
+          python scripts/gen-bootstrap-pins.py --check
+          python scripts/loki/audit_workflows.py
+      - uses: ./.github/actions/check-clean-worktree
+
+  python:
+    name: Loki Python (${{ matrix.slice }}/4)
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        slice: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-pm
+        with:
+          extras: '["all", "anthropic", "bedrock", "mistral", "fal", "modal", "daytona", "parallel-web", "telegram"]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - name: Run unchanged upstream suite and Loki regression tests
+        run: scripts/run_tests.sh -j 2 --slice '${{ matrix.slice }}/4' --file-timeout 600
+      - uses: ./.github/actions/check-clean-worktree
+
+  workspace:
+    name: Loki JavaScript and builds
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - name: Install native test dependencies
+        run: sudo apt-get update && sudo apt-get install -y zsh xvfb libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
+      - run: npm ci
+      - name: Run every workspace check
+        run: >-
+          xvfb-run -a node .github/scripts/run-workspace-checks.mjs
+          --exclude-unit apps/desktop::check:test:ui
+          --exclude-unit apps/desktop::check:test:desktop:platforms
+          --exclude-unit apps/desktop::check:test:desktop:all
+      - name: Build TUI, dashboard and desktop renderer
+        run: |
+          npm run build --workspace ui-tui
+          npm run build --workspace web
+          npm run build --workspace apps/desktop
+      - uses: ./.github/actions/check-clean-worktree
+
+  desktop_ui:
+    name: Loki desktop UI (${{ matrix.slice }}/4)
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        slice: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - run: npm ci
+      - name: Run the complete assigned UI shard
+        run: npm run test:ui --workspace apps/desktop -- --shard '${{ matrix.slice }}/4' --maxWorkers 2
+      - uses: ./.github/actions/check-clean-worktree
+
+  desktop_electron:
+    name: Loki desktop Electron
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
+      - run: npm ci
+      - name: Run every Electron suite on Linux
+        run: xvfb-run -a npm run test:desktop:platforms --workspace apps/desktop -- --maxWorkers 2
+      - uses: ./.github/actions/check-clean-worktree
+
+  desktop_package:
+    name: Loki packaged desktop validation
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '["all"]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
+      - run: npm ci
+      - name: Run the complete upstream packaged desktop validation
+        run: xvfb-run -a npm run test:desktop:all --workspace apps/desktop
+      - uses: ./.github/actions/check-clean-worktree
+
+  native:
+    name: Loki install (${{ matrix.os }})
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '["all", "telegram"]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - name: Run upstream tests on their actual macOS or Windows host
+        if: runner.os != 'Linux'
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = macOS ]; then platform=macos; else platform=windows; fi
+          python scripts/ci/list_os_marked_tests.py "$platform" > "$RUNNER_TEMP/loki-os-files.txt"
+          scripts/run_tests.sh --files-from "$RUNNER_TEMP/loki-os-files.txt" -j 3 --file-timeout 600 -- -m 'platforms and not integration and not live'
+      - name: Run Loki identity and persistence behavior on the native host
+        shell: bash
+        run: scripts/run_tests.sh tests/test_loki_identity.py -j 2
+      - name: Install into a clean temporary user profile
+        shell: bash
+        run: python scripts/loki/install_smoke.py --source . --out "$RUNNER_TEMP/loki-installed-smoke"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: loki-install-${{ matrix.os }}
+          path: ${{ runner.temp }}/loki-installed-smoke/receipt.json
+          if-no-files-found: error
+          retention-days: 7
+
+  verification:
+    name: Loki verification
+    if: always() && github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    needs: [quality, python, workspace, desktop_ui, desktop_electron, desktop_package, native]
+    timeout-minutes: 5
+    steps:
+      - name: Require successful evidence from every Loki job
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          results = json.loads(os.environ['RESULTS'])
+          failed = {name: job['result'] for name, job in results.items() if job['result'] != 'success'}
+          print(json.dumps(results, indent=2))
+          if failed:
+              raise SystemExit(f'Loki verification incomplete: {failed}')
+          PY

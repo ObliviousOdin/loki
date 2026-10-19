@@ -151,7 +151,7 @@ def _ask_configure_new_options(*, assume_yes: bool, gateway_mode: bool) -> str:
         # Non-UTF-8 locales / embedded terminals can make input() raise this.
         print(
             "  ⚠ Could not read input (encoding issue). Skipping. "
-            "Run 'hermes config migrate' manually to configure.")
+            "Run 'loki config migrate' manually to configure.")
         return "n"
 
 
@@ -179,7 +179,7 @@ def _check_and_apply_config_migration(
     except Exception as exc:
         logger.debug("Config check during update failed: %s", exc)
         print("  ⚠️  Could not check config version.")
-        print("     Run 'hermes config migrate' to check manually.")
+        print("     Run 'loki config migrate' to check manually.")
         return
 
     owed_error = None
@@ -205,7 +205,7 @@ def _check_and_apply_config_migration(
                 print(f"  ⚠️  {_warn}")
         except Exception as _mig_err:
             print(f"  ⚠️  Config format update failed: {_mig_err}")
-            print("     Run 'hermes config migrate' to retry.")
+            print("     Run 'loki config migrate' to retry.")
             # Not a silent success: raised after the sibling migration and snapshot safety nets
             # below (independent of the active write, and the snapshot id is only in hand now), so
             # the caller's owed-step guard records ``config_migration`` and keeps the tail pending.
@@ -233,10 +233,10 @@ def _check_and_apply_config_migration(
                 print()
                 print("✓ Configuration updated!")
             if unattended and missing_env:
-                print("  ℹ API keys require manual entry: hermes config migrate")
+                print("  ℹ API keys require manual entry: loki config migrate")
         else:
             print()
-            print("Skipped. Run 'hermes config migrate' later to configure.")
+            print("Skipped. Run 'loki config migrate' later to configure.")
     else:
         print("  ✓ Configuration is up to date")
 

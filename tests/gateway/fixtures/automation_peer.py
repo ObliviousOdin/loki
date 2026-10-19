@@ -123,7 +123,9 @@ async def probe(root, base, mode):
                 GATEWAY_RELAY_PLATFORMS='telegram', GATEWAY_RELAY_BOT_IDS='{"telegram":"fixture-bot"}',
                 GATEWAY_RELAY_ID='fixture-gateway', GATEWAY_RELAY_SECRET='fixture-secret')
             with (home / 'daemon.log').open('w+') as log:
-                proc = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,  # noqa: ASYNC220 -- Popen returns immediately; the test drives the child through its handle
+                from tests.loki_child_fixture import bind_fixture_child_env
+
+                proc = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),  # noqa: ASYNC220 -- Popen returns immediately; the test drives the child through its handle
                     stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
                 try:
                     ws = await asyncio.wait_for(ready.get(), 35)

@@ -97,7 +97,7 @@ def update_marker_path() -> Path:
     try:
         from hermes_constants import get_default_hermes_root
     except ImportError:  # a partial tree (an -I -S completion child of a stubbed checkout)
-        home = Path(os.environ.get("HERMES_HOME") or Path.home() / ".hermes")
+        home = Path(os.environ.get("HERMES_HOME") or Path.home() / ".loki")
         root = home.parent.parent if home.parent.name == "profiles" else home
         return root / MARKER_NAME
     return get_default_hermes_root() / MARKER_NAME

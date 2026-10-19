@@ -12,6 +12,8 @@ def test_session_observation_preserves_storage(tmp_path, populated):
     repo = Path(__file__).resolve().parents[2]
     env = {k: os.environ[k] for k in ('PATH', 'SYSTEMROOT', 'LANG', 'TZ') if k in os.environ}
     env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), HERMES_HOME=str(tmp_path / 'profile'), PYTHONPATH=str(repo))
+    from tests.loki_child_fixture import bind_fixture_child_env
+    env = bind_fixture_child_env(env)
     (tmp_path / 'profile').mkdir()
     code = '''
 from pathlib import Path

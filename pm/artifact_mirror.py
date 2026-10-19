@@ -11,7 +11,7 @@ from pm.index_config import npm_registry_url
 
 _LAYOUT = json.loads(Path(__file__).with_name("artifact-mirror.json").read_text(encoding="utf-8-sig"))
 KEY_PREFIX = _LAYOUT["prefix"]
-PUBLIC_PREFIX = _LAYOUT["origin"] + "/" + KEY_PREFIX
+PUBLIC_PREFIX = (_LAYOUT["origin"] + "/" + KEY_PREFIX) if _LAYOUT["origin"] else ""
 
 
 def object_key(sha256: str) -> str:
@@ -22,11 +22,11 @@ def object_key(sha256: str) -> str:
 
 def mirror_url(sha256: str) -> str:
     object_key(sha256)
-    return PUBLIC_PREFIX + sha256
+    return PUBLIC_PREFIX + sha256 if PUBLIC_PREFIX else ""
 
 
 def pinned_source(url: str, dest: Path, sha256: str) -> Source:
     archive = mirror_url(sha256)
     # The lock records registry.npmjs.org; a user's npm mirror serves the same pinned bytes (#123132).
     url = npm_registry_url(url, os.environ)
-    return Source(url, dest, sha256, fallbacks=() if url == archive else (archive,))
+    return Source(url, dest, sha256, fallbacks=(archive,) if archive and url != archive else ())

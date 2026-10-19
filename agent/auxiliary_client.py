@@ -870,8 +870,8 @@ _PROVIDERS_WITHOUT_VISION: frozenset = frozenset({"kimi-coding", "kimi-coding-cn
 
 # OpenRouter app attribution (always sent). `X-Title` is what the dashboard reads.
 _OR_HEADERS_BASE = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
+    "HTTP-Referer": "https://github.com/ObliviousOdin/loki",
+    "X-Title": "Loki",
     "X-OpenRouter-Categories": "productivity,cli-agent",
 }
 
@@ -935,12 +935,12 @@ def build_nvidia_nim_headers(base_url: str | None) -> dict:
 
 
 # Vercel AI Gateway attribution (HTTP-Referer → referrerUrl, X-Title → appName).
-from hermes_cli.version_info import get_version_info
+from loki_identity import CLIENT_USER_AGENT
 
 _AI_GATEWAY_HEADERS = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
-    "User-Agent": f"HermesAgent/{get_version_info().base_version}",
+    "HTTP-Referer": "https://github.com/ObliviousOdin/loki",
+    "X-Title": "Loki",
+    "User-Agent": CLIENT_USER_AGENT,
 }
 
 # Nous Portal attribution extra_body. Tags come from agent.portal_tags so the client= marker
@@ -2362,7 +2362,7 @@ def _try_nous(vision: bool = False) -> tuple[Optional[OpenAI], Optional[str]]:
     nous = _read_nous_auth()
     runtime = _resolve_nous_runtime_api(force_refresh=False)
     if runtime is None and not nous:
-        logger.warning("Auxiliary Nous client unavailable: no Nous authentication found (run: hermes auth).")
+        logger.warning("Auxiliary Nous client unavailable: no Nous authentication found (run: loki auth).")
         _mark_provider_unhealthy("nous", ttl=60, reason="no Nous authentication found", level=logging.DEBUG)
         return None, None
     if runtime is None and nous:
@@ -2374,7 +2374,7 @@ def _try_nous(vision: bool = False) -> tuple[Optional[OpenAI], Optional[str]]:
         if not api_key:
             logger.warning(
                 "Auxiliary Nous client unavailable: no usable inference JWT found "
-                "(run: hermes auth add nous)."
+                "(run: loki auth add nous)."
             )
             _mark_provider_unhealthy("nous", ttl=60, reason="no usable Nous inference JWT", level=logging.DEBUG)
             return None, None
@@ -2892,7 +2892,7 @@ def _validate_base_url(base_url: str) -> None:
     except ValueError as exc:
         raise RuntimeError(
             f"Malformed custom endpoint URL: {candidate!r}. "
-            "Run `hermes setup` or `hermes model` and enter a valid http(s) base URL."
+            "Run `loki setup` or `loki model` and enter a valid http(s) base URL."
         ) from exc
 
 
@@ -4541,8 +4541,8 @@ def _warn_stale_openai_base_url(runtime_provider: str) -> None:
         logger.warning(
             "OPENAI_BASE_URL is set (%s) but model.provider is '%s'. "
             "Auxiliary clients may route to the wrong endpoint. "
-            "Run: hermes model to reconfigure, or remove "
-            "OPENAI_BASE_URL from ~/.hermes/.env",
+            "Run: loki model to reconfigure, or remove "
+            "OPENAI_BASE_URL from your Loki profile's .env",
             _env_base, _cfg_provider,
         )
         _stale_base_url_warned = True
@@ -4632,7 +4632,7 @@ def _discovery_chain_allowed(main_provider: str, task: Optional[str] = None) -> 
         return True
     logger.warning(
         "Auxiliary %s: main provider %s is unavailable and no fallback_chain / fallback_providers is "
-        "configured — refusing to guess another logged-in provider. Re-authenticate (`hermes model`) "
+        "configured — refusing to guess another logged-in provider. Re-authenticate (`loki model`) "
         "or declare a fallback.", task or "call", main_provider)
     return False
 
@@ -5021,7 +5021,7 @@ def _resolve_nous_branch(req: _ResolveRequest) -> _ResolveResult:
     client, default = _try_nous(vision=(req.is_vision or model in _PROVIDER_VISION_MODELS.values()
                                         or (model or "").strip().lower() == "mimo-v2-omni"))
     if client is None:
-        logger.warning("resolve_provider_client: nous requested but Nous Portal not configured (run: hermes auth)")
+        logger.warning("resolve_provider_client: nous requested but Nous Portal not configured (run: loki auth)")
         return None, None
     final_model = _normalize_resolved_model(model or default, req.provider)
     # Dual-wire: anthropic/* → /v1/messages, else /chat/completions. Derive from the catalog id
@@ -5042,7 +5042,7 @@ def _resolve_openai_codex_branch(req: _ResolveRequest) -> _ResolveResult:
                        "model; pass model explicitly (e.g. model.model in config.yaml "
                        "or auxiliary.<task>.model for per-task aux routing).")
         return None, None
-    no_token_msg = "resolve_provider_client: openai-codex requested but no Codex OAuth token found (run: hermes model)"
+    no_token_msg = "resolve_provider_client: openai-codex requested but no Codex OAuth token found (run: loki model)"
     if req.raw_codex:
         # Raw OpenAI client for callers needing responses.stream() (main agent loop).
         codex_token, base_url = _resolve_codex_credential_and_base()
@@ -5062,7 +5062,7 @@ def _resolve_xai_oauth_branch(req: _ResolveRequest) -> _ResolveResult:
     client, default = _build_xai_oauth_aux_client(req.model)
     return _route_or_warn(req, client, default,
                           "resolve_provider_client: xai-oauth requested but no xAI "
-                          "OAuth token found (run: hermes model -> xAI Grok OAuth — SuperGrok / Premium+)")
+                          "OAuth token found (run: loki model -> xAI Grok OAuth — SuperGrok / Premium+)")
 
 
 def _resolve_custom_branch(req: _ResolveRequest) -> _ResolveResult:
@@ -7441,7 +7441,7 @@ def _resolve_call_client(
                 effective_provider = _effective_provider_for_client(client, "auto")
     if client is None:
         raise AuxiliaryClientUnavailable(f"No LLM provider configured for task={task} "
-                                         f"provider={resolved_provider}. Run: hermes setup")
+                                         f"provider={resolved_provider}. Run: loki setup")
     return _ResolvedAuxRoute(client, final_model, resolved_provider, effective_provider)
 
 

@@ -593,16 +593,19 @@ class TestStaleStagingDirSweep(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmp:
             with patch("tools.code_kernel.tempfile.gettempdir", return_value=tmp):
-                old = Path(tmp, "hermes_kernel_old")
-                young = Path(tmp, "hermes_kernel_young")
+                old = Path(tmp, "loki_kernel_old")
+                young = Path(tmp, "loki_kernel_young")
                 bystander = Path(tmp, "unrelated_dir")
-                for path in (old, young, bystander):
+                foreign = Path(tmp, "hermes_kernel_foreign")
+                for path in (old, young, bystander, foreign):
                     path.mkdir()
                 week_and_a_bit = time_module.time() - 8 * 86400
                 os.utime(old, (week_and_a_bit, week_and_a_bit))
+                os.utime(foreign, (week_and_a_bit, week_and_a_bit))
                 removed = _sweep_stale_staging_dirs()
                 # Asserted inside the TemporaryDirectory: cleanup would flatten everything.
                 self.assertEqual(removed, 1)
                 self.assertFalse(old.exists())
                 self.assertTrue(young.exists())
                 self.assertTrue(bystander.exists())
+                self.assertTrue(foreign.exists())

@@ -14,6 +14,8 @@ import subprocess
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli import update_cmd
 
 GIT = ["git"]
@@ -36,6 +38,8 @@ def detached_work(tmp_path, monkeypatch):
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _git(upstream, "init", "-q", "-b", "main")
+    write_loki_source(upstream)
+    _git(upstream, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _commit(upstream, "shared.txt", "shared\n")
     release = _commit(upstream, "release.txt", "release\n")
     checkout = tmp_path / "checkout"

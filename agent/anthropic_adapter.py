@@ -4,6 +4,8 @@ x-api-key; OAuth setup-tokens (``sk-ant-oat*``) and Claude Code credentials -> B
 Endpoint predicates, payload conversion and credentials live in ``agent/anthropic_{endpoints,
 message_convert,credentials}.py``; import them from there."""
 
+from loki_identity import CLIENT_USER_AGENT
+
 from pm import install_hint
 import logging
 import math
@@ -370,8 +372,8 @@ def _beta_header(betas: list) -> dict[str, str]:
 def _attribution_headers() -> dict[str, str]:
     """Same client-attribution set sent to OpenRouter / Vercel AI Gateway / Fireworks."""
     return {
-        "HTTP-Referer": "https://hermes-agent.nousresearch.com", "X-Title": "Hermes Agent",
-        "User-Agent": f"HermesAgent/{get_version_info().base_version}",
+        "HTTP-Referer": "https://github.com/ObliviousOdin/loki", "X-Title": "Loki",
+        "User-Agent": CLIENT_USER_AGENT,
     }
 
 

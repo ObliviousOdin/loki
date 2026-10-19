@@ -30,6 +30,11 @@ def test_bootstrap_environment_isolates_owned_paths_without_mutating_caller(tmp_
         "HERMES_PYTHON": str(original_home / "python"),
         "HERMES_NODE": str(original_home / "node"),
         "HERMES_PROFILE": "live", "HERMES_REAL_HOME": str(original_home),
+        "LOKI_HOME": str(original_home / "loki-profile"),
+        "LOKI_RUNTIME_DIR": str(original_home / "loki-tools"),
+        "LOKI_PROFILE": "borrowed", "LOKI_DATA_DIR_SUFFIX": "-borrowed",
+        "LOKI_PREVIEW_PRIMARY": "1", "__LOKI_ENV_BOUND": "1",
+        "__HERMES_ACTIVATED": str(original_home / "activation"),
         "HERMES_BUNDLED_SKILLS": str(original_home / "skills"),
         "HERMES_OPTIONAL_MCPS": str(original_home / "mcps"),
         "VIRTUAL_ENV": str(original_home / "venv"),
@@ -54,6 +59,11 @@ def test_bootstrap_environment_isolates_owned_paths_without_mutating_caller(tmp_
                 "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
         assert Path(environment[key]).is_relative_to(work)
     assert Path(environment["HERMES_RUNTIME_DIR"]) == cache / "tools"
+    assert environment["LOKI_RUNTIME_DIR"] == environment["HERMES_RUNTIME_DIR"]
+    assert environment["LOKI_HOME"] == environment["HERMES_HOME"]
+    assert environment["__LOKI_ENV_BOUND"] == "1"
+    assert environment["LOKI_PREVIEW_PRIMARY"] == "1"
+    assert not {"LOKI_PROFILE", "LOKI_DATA_DIR_SUFFIX", "__HERMES_ACTIVATED"} & environment.keys()
     assert Path(environment["UV_CACHE_DIR"]) == cache / "python/runtime"
     assert Path(environment["npm_config_cache"]) == cache / "npm"
     assert "npm_execpath" not in environment
@@ -130,14 +140,22 @@ def test_run_preparation_bootstraps_before_worker_in_isolated_child(tmp_path, mo
     assert receipt.read_text(encoding="utf-8-sig") == str(source)
 
 
-def test_bootstrap_real_pm_resolves_only_build_owned_state(tmp_path):
+@pytest.mark.parametrize("already_bound", [False, True])
+def test_bootstrap_real_pm_resolves_only_build_owned_state(tmp_path, already_bound):
     from scripts.bundles.desktop_toolchain import bootstrap_environment
 
     source = Path(__file__).resolve().parents[2]
     work, cache = tmp_path / "work", tmp_path / "cache"
-    env = bootstrap_environment(source, work, cache, os.environ)
+    foreign = tmp_path / "foreign"
+    inherited = {**os.environ, "LOKI_HOME": str(foreign / "loki"),
+                 "LOKI_RUNTIME_DIR": str(foreign / "tools"),
+                 "HERMES_HOME": str(foreign / "hermes"),
+                 "HERMES_RUNTIME_DIR": str(foreign / "hermes-tools"),
+                 "__LOKI_ENV_BOUND": "1" if already_bound else "0"}
+    env = bootstrap_environment(source, work, cache, inherited)
     probe = (
         "import json, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]); "
+        "from loki_identity import bind_loki_environment; bind_loki_environment(); "
         "from pm import paths; from pm.packages import uv_cache_dir; "
         "from pm.environments import install_state_dir; "
         "print(json.dumps([str(paths.store_root()), str(paths.partials_root()), "
@@ -148,6 +166,7 @@ def test_bootstrap_real_pm_resolves_only_build_owned_state(tmp_path):
     store, partials, uv_default, state = map(Path, json.loads(result.stdout))
     assert store == cache / "tools"
     assert all(path.is_relative_to(work) for path in (partials, uv_default, state))
+    assert not foreign.exists()
 
 
 @pytest.mark.parametrize("target", ["darwin-arm64", "darwin-x64", "linux-x64", "win32-arm64"])

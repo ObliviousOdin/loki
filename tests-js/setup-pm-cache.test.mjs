@@ -10,6 +10,7 @@ const save = action('../.github/actions/save-pm-cache/action.yml')
 // how a gate behaves rather than how it is spelled. Status functions default
 // to a healthy, uncancelled run; `status` overrides them.
 const evaluate = (expression, { status = {}, ...context } = {}) => {
+  context.github = { repository: 'NousResearch/hermes-agent', ...context.github }
   const lookup = path => path.split('.').reduce(
     (value, key) => (value !== null && typeof value === 'object' ? value[key] : undefined), context) ?? ''
   const statuses = { always: true, success: true, failure: false, cancelled: false, ...status }
@@ -206,5 +207,13 @@ it('each selection gate joins exactly one target\'s two trust branches after adm
     expect(evaluate(gate.if, { inputs: dispatches.tag, needs })).toBe(true)
     expect(evaluate(gate.if, { inputs: dispatches.tag,
       needs: { validate: { ...needs.validate, result: 'failure' } } })).toBe(false)
+  }
+})
+
+
+it('inherited desktop jobs refuse Loki repository execution', () => {
+  for (const [, job] of desktopLegs) {
+    expect(evaluate(job.if, { github: { repository: 'ObliviousOdin/loki' },
+      inputs: dispatches.tag, needs: admitted(targetOf(job)) })).toBe(false)
   }
 })

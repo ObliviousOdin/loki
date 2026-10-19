@@ -103,7 +103,7 @@ def test_delivery_runner_admits_through_dependencies_it_activates(tmp_path, comm
 
 def test_delivery_runner_that_cannot_activate_names_the_repair_remedy(tmp_path, uncommittable_home):
     """When the committed environment cannot be activated, the runner exits with PM's
-    ``hermes pm repair`` remedy before touching the DM, instead of an ambiguous
+    ``loki pm repair`` remedy before touching the DM, instead of an ambiguous
     ``No module named …`` outcome the sender is told not to resend."""
     _home, env = uncommittable_home
     dm_file = tmp_path / "dm.txt"
@@ -113,7 +113,7 @@ def test_delivery_runner_that_cannot_activate_names_the_repair_remedy(tmp_path, 
                    sys.executable, "-c", "pass"], env)
 
     assert result.returncode == 1, result
-    assert "hermes pm repair" in result.stderr
+    assert "loki pm repair" in result.stderr
     assert "No module named" not in result.stdout + result.stderr
     assert result.stdout == ""  # nothing was handed over, so no "do not resend" outcome
     assert dm_file.read_text(encoding="utf-8") == "hello teammate"
@@ -133,7 +133,7 @@ def test_delivery_runner_that_cannot_activate_after_live_admission_stays_ambiguo
                    "--profile-home", str(tmp_path), sys.executable, "-c", "pass"], env)
 
     assert result.returncode == 1, result
-    assert "hermes pm repair" in result.stderr
+    assert "loki pm repair" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["status"] == "ambiguous"
     assert payload["delivery_id"] == _dm_delivery_id(str(dm_file))

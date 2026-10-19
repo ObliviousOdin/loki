@@ -7,6 +7,8 @@ new symbol from an older cached ``auxiliary_client`` module.
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import base64
 import json
 from typing import Any, Dict
@@ -42,11 +44,11 @@ def codex_cloudflare_headers(access_token: str, *, base_url: str = CODEX_AUX_BAS
     if is_official_codex_base_url(base_url):
         from hermes_cli.version_info import get_version_info
         headers = {
-            "User-Agent": f"HermesAgent/{get_version_info().base_version}",
-            "originator": "hermes-agent",
+            "User-Agent": CLIENT_USER_AGENT,
+            "originator": "loki-agent",
         }
     else:
-        headers = {"User-Agent": "codex_cli_rs/0.0.0 (Hermes Agent)", "originator": "codex_cli_rs"}
+        headers = {"User-Agent": "codex_cli_rs/0.0.0 (Loki)", "originator": "codex_cli_rs"}
     headers.update(codex_account_headers(access_token))
     return headers
 

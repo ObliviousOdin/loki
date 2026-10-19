@@ -145,7 +145,8 @@ class TestChatCFailLoudlyOnStderr:
 
         assert ei.value.args[0] == 1
         assert any("No session found matching 'Bot Chat'" in l for l in stderr_lines)
-        assert not stderr_lines[0].startswith("Use 'hermes sessions list'")
+        assert not stderr_lines[0].startswith("Use 'loki sessions list'")
+        assert any("Use 'loki sessions list'" in line for line in stderr_lines)
 
     def test_create_if_missing_sets_resume(self, isolated_home, monkeypatch):
         """--create-if-missing resolves to a new session id on args.resume. The classic CLI's

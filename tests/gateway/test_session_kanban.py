@@ -5,6 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 
 def test_claim_freezes_task_policy_and_rejects_forgery(tmp_path, monkeypatch):
     from hermes_cli import kanban_db as kb
@@ -64,7 +66,7 @@ def test_real_dispatcher_lifecycle(tmp_path, mode):
     env = child_env()
     env.update(HOME=str(tmp_path / 'home'), USERPROFILE=str(tmp_path / 'home'), HERMES_HOME=str(tmp_path / 'state'), PYTHONPATH=str(repo), KANBAN_PROBE_MODE=mode)
     result = subprocess.run([sys.executable, str(Path(__file__).parent / 'fixtures' / 'kanban_owner_probe.py')],
-        env=env, cwd=repo, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=150, check=False)
+        env=bind_fixture_child_env(env), cwd=repo, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=150, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     receipt = json.loads((tmp_path / 'state' / 'receipt.json').read_text())
     print(json.dumps(receipt))

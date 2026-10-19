@@ -159,17 +159,19 @@ def _desktop_packaged_executable_in(release_dir: Path) -> Optional[Path]:
     stage-and-swap staging dir (#86443).
     """
     if sys.platform == "darwin":
-        candidates = list(release_dir.glob("mac*/Hermes.app/Contents/MacOS/Hermes"))
+        candidates = list(release_dir.glob("mac*/Loki*.app/Contents/MacOS/Loki*"))
     elif sys.platform == "win32":
         candidates = [
-            release_dir / d / "Hermes.exe" for d in ("win-unpacked", "win-ia32-unpacked", "win-arm64-unpacked")
+            p for d in ("win-unpacked", "win-ia32-unpacked", "win-arm64-unpacked")
+            for p in (release_dir / d).glob("[Ll]oki*.exe")
         ]
     else:
         candidates = [
-            release_dir / d / n for d in ("linux-unpacked", "linux-arm64-unpacked") for n in ("hermes", "Hermes")
+            p for d in ("linux-unpacked", "linux-arm64-unpacked")
+            for p in (release_dir / d).glob("[Ll]oki*") if not p.suffix
         ]
 
-    existing = [p for p in candidates if p.exists()]
+    existing = [p for p in candidates if p.is_file()]
     if not existing:
         return None
     if sys.platform == "win32" and len(existing) > 1:
@@ -940,7 +942,7 @@ def _running_macos_app_bundles() -> set[Path]:
     bundles: set[Path] = set()
     for proc in psutil.process_iter(["exe"]):
         exe = proc.info.get("exe") or ""
-        if exe.endswith("/Contents/MacOS/Hermes"):
+        if "/Contents/MacOS/Loki" in exe:
             bundles.add(Path(exe).resolve().parents[2])
     return bundles
 
@@ -1071,7 +1073,7 @@ def _installed_desktop_launch_target(desktop_dir: Path, packaged_executable: Pat
     rebuilt_hash = _app_asar_hash(packaged_executable.parents[2])
     for app in _installed_desktop_apps():
         if rebuilt_hash is not None and _app_asar_hash(app) == rebuilt_hash:
-            return app / "Contents" / "MacOS" / "Hermes"
+            return app / "Contents" / "MacOS" / packaged_executable.name
     return packaged_executable
 
 
@@ -1610,20 +1612,20 @@ def _site_packages_install_kind(project_root: Path) -> Optional[str]:
 
 
 def _launch_installed_macos_desktop_app() -> bool:
-    """Launch a separately installed ``/Applications/Hermes.app``, if present.
+    """Launch a separately installed ``/Applications/Loki.app``, if present.
 
     Returns True only when the app bundle exists and a detached launch was
     started — the caller then exits without touching the build ladder.
     """
     if sys.platform != "darwin":
         return False
-    executable = Path("/Applications/Hermes.app/Contents/MacOS/Hermes")
+    executable = Path("/Applications/Loki.app/Contents/MacOS/Loki")
     if not executable.is_file():
         return False
     from hermes_cli.bundled_app import launch_detached
 
     pid = launch_detached([str(executable)], cwd=executable.parent)
-    print(f"→ Launched the installed Hermes Desktop app: {executable} (pid {pid})")
+    print(f"→ Launched the installed Loki Desktop app: {executable} (pid {pid})")
     return True
 
 
@@ -1650,10 +1652,10 @@ def cmd_gui(args: argparse.Namespace):
         print(f"Desktop GUI source not found at: {desktop_dir}")
         if install_kind == "homebrew":
             print(
-                "  This Hermes came from Homebrew, which does not ship the desktop app's\n"
+                "  This Loki came from Homebrew, which does not ship the desktop app's\n"
                 "  source tree, so it cannot be built from this install.\n"
-                "  Install the desktop app from https://hermes-agent.nousresearch.com,\n"
-                "  or run `hermes desktop` from a source checkout."
+                "  See Loki desktop preview availability at https://github.com/ObliviousOdin/loki/releases,\n"
+                "  or run `loki desktop` from a source checkout."
             )
         sys.exit(1)
 
@@ -1671,7 +1673,7 @@ def cmd_gui(args: argparse.Namespace):
     # grants survive rebuilds, then exit without building/launching.
     if getattr(args, "setup_tcc_identity", False):
         from hermes_cli.main_desktop_tcc import _desktop_macos_setup_tcc_identity
-        identity = getattr(args, "identity", None) or "Hermes Local Signing"
+        identity = getattr(args, "identity", None) or "Loki Local Signing"
         sys.exit(0 if _desktop_macos_setup_tcc_identity(identity) else 1)
 
     if bundled:

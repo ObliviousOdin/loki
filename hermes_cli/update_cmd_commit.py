@@ -159,7 +159,7 @@ def _owe_for(root: Path, sha: str) -> None:
     except OSError as exc:
         logger.warning("Could not re-arm the update obligations for %s: %s", sha[:10], exc)
         print(f"  ⚠ Could not record the restart this update still owes for {sha[:10]} ({exc}); "
-              "run `hermes gateway restart` once the update is done.", file=sys.stderr)
+              "run `loki gateway restart` once the update is done.", file=sys.stderr)
 
 
 def debt_sha_for_move(pre: str, target: str) -> str:
@@ -183,7 +183,11 @@ def arm_commit_point(git_cmd, root: Path, expected_sha: str, **move) -> str | No
     (``disarm_commit_obligations``), and the caller must stop before git writes a file.
     Linux/macOS gateways are paused first: this is every route's first checkout move.
     """
+    from hermes_cli.update_loki_identity import git_identity_refusal
     from hermes_cli.update_cmd_posix_pause import pause_at_commit_point
+    if refused := git_identity_refusal(git_cmd, root, move["target"]):
+        _record_stop("target_identity_refused")
+        return refused
     if refused := pause_at_commit_point():
         return refused
     try:
@@ -488,7 +492,7 @@ def startup_syntax_error(sources: dict[str, bytes | None], pyproject: bytes | No
         return None
     return broken[0], (f"{broken[1]}\nJudged by Python {platform.python_version()}: the target requires Python "
                        f"{spec} and no installed interpreter satisfies it. Install one (`uv python install "
-                       f"'{spec}'`) and re-run `hermes update` so the release is judged by its own Python.")
+                       f"'{spec}'`) and re-run `loki update` so the release is judged by its own Python.")
 
 
 def read_target_files(git_cmd, root: Path, target_ref: str, relpaths) -> dict[str, bytes | None]:
@@ -600,6 +604,10 @@ def preflight_refusal(git_cmd, root: Path, target_ref: str, critical_files) -> s
     * a target whose startup-critical modules do not compile (rollback used to be the only guard).
     """
     root = Path(root)
+    from hermes_cli.update_loki_identity import git_identity_refusal
+    if reason := git_identity_refusal(git_cmd, root, target_ref):
+        _record_stop("target_identity_refused")
+        return f"✗ Refusing this source update: {reason}."
     if not _owns_live_checkout(root):
         try:
             from hermes_cli.venv_sync import refuse_foreign_owned_venv

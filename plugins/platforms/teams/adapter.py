@@ -9,6 +9,8 @@ Requires the ``teams`` extra (auto-installed by the gateway on first start, or
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import asyncio
 # microsoft-teams-apps calls ``load_dotenv(find_dotenv(usecwd=True))`` at ``microsoft_teams.apps.app``
 # import time. Importing it during plugin discovery / ``TeamsSummaryWriter`` imports would pollute process
@@ -411,7 +413,7 @@ class TeamsAdapter(BasePlatformAdapter):
             self._app = App(
                 client_id=self._client_id, client_secret=self._client_secret, tenant_id=self._tenant_id,
                 http_server_adapter=_AiohttpBridgeAdapter(aiohttp_app),
-                client=ClientOptions(headers={"User-Agent": "Hermes"}))
+                client=ClientOptions(headers={"User-Agent": CLIENT_USER_AGENT}))
             # Handlers (ours, then plugin on_* decorators) must be wired before initialize(),
             # which registers POST /api/messages on aiohttp_app via the bridge's register_route().
             @self._app.on_message
@@ -479,7 +481,7 @@ class TeamsAdapter(BasePlatformAdapter):
         from gateway.platforms.base import _ssrf_redirect_guard, _read_httpx_body_with_limit
         if not is_safe_url(url):
             raise ValueError("Blocked unsafe attachment URL (SSRF protection)")
-        headers = {"User-Agent": "Mozilla/5.0 (compatible; HermesAgent/1.0)"}
+        headers = {"User-Agent": f"Mozilla/5.0 (compatible; {CLIENT_USER_AGENT})"}
         if _is_botframework_attachment_url(url):
             try:
                 headers["Authorization"] = f"Bearer {await self._get_botframework_token()}"
@@ -795,7 +797,7 @@ _SETUP_CREDENTIALS = (
 _SETUP_INTRO = (  # "" → blank line
     "You'll need the Teams CLI. If you haven't already:", "  npm install -g @microsoft/teams.cli@preview",
     "  teams login", "", "Then expose port 3978 publicly (devtunnel / ngrok / cloudflared),", "and create your bot:",
-    '  teams app create --name "Hermes" --endpoint "https://<tunnel>/api/messages"', "",
+    '  teams app create --name "Loki" --endpoint "https://<tunnel>/api/messages"', "",
     "The CLI will print CLIENT_ID, CLIENT_SECRET, and TENANT_ID. Paste them below.", "")
 
 
@@ -826,20 +828,20 @@ def interactive_setup() -> None:
         save_env_value("TEAMS_ALLOW_ALL_USERS", "true")
         print_warning("⚠️  Open access — anyone who can message the bot can command it.")
     print()
-    print_success("Teams configuration saved to ~/.hermes/.env")
+    print_success("Teams configuration saved to ~/.loki/.env")
     print_info("Install the app in Teams:  teams app install --id <teamsAppId>")
-    print_info("Restart the gateway:       hermes gateway restart")
+    print_info("Restart the gateway:       loki gateway restart")
 
 
 def _install_hint() -> str:
     """Point to the setup flow that requests PM's declared Teams extra."""
-    return "Teams SDK missing — run `hermes setup`, configure Teams, then restart the gateway"
+    return "Teams SDK missing — run `loki setup`, configure Teams, then restart the gateway"
 
 
 def register(ctx) -> None:
     ctx.register_platform(
         name="teams", label="Microsoft Teams", adapter_factory=lambda cfg: TeamsAdapter(cfg),
-        dashboard_description="Connect Hermes to Microsoft Teams chats via the Bot Framework.",
+        dashboard_description="Connect Loki to Microsoft Teams chats via the Bot Framework.",
         docs_url="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/teams",
         check_fn=check_requirements,  # PASSIVE probe — never installs
         ensure_deps_fn=check_teams_requirements,  # ACTIVE lazy-installer, run by create_adapter()

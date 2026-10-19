@@ -26,6 +26,9 @@ test('the real bootstrap supplies ruamel-only dependencies and rejects foreign-p
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: home,
+    LOKI_HOME: home,
+    LOKI_RUNTIME_DIR: path.join(temp, 'tools'),
+    LOKI_DISABLE_LAZY_INSTALLS: '1',
     HERMES_HOME: home,
     HERMES_RUNTIME_DIR: path.join(temp, 'tools'),
     HERMES_DISABLE_LAZY_INSTALLS: '1',

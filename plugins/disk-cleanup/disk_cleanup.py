@@ -3,7 +3,7 @@
 Rules: test files delete at task end (age >= 0); temp after 7 days; cron-output
 after 14 days; empty dirs under HERMES_HOME always. Prompt-only: research
 (keep 10 newest, > 30 days), chrome-profile > 14 days, any file > 500 MB.
-Scope: strictly HERMES_HOME and /tmp/hermes-*; never ~/.hermes/logs/ or system dirs.
+Scope: strictly HERMES_HOME and /tmp/loki-*; never ~/.hermes/logs/ or system dirs.
 """
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ def _state_file(name: str) -> Path:
 
 
 def is_safe_path(path: Path) -> bool:
-    """Accept only paths under HERMES_HOME or ``/tmp/hermes-*``.
+    """Accept only paths under HERMES_HOME or ``/tmp/loki-*``.
 
     Rejects Windows mounts (``/mnt/c`` etc.) and any system directory.
     """
@@ -45,7 +45,7 @@ def is_safe_path(path: Path) -> bool:
     except ValueError:
         pass
 
-    # Allow /tmp/hermes-* explicitly. Compare resolved roots rather than raw
+    # Allow /tmp/loki-* explicitly. Compare resolved roots rather than raw
     # path parts because macOS resolves /tmp to /private/tmp.
     try:
         # Deliberate /tmp alias detection (#98854): we resolve the POSIX root
@@ -53,7 +53,7 @@ def is_safe_path(path: Path) -> bool:
         relative_tmp = resolved.relative_to(Path("/tmp").resolve())  # no-tmp: ok — alias detection, not a scratch path
     except (ValueError, OSError):
         return False
-    return bool(relative_tmp.parts and relative_tmp.parts[0].startswith("hermes-"))
+    return bool(relative_tmp.parts and relative_tmp.parts[0].startswith("loki-"))
 
 
 def _log(message: str) -> None:
@@ -211,9 +211,12 @@ def forget(path_str: str) -> int:
 
 
 def _live_items(tracked: list[dict], now: datetime, *, log_stale: bool = False) -> Iterator[tuple[dict, Path, int]]:
-    """Yield ``(item, path, age_days)`` for entries whose path still exists."""
+    """Yield live entries still inside Loki's owned cleanup scope."""
     for item in tracked:
         p = Path(item["path"])
+        if not is_safe_path(p):
+            _log(f"SKIP: {p} (outside Loki cleanup scope)")
+            continue
         if p.exists():
             yield item, p, (now - datetime.fromisoformat(item["timestamp"])).days
         elif log_stale:
@@ -237,6 +240,8 @@ def _prompt_group(item: dict, age: int) -> Optional[str]:
 def _delete_item(item: dict) -> Optional[str]:
     """Delete a tracked file/dir and audit-log it. Returns an error string on OSError, else None."""
     p = Path(item["path"])
+    if not is_safe_path(p):
+        return f"{p}: outside Loki cleanup scope"
     try:
         if p.is_file():
             p.unlink()
@@ -410,7 +415,7 @@ def guess_category(path: Path) -> Optional[str]:
     """Category label for *path*, or None if we shouldn't track it (``post_tool_call`` hook)."""
     if not is_safe_path(path):
         return None
-    with contextlib.suppress(ValueError):  # not under HERMES_HOME (/tmp/hermes-*) — name rules only
+    with contextlib.suppress(ValueError):  # not under HERMES_HOME (/tmp/loki-*) — name rules only
         rel = path.resolve().relative_to(get_hermes_home())
         top = rel.parts[0] if rel.parts else ""
         if top in _NEVER_TRACK_TOP_LEVEL or _is_protected_dir(path):

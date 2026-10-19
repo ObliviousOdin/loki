@@ -1,4 +1,4 @@
-# nix/packages.nix — Hermes Agent package built with uv2nix
+# nix/packages.nix — Loki package built with uv2nix
 { inputs, ... }:
 {
   perSystem =
@@ -76,6 +76,7 @@
             inherit (pkgs) npm-lockfile-fix;
           }).node-gyp;
         default = full;
+        loki = full;
 
         inherit sandbox;
 

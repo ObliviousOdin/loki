@@ -149,8 +149,8 @@ def test_cache_keys_project_as_third_dimension(tmp_path):
     repo_b = tmp_path / "repo-b"
     for repo in (repo_a, repo_b):
         (repo / ".git").mkdir(parents=True)
-    _make_skill((repo_a / ".hermes" / "skills"), "proj-a-skill")
-    _make_skill((repo_b / ".hermes" / "skills"), "proj-b-skill")
+    _make_skill((repo_a / ".loki" / "skills"), "proj-a-skill")
+    _make_skill((repo_b / ".loki" / "skills"), "proj-b-skill")
     # A shared, otherwise-empty home: only the project dimension differs.
     home = tmp_path / "shared-home"
     home.mkdir()
@@ -162,7 +162,7 @@ def test_cache_keys_project_as_third_dimension(tmp_path):
         return state["root"]
 
     def fake_project_dirs():
-        d = state["root"] / ".hermes" / "skills"
+        d = state["root"] / ".loki" / "skills"
         return [d] if d.is_dir() else []
 
     scan_count = 0

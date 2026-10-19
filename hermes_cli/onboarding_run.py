@@ -47,7 +47,10 @@ def latch_first_install() -> bool:
     if _explicit_run() is not None or not probe().fresh:
         return False
     set_run(True)  # first: a crash before the reservation still leaves a fresh probe for the claim
-    reserve_trial()
+    from hermes_cli.loki_auth_policy import hosted_services_enabled
+
+    if hosted_services_enabled():
+        reserve_trial()
     return True
 
 

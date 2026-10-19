@@ -10,6 +10,7 @@ which composes these helpers.
 import json
 import logging
 import os
+import shlex
 import shutil
 import sqlite3
 import stat
@@ -28,6 +29,17 @@ from utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _restore_command(archive_path: str | Path, *, powershell: bool) -> str:
+    """Keep the archive path one literal argument in the shell shown by the backup hint."""
+    path = str(archive_path)
+    if powershell:
+        # PowerShell also recognizes typographic single quotes as string delimiters.
+        literal = path.translate(str.maketrans({"'": "''", "‘": "‘‘", "’": "’’"}))
+        return f"loki import '{literal}'"
+    return shlex.join(["loki", "import", path])
+
 
 def _foreign_db_holder_pids(db_path: Path) -> Optional[list[int]]:
     """PIDs of OTHER processes holding *db_path* or its WAL/SHM open.
@@ -199,7 +211,7 @@ def _restore_destination_epoch(dst: Path) -> int:
     except (OSError, sqlite3.Error, ValueError) as exc:
         raise OSError(
             f"Cannot read the canonical runtime epoch at {dst}; refusing in-place restore. "
-            "Use `hermes sessions recover --source <snapshot> --output <separate-path>` "
+            "Use `loki sessions recover --source <snapshot> --output <separate-path>` "
             "to salvage transcripts into a separate output."
         ) from exc
 

@@ -253,7 +253,7 @@ def resolve_plugin_path(target: str | os.PathLike[str] | None = None) -> Path:
             candidates += [bundled / raw, bundled / "platforms" / raw, bundled / "model-providers" / raw]
         except Exception:
             pass
-        candidates.append(Path.cwd() / ".hermes" / "plugins" / raw)
+        candidates.append(Path.cwd() / ".loki" / "plugins" / raw)
     for candidate in candidates:
         if _holds_plugin(candidate):
             return candidate.resolve()

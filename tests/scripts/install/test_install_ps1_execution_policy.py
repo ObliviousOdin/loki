@@ -65,7 +65,7 @@ def test_installer_runs_runtime_command_from_apostrophe_account_path(tmp_path):
         home=install_root.parent / ".hermes",
     )
     env = os.environ.copy()
-    env["HERMES_TEST_RUNTIME_COMMAND"] = json.dumps(selected)
+    env["LOKI_TEST_RUNTIME_COMMAND"] = json.dumps(selected)
     quoted_installer = str(INSTALLER).replace("'", "''")
     quoted_root = str(install_root).replace("'", "''")
     command = (f". '{quoted_installer}'; "

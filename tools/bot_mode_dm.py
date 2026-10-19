@@ -46,7 +46,7 @@ MESSAGE_MAX_CHARS = 16000
 REPLY_COMPLETION_CHARS = MESSAGE_MAX_CHARS + 2000
 # A runner owns and removes each DM file; this bounds residual plaintext lifetime if
 # the machine dies between spawn ack and the runner's finally.
-_DM_DIR_NAME = "hermes-dm"
+_DM_DIR_NAME = "loki-dm"
 _DM_STALE_SECONDS = 24 * 60 * 60
 _LIVE_WAIT_SECONDS = 300
 # A live owner may run a turn past one wait window, but each waiting runner holds ~46 MB and the
@@ -364,11 +364,10 @@ def _dm_dir() -> Path:
 
 def cleanup_bot_dm_cache(max_age_hours: float = _DM_STALE_SECONDS / 3600, *, now: float | None = None) -> int:
     """Delete orphaned DM payload files older than *max_age_hours*; returns count.
-    Same contract as the other ``cleanup_*_cache`` helpers (hourly gateway housekeeping);
-    legacy temp-root locations from versions predating the dedicated directory are swept too."""
+    Same contract as the other ``cleanup_*_cache`` helpers (hourly gateway housekeeping).
+    Only this Loki user's private directory is owned; foreign legacy temp files are untouched."""
     cutoff = (time.time() if now is None else now) - max_age_hours * 3600
-    temp_root = Path(tempfile.gettempdir())
-    locations = [(temp_root, "hermes-dm-*.txt"), (temp_root, "hermes-relay-dm-*.txt")]
+    locations = []
     with contextlib.suppress(OSError):
         dm_dir = _dm_dir()
         locations.append((dm_dir, "*.txt"))
@@ -414,7 +413,7 @@ def _delivery_lock(argv: list[str], *, stdin_file: bool):
     # (service contexts lack PATH) and carries .exe on Windows; split on both separators.
     # Split on both separators so the shape matches regardless of which platform built the argv. See #93590.
     cli = (argv[0] if argv else "").rsplit("\\", 1)[-1].rsplit("/", 1)[-1]
-    if stdin_file or len(argv) < 3 or cli not in ("hermes", "hermes.exe") or argv[1] != "-p":
+    if stdin_file or len(argv) < 3 or cli not in ("loki", "loki.exe") or argv[1] != "-p":
         return contextlib.nullcontext()
     from tools.bot_mode_probe import _hermes_root
     from tools.bot_relay import acquire_turn_lock
@@ -534,7 +533,7 @@ def _wait_live_dm(home: str, delivery_id: str, *, dm_file: str | os.PathLike | N
 
 def _local_delivery_home(argv: list[str]) -> Path | None:
     cli = (argv[0] if argv else "").rsplit("\\", 1)[-1].rsplit("/", 1)[-1]
-    if len(argv) < 3 or cli not in ("hermes", "hermes.exe") or argv[1] != "-p":
+    if len(argv) < 3 or cli not in ("loki", "loki.exe") or argv[1] != "-p":
         return None
     from tools.bot_mode_probe import _hermes_root, _roster
 

@@ -39,7 +39,7 @@ const LOCKFILE_SCHEMA_VERSION = 2
 // args, served-token reconciliation). A mismatch forces a clean respawn.
 const PROTOCOL_VERSION = 1
 const READY_RE = READY_IN_MERGED_OUTPUT_RE // the remote log is `>> log 2>&1`: merged, not line-accurate
-const REMOTE_LOCK_DIR = '~/.hermes/desktop-ssh'
+const REMOTE_LOCK_DIR = '~/.loki/desktop-ssh'
 const SUPPORTED_REMOTE_OS = new Set(['Linux', 'Darwin'])
 // On a busy remote host a healthy cold boot can take 60-150s before the
 // freshly spawned `hermes serve --isolated` prints its READY line (event-loop
@@ -225,9 +225,9 @@ async function locateHermes(ssh, remoteHermesPath) {
     }
 
     const err: any = new Error(
-      `The Hermes path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
-        'Check the path (it must be the full path to the `hermes` binary on the remote, e.g. ' +
-        '~/hermes-agent/.venv/bin/hermes), or clear it to auto-detect.'
+      `The Loki path you set is not an executable on the remote host: "${remoteHermesPath}". ` +
+        'Check the path (it must be the full path to the `loki` binary on the remote, e.g. ' +
+        '~/hermes-agent/.venv/bin/loki), or clear it to auto-detect.'
     )
 
     err.kind = 'hermes-not-found'
@@ -237,7 +237,7 @@ async function locateHermes(ssh, remoteHermesPath) {
   const candidates: string[] = []
 
   try {
-    const found = (await ssh.exec(`bash -lc ${shq('command -v hermes')}`)).trim()
+    const found = (await ssh.exec(`bash -lc ${shq('command -v loki')}`)).trim()
 
     if (found) {
       candidates.push(found.split('\n').pop().trim())
@@ -248,9 +248,9 @@ async function locateHermes(ssh, remoteHermesPath) {
 
   // Fallback candidates when the login-shell probe misses: the installer's
   // command locations (scripts/install.sh) — per-user, root/FHS, legacy venv.
-  candidates.push('~/.local/bin/hermes')
-  candidates.push('/usr/local/bin/hermes')
-  candidates.push('~/.hermes/hermes-agent/venv/bin/hermes')
+  candidates.push('~/.loki/bin/loki', '~/.local/bin/loki')
+  candidates.push('/usr/local/bin/loki')
+  candidates.push('~/.loki/hermes-agent/.loki/bin/loki')
 
   for (const candidate of candidates) {
     if (!candidate) {
@@ -263,9 +263,9 @@ async function locateHermes(ssh, remoteHermesPath) {
   }
 
   const err: any = new Error(
-    'Hermes is not installed on the remote host (could not find a `hermes` executable). ' +
-      'Install it on the remote with:  curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh  ' +
-      '— or set the Hermes path explicitly in the SSH connection settings.'
+    'Loki is not installed on the remote host (could not find a `loki` executable). ' +
+      'Install the Loki preview using https://github.com/ObliviousOdin/loki#installation ' +
+      'or set the Loki path explicitly in the SSH connection settings.'
   )
 
   err.kind = 'hermes-not-found'
@@ -294,7 +294,7 @@ async function probeRemotePlatform(ssh) {
 
   if (!SUPPORTED_REMOTE_OS.has(osName)) {
     const err: any = new Error(
-      `Unsupported remote platform "${osName || 'unknown'}". Hermes Desktop SSH mode supports Linux, macOS, and Windows remote hosts.`
+      `Unsupported remote platform "${osName || 'unknown'}". Loki Desktop SSH mode supports Linux, macOS, and Windows remote hosts.`
     )
 
     err.kind = 'unsupported-platform'
@@ -304,16 +304,16 @@ async function probeRemotePlatform(ssh) {
   return { os: osName, arch }
 }
 
-// The HERMES_HOME the remote dashboard will use (explicit env wins, else
-// ~/.hermes). Recorded in the lockfile so a future reuse can tell it's the same
+// The LOKI_HOME the remote dashboard will use (explicit env wins, else
+// ~/.loki). Recorded in the lockfile so a future reuse can tell it's the same
 // state store; best-effort.
 async function probeRemoteHermesHome(ssh) {
   try {
-    const out = (await ssh.exec('echo "${HERMES_HOME:-$HOME/.hermes}"')).trim().split('\n').pop()
+    const out = (await ssh.exec('echo "${LOKI_HOME:-$HOME/.loki}"')).trim().split('\n').pop()
 
-    return out || '~/.hermes'
+    return out || '~/.loki'
   } catch (cause) {
-    const error: any = new Error('Could not resolve the remote Hermes home.')
+    const error: any = new Error('Could not resolve the remote Loki home.')
     error.kind = 'transient-transport-error'
     error.cause = cause
     throw error
@@ -355,7 +355,7 @@ async function assertRemoteInstallUpdateClear(ssh, hermesHome, hermesPath = '') 
         .split(/\r?\n/)
         .pop() || ''
   } catch (cause) {
-    const error: any = new Error('Could not prove that the remote Hermes install is clear for SSH startup.')
+    const error: any = new Error('Could not prove that the remote Loki install is clear for SSH startup.')
     error.kind = 'update-in-progress'
     error.cause = cause
     throw error
@@ -369,10 +369,10 @@ async function assertRemoteInstallUpdateClear(ssh, hermesHome, hermesPath = '') 
 
   const error: any = new Error(
     live
-      ? `Remote Hermes update process ${live[1]} is still running; SSH startup is paused.`
+      ? `Remote Loki update process ${live[1]} is still running; SSH startup is paused.`
       : observation === 'HELD'
-        ? 'A process the remote Hermes update started still holds the install; SSH startup is paused.'
-        : 'The remote Hermes update marker is unreadable, malformed, or locked; refusing SSH startup.'
+        ? 'A process the remote Loki update started still holds the install; SSH startup is paused.'
+        : 'The remote Loki update marker is unreadable, malformed, or locked; refusing SSH startup.'
   )
 
   error.kind = 'update-in-progress'
@@ -387,7 +387,7 @@ async function listRemoteHermesProfiles(ssh) {
   try {
     listing = await ssh.exec(`if [ -d ${dir} ]; then ls -1 ${dir}; fi`)
   } catch (cause) {
-    const error: any = new Error('Could not list remote Hermes profiles.')
+    const error: any = new Error('Could not list remote Loki profiles.')
     error.kind = 'transient-transport-error'
     error.cause = cause
     throw error
@@ -409,7 +409,7 @@ async function readRemoteInstallId(ssh) {
   try {
     out = await ssh.exec(`if [ -f ${file} ]; then cat ${file}; fi`)
   } catch (cause) {
-    const error: any = new Error('Could not read the remote Hermes install id.')
+    const error: any = new Error('Could not read the remote Loki install id.')
     error.kind = 'transient-transport-error'
     error.cause = cause
     throw error
@@ -431,7 +431,7 @@ function assertSafeRemoteHome(home) {
   const value = String(home || '').trim()
 
   if (!/^(\/|~\/)[A-Za-z0-9._/+-]+$/.test(value) || value.includes('..')) {
-    const error: any = new Error('Unsafe remote Hermes home.')
+    const error: any = new Error('Unsafe remote Loki home.')
     error.kind = 'unsafe-path'
     throw error
   }
@@ -1128,7 +1128,7 @@ function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
   const tokenArg = tokenFilePath ? ` --ssh-session-token-file ${expandRemotePath(tokenFilePath)}` : ''
   const ownerArg = opts.spawnNonce ? ` --ssh-owner-nonce ${validateSpawnNonce(opts.spawnNonce)}` : ''
   const subCmd = `serve --isolated --host 127.0.0.1 --port 0${tokenArg}${ownerArg}`
-  const marker = expandRemotePath(`${remoteInstallRoot(opts.hermesHome || '~/.hermes')}/.hermes-update-in-progress`)
+  const marker = expandRemotePath(`${remoteInstallRoot(opts.hermesHome || '~/.loki')}/.hermes-update-in-progress`)
 
   // The marker judge, ownership reservation, process creation, and initial
   // lockfile publication are one remote command under the marker lock, so a
@@ -1141,7 +1141,7 @@ function buildSpawnCommand(hermesPath, profile, opts: any = {}) {
 
   const dashCmd =
     `ulimit -n ${REMOTE_NOFILE_SOFT_LIMIT} 2>/dev/null || true; ` +
-    `exec env HERMES_DESKTOP=1 ${hermes} ${profileArgs}${subCmd}`
+    `exec env LOKI_DESKTOP=1 ${hermes} ${profileArgs}${subCmd}`
 
   const detachedShell: string = `eval "exec $1>&-"; ${dashCmd} </dev/null >> ${logPath} 2>&1 & echo $!`
   // The inner shell backgrounds Hermes and reports its PID; backgrounding the
@@ -1230,7 +1230,7 @@ function remoteProfileMissingError(output) {
   const createCommand = match[2]?.trim()
 
   const err: any = new Error(
-    `The remote Hermes profile '${profile}' does not exist. ` +
+    `The remote Loki profile '${profile}' does not exist. ` +
       `Select an existing remote profile${createCommand ? ` or create it with: ${createCommand}` : '.'}`
   )
 
@@ -1283,12 +1283,12 @@ async function scrapeReadyPort(ssh, logPath, { timeoutMs = resolveReadyTimeoutMs
 
 async function spawnRemoteDashboard(
   ssh,
-  { hermesPath, profile, token, ownershipId, hermesHome = '~/.hermes', assertInstallClear = async () => {} }
+  { hermesPath, profile, token, ownershipId, hermesHome = '~/.loki', assertInstallClear = async () => {} }
 ) {
   if (!(await remoteSupportsSshOwnership(ssh, hermesPath))) {
     const err: any = new Error(
-      'The remote Hermes install does not support --ssh-session-token-file and --ssh-owner-nonce. ' +
-        'Update Hermes on the remote host to continue using Desktop SSH mode.'
+      'The remote Loki install does not support --ssh-session-token-file and --ssh-owner-nonce. ' +
+        'Update Loki on the remote host to continue using Desktop SSH mode.'
     )
 
     err.kind = 'update-required'
@@ -1540,7 +1540,7 @@ async function connect(deps) {
     )
 
     const error: any = new Error(
-      `The remote ownership record ${lpath} does not match this Hermes Desktop build (${lock.reason}). ` +
+      `The remote ownership record ${lpath} does not match this Loki Desktop build (${lock.reason}). ` +
         'It was probably written by a different or modified desktop build sharing this remote, or the file is corrupt. ' +
         'Refusing to reap or overwrite it — that could kill a live SSH backend owned by another build. ' +
         'If nothing else uses this remote, delete that file on the remote host and reconnect.'

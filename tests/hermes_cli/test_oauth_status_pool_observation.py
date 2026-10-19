@@ -9,6 +9,8 @@ the entry with a persisted cooldown — the picker then rendered the provider as
 Fixtures adapted from #114379 by @Finn763.
 """
 
+from tests.loki_auth_fixture import configure_auth
+
 import base64
 import json
 import time
@@ -155,6 +157,7 @@ def _singleton_tokens(home) -> dict:
 def test_status_snapshot_never_adopts_codex_cli_tokens(tmp_path, monkeypatch):
     """#68004: a Hermes store missing its refresh_token is recovery-eligible on the runtime path, but
     ``hermes status`` / ``hermes doctor`` must not import the Codex CLI's single-use token family."""
+    configure_auth(monkeypatch, clients=("openai-codex",), adopt_external_logins=True)
     from hermes_cli.auth import resolve_codex_runtime_credentials
 
     stale = {"access_token": _jwt_with_exp(-60)}

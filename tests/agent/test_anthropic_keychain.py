@@ -25,6 +25,22 @@ from agent.anthropic_credentials import (
 pytestmark = pytest.mark.allow_macos_keychain
 
 
+@pytest.fixture(autouse=True)
+def _explicit_mock_external_login_adoption(monkeypatch):
+    """These mocked CLI/Keychain stores are explicitly shared; default Loki policy stays off."""
+    from copy import deepcopy
+    from hermes_cli import config
+
+    original = config.load_config_readonly
+
+    def configured(*args, **kwargs):
+        cfg = deepcopy(original(*args, **kwargs) or {})
+        cfg.setdefault("auth", {})["adopt_external_logins"] = True
+        return cfg
+
+    monkeypatch.setattr(config, "load_config_readonly", configured)
+
+
 @pytest.mark.platforms("macos")
 class TestReadClaudeCodeCredentialsFromKeychain:
     """Bug 4: macOS Keychain support for Claude Code >=2.1.114.

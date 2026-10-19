@@ -4,6 +4,8 @@ title: "Nix & NixOS Setup"
 description: "Install and deploy Hermes Agent with Nix — from quick `nix run` to fully declarative NixOS module with container mode"
 ---
 
+> Loki preview: the retained upstream guide below uses Hermes names. Use [Loki Nix instructions](https://github.com/ObliviousOdin/loki/blob/main/nix/README.md) for Loki package, service, and data identities. Nix builds are not yet qualified.
+
 # Nix & NixOS Setup
 
 :::warning Tier 2 platform

@@ -15,6 +15,8 @@ import subprocess
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli import update_cmd
 
 
@@ -40,6 +42,8 @@ def diverged_checkout(tmp_path):
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _git(upstream, "init", "-q", "-b", "main")
+    write_loki_source(upstream)
+    _git(upstream, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _commit(upstream, "shared.txt", "shared\n")
     _commit(upstream, "upstream-only.txt", "upstream\n")
 
@@ -89,6 +93,8 @@ def fast_forward_checkout(tmp_path):
     upstream = tmp_path / "linear-upstream"
     upstream.mkdir()
     _git(upstream, "init", "-q", "-b", "main")
+    write_loki_source(upstream)
+    _git(upstream, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     first = _commit(upstream, "shared.txt", "shared\n")
     _commit(upstream, "upstream-only.txt", "upstream\n")
 

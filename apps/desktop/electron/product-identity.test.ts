@@ -92,8 +92,8 @@ test('nonstable runtime pins userData before the app name can change', async ():
   const canary: ProductIdentity = await identityForVariant('bundled')
   const runtime: { applyDesktopIdentity: typeof applyDesktopIdentity } = await import('./product-identity')
   const root: string = fs.mkdtempSync(path.join(os.tmpdir(), 'identity-userdata-'))
-  const paths: Record<string, string> = { appData: root, userData: path.join(root, 'Hermes') }
-  let name: string = 'Hermes'
+  const paths: Record<string, string> = { appData: root, userData: path.join(root, 'Loki') }
+  let name: string = 'Loki'
 
   const app: Parameters<typeof applyDesktopIdentity>[0] = {
     getPath: (key: string): string => paths[key],
@@ -107,8 +107,8 @@ test('nonstable runtime pins userData before the app name can change', async ():
   }
 
   try {
-    assert.equal(runtime.applyDesktopIdentity(app, stable), null)
-    assert.equal(paths.userData, path.join(root, 'Hermes'))
+    assert.equal(runtime.applyDesktopIdentity(app, stable), stable.displayName)
+    assert.equal(paths.userData, path.join(root, 'Loki'))
     assert.equal(runtime.applyDesktopIdentity(app, canary), canary.displayName)
     assert.equal(paths.userData, path.join(paths.appData, canary.appNamePascal))
     assert.equal(name, canary.displayName)
@@ -118,17 +118,17 @@ test('nonstable runtime pins userData before the app name can change', async ():
 })
 
 test.each([
-  [undefined, 'Hermes', 'hermes', 'latest', 'canary'],
-  ['bundled', 'Hermes Agent', 'hermes', 'latest', 'canary'],
-  ['light', 'Hermes Light', 'hermes-light', 'light', 'light-canary']
+  [undefined, 'Loki Source', 'loki', null, null],
+  ['bundled', 'Loki', 'loki', null, null],
+  ['light', 'Loki Light', 'loki-light', null, null]
 ] as const)(
   '%s separates stable, canary and independent commits',
   async (
     variant: string | undefined,
     display: string,
     cli: string,
-    channel: string,
-    canaryChannel: string
+    channel: null,
+    canaryChannel: null
   ): Promise<void> => {
     const stable: ProductIdentity = await identityForVariant(variant)
     assert.equal(stable.displayName, display)
@@ -193,7 +193,8 @@ test('light and bundled retain distinct OS markers from the full client', async 
 
     if (variant === 'light') {
       assert.notEqual(other.msixAppIdWithOrg, full.msixAppIdWithOrg)
-      assert.notEqual(other.channel, full.channel)
+      assert.equal(other.channel, null)
+      assert.equal(full.channel, null)
     }
   }
 })
@@ -254,7 +255,7 @@ test('packaging isolates boot metadata and executable names without renaming rel
     const artifact: ReturnType<typeof appIdentity> = appIdentity(fileURLToPath(new URL('../', import.meta.url)))
     assert.equal(artifact.name, identity.artifactNamePascal)
     assert.equal(artifact.identity.msixAppIdWithOrg, config.msix.identityName)
-    assert.deepEqual(config.protocols[0].schemes, ['hermes'])
+    assert.deepEqual(config.protocols[0].schemes, ['loki'])
 
     if (build !== 'canary') {
       assert.equal(config.publish, null)
@@ -263,38 +264,21 @@ test('packaging isolates boot metadata and executable names without renaming rel
   }
 })
 
-test('store inherits the bundled app identity (shared userData) but swaps the MSIX packaging identity', async (): Promise<void> => {
+test('Store packaging refuses to reuse the upstream Partner Center registration', async (): Promise<void> => {
   const bundled: ProductIdentity = await identityForVariant('bundled')
-  const store: ProductIdentity = await identityForVariant('store')
-
-  // Same Electron app: displayName/appNamePascal (-> shared userData dir),
-  // appId, and the out-of-store org-prefixed name are all inherited.
-  assert.equal(store.store, true)
-  assert.equal(store.light, false)
-  assert.equal(store.displayName, bundled.displayName)
-  assert.equal(store.appNamePascal, bundled.appNamePascal)
-  assert.equal(store.appId, bundled.appId)
-  assert.equal(store.msixAppIdWithOrg, bundled.msixAppIdWithOrg)
-  // The store build never publishes to a feed.
-  assert.equal(store.channel, null)
+  assert.equal(bundled.storeMsix, undefined)
+  await assert.rejects(identityForVariant('store'), /Loki-owned Partner Center identity/)
 })
 
 test('nonstable builds cannot claim the official Store package', async (): Promise<void> => {
   process.env.HERMES_PAYLOAD_TAG = 'v0.28.0+canary.20260818T000000Z'
-  await assert.rejects(identityForVariant('store'), /Store.*stable/)
+  await assert.rejects(identityForVariant('store'), /Loki-owned Partner Center identity/)
   delete process.env.HERMES_PAYLOAD_TAG
   process.env.HERMES_BUILD_COMMIT = 'abcdef1234567890abcdef1234567890abcdef12'
-  await assert.rejects(identityForVariant('store'), /Store.*stable/)
+  await assert.rejects(identityForVariant('store'), /Loki-owned Partner Center identity/)
 })
 
-test('store carries the Partner Center MSIX identity and no other variant does', async (): Promise<void> => {
-  const store: ProductIdentity = await identityForVariant('store')
-  assert.deepEqual(store.storeMsix, {
-    identityName: 'NousResearchInc.HermesAgent',
-    publisher: 'CN=EE6D86E4-606F-4E38-B940-AD7248C9D519',
-    publisherDisplayName: 'Nous Research Inc.'
-  })
-
+test('source, bundled and light preview builds carry no Store registration', async (): Promise<void> => {
   for (const v of [undefined, 'bundled', 'light'] as const) {
     assert.equal((await identityForVariant(v)).storeMsix, undefined, `variant ${v} must carry no storeMsix`)
   }

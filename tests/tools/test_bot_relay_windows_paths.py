@@ -47,7 +47,7 @@ def test_waiter_argv_uses_forward_slashes_on_windows():
 def test_local_delivery_resolves_sibling_hermes(tmp_path, monkeypatch):
     bin_dir = tmp_path / "venv" / "bin"
     bin_dir.mkdir(parents=True)
-    sibling = bin_dir / "hermes"
+    sibling = bin_dir / "loki"
     sibling.touch()
     sibling.chmod(0o755)
     monkeypatch.setattr("sys.executable", str(bin_dir / "python"))
@@ -67,9 +67,9 @@ def test_local_delivery_uses_shutil_which_when_no_sibling(tmp_path, monkeypatch)
     # Keep this checkout's own published install launcher out of the resolution
     # when probing the fallback ladder (#124868).
     monkeypatch.setattr(bot_relay, "__file__", str(empty / "bot_relay.py"))
-    which_hit = str(tmp_path / "usr-local-bin" / "hermes")
+    which_hit = str(tmp_path / "usr-local-bin" / "loki")
     monkeypatch.setattr(
-        bot_relay.shutil, "which", lambda name: which_hit if name == "hermes" else None
+        bot_relay.shutil, "which", lambda name: which_hit if name == "loki" else None
     )
 
     assert bot_relay._hermes_cli() == which_hit
@@ -82,7 +82,7 @@ def test_local_delivery_falls_back_to_bare_name(tmp_path, monkeypatch):
     monkeypatch.setattr(bot_relay.shutil, "which", lambda name: None)
     monkeypatch.setattr(bot_relay, "__file__", str(empty / "bot_relay.py"))
 
-    assert bot_relay._hermes_cli() == "hermes"
+    assert bot_relay._hermes_cli() == "loki"
 
 
 def test_delivery_lock_recognizes_resolved_cli_paths(tmp_path, monkeypatch):
@@ -102,14 +102,14 @@ def test_delivery_lock_recognizes_resolved_cli_paths(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))
 
     with bot_mode_dm._delivery_lock(
-        [str(tmp_path / "venv" / "bin" / "hermes"), "-p", "ops", "chat"],
+        [str(tmp_path / "venv" / "bin" / "loki"), "-p", "ops", "chat"],
         stdin_file=False,
     ):
         pass
-    with bot_mode_dm._delivery_lock(["hermes", "-p", "ops", "chat"], stdin_file=False):
+    with bot_mode_dm._delivery_lock(["loki", "-p", "ops", "chat"], stdin_file=False):
         pass
     with bot_mode_dm._delivery_lock(
-        ["C:\\venv\\Scripts\\hermes.exe", "-p", "ops", "chat"], stdin_file=False
+        ["C:\\venv\\Scripts\\loki.exe", "-p", "ops", "chat"], stdin_file=False
     ):
         pass
     assert acquired == ["locked", "locked", "locked"]

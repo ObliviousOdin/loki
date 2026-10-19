@@ -447,7 +447,7 @@ def test_snap_compat_drops_only_init_and_no_new_privileges(monkeypatch):
     assert "--init" not in compat and "no-new-privileges" not in compat
 
     def strip(argv):  # everything except the two flags and the random container name
-        return [a for a in argv if a not in ("--init", "--security-opt", "no-new-privileges") and not a.startswith("hermes-")]
+        return [a for a in argv if a not in ("--init", "--security-opt", "no-new-privileges") and not a.startswith("loki-")]
 
     assert strip(default) == strip(compat)
 
@@ -530,9 +530,9 @@ def _labels_in_run_args(run_args):
 
 
 def test_run_command_tags_hermes_agent_label(monkeypatch):
-    """Every container hermes-agent starts must carry the hermes-agent=1 label
+    """Every container hermes-agent starts must carry the loki-agent=1 label
     so the orphan reaper (and external operators) can identify them with a
-    single ``docker ps --filter label=hermes-agent=1`` call. Regression test
+    single ``docker ps --filter label=loki-agent=1`` call. Regression test
     for issue #20561 — without the label there is no global sweep target."""
     monkeypatch.setattr(docker_env, "find_docker", lambda: "/usr/bin/docker")
     calls = _mock_subprocess_run(monkeypatch)
@@ -540,8 +540,8 @@ def test_run_command_tags_hermes_agent_label(monkeypatch):
     _make_dummy_env(task_id="my-task")
 
     labels = _labels_in_run_args(_run_args_from_calls(calls))
-    assert "hermes-agent=1" in labels, (
-        f"hermes-agent=1 label missing; got labels: {sorted(labels)}"
+    assert "loki-agent=1" in labels, (
+        f"loki-agent=1 label missing; got labels: {sorted(labels)}"
     )
 
 
@@ -791,7 +791,7 @@ def test_labels_attribute_populated_after_init(monkeypatch):
     labels = dict(env._labels)
     environment_label = labels.pop("hermes-environment")
     assert labels == {
-        "hermes-agent": "1",
+        "loki-agent": "1",
         "hermes-task-id": "abc",
         "hermes-profile": "default",
         "hermes-egress": "off",
@@ -1221,7 +1221,7 @@ def test_failed_docker_run_cleans_up_orphaned_container(monkeypatch):
     assert len(cleanup_calls) == 1, "docker rm should be called once for the orphaned container"
     rm_cmd = cleanup_calls[0]
     assert rm_cmd[1] == "rm" and rm_cmd[2] == "-f"
-    assert rm_cmd[3].startswith("hermes-"), "should remove the container by its generated name"
+    assert rm_cmd[3].startswith("loki-"), "should remove the container by its generated name"
 
 
 def test_docker_run_timeout_cleans_up_orphaned_container(monkeypatch):
@@ -1256,7 +1256,7 @@ def test_docker_run_timeout_cleans_up_orphaned_container(monkeypatch):
     assert len(cleanup_calls) == 1, "docker rm should be called once for the orphaned container"
     rm_cmd = cleanup_calls[0]
     assert rm_cmd[1] == "rm" and rm_cmd[2] == "-f"
-    assert rm_cmd[3].startswith("hermes-"), "should remove the container by its generated name"
+    assert rm_cmd[3].startswith("loki-"), "should remove the container by its generated name"
 
 
 

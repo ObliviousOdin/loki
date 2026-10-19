@@ -70,28 +70,15 @@ def _skin_color(key: str, fallback: str) -> str:
 from hermes_cli import __release_date__ as RELEASE_DATE
 from hermes_cli.version_info import get_version_info
 
-HERMES_AGENT_LOGO = """[bold #FFD700]██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
-[bold #FFD700]██║  ██║██╔════╝██╔══██╗████╗ ████║██╔════╝██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
-[#FFBF00]███████║█████╗  ██████╔╝██╔████╔██║█████╗  ███████╗█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
-[#FFBF00]██╔══██║██╔══╝  ██╔══██╗██║╚██╔╝██║██╔══╝  ╚════██║╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
-[#CD7F32]██║  ██║███████╗██║  ██║██║ ╚═╝ ██║███████╗███████║      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║[/]
-[#CD7F32]╚═╝  ╚═╝╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝╚══════╝╚══════╝      ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]"""
+HERMES_AGENT_LOGO = """[bold #FFD700]██╗      ██████╗ ██╗  ██╗██╗[/]
+[bold #FFD700]██║     ██╔═══██╗██║ ██╔╝██║[/]
+[#FFBF00]██║     ██║   ██║█████╔╝ ██║[/]
+[#FFBF00]██║     ██║   ██║██╔═██╗ ██║[/]
+[#CD7F32]███████╗╚██████╔╝██║  ██╗██║[/]
+[#CD7F32]╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═╝[/]"""
 
-HERMES_CADUCEUS = """[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⣀⣀⠀⢀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#CD7F32]⠀⠀⠀⠀⠀⠀⢀⣠⣴⣾⣿⣿⣇⠸⣿⣿⠇⣸⣿⣿⣷⣦⣄⡀⠀⠀⠀⠀⠀⠀[/]
-[#FFBF00]⠀⢀⣠⣴⣶⠿⠋⣩⡿⣿⡿⠻⣿⡇⢠⡄⢸⣿⠟⢿⣿⢿⣍⠙⠿⣶⣦⣄⡀⠀[/]
-[#FFBF00]⠀⠀⠉⠉⠁⠶⠟⠋⠀⠉⠀⢀⣈⣁⡈⢁⣈⣁⡀⠀⠉⠀⠙⠻⠶⠈⠉⠉⠀⠀[/]
-[#FFD700]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⡿⠛⢁⡈⠛⢿⣿⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFD700]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠿⣿⣦⣤⣈⠁⢠⣴⣿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFBF00]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠻⢿⣿⣦⡉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFBF00]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢷⣦⣈⠛⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣴⠦⠈⠙⠿⣦⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣤⡈⠁⢤⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠷⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⠑⢶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠁⢰⡆⠈⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⠈⣡⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]"""
+HERMES_CADUCEUS = """[bold #CD7F32]       ᛚ[/]
+[bold #FFD700]      LOKI[/]"""
 
 # === Skills scanning ===
 
@@ -187,18 +174,29 @@ def _compute_git_banner_state(repo_dir: Optional[Path] = None) -> Optional[dict]
     return {"upstream": upstream, "local": local, "ahead": max(ahead, 0)}
 
 
-_RELEASE_URL_BASE = "https://github.com/NousResearch/hermes-agent/releases/tag"
+_RELEASE_URL_BASE = "https://github.com/ObliviousOdin/loki/releases/tag"
 
 
 def get_latest_release_tag(repo_dir: Optional[Path] = None) -> Optional[tuple]:
     """Return ``(tag, release_url)`` for the latest local git tag, or None (a miss is cached too).
 
-    Release URL always points at the canonical NousResearch/hermes-agent repo (forks get no link).
+    Preserved upstream history includes Hermes tags; only a Loki tree gets a Loki release link.
     """
     def _compute():
+        import tomllib
+        from loki_identity import DISTRIBUTION
+
         rd = repo_dir or _resolve_repo_dir()
         tag = source_check._git_stdout(["describe", "--tags", "--abbrev=0"], cwd=rd, timeout=3) if rd else None
-        return (tag, f"{_RELEASE_URL_BASE}/{tag}") if tag else None
+        if not tag:
+            return None
+        metadata = source_check._git_stdout(["show", f"{tag}:pyproject.toml"], cwd=rd, timeout=3)
+        try:
+            if tomllib.loads(metadata or "").get("project", {}).get("name") != DISTRIBUTION:
+                return None
+        except ValueError:
+            return None
+        return (tag, f"{_RELEASE_URL_BASE}/{tag}")
     return _memo("_latest_release_cache", _compute)
 
 
@@ -206,15 +204,16 @@ def format_banner_version_label() -> str:
     """Return the version label shown in the startup banner title."""
     from hermes_cli.config import get_project_root
     from hermes_cli.steward import read_install_stamp
-    from hermes_cli.update_channel import is_canary_tag
+    from hermes_cli.update_channel import STABLE_TAG_RE, is_canary_tag
 
     stamp = read_install_stamp(get_project_root())
     if stamp.get("distribution") == "desktop-app":
-        label = f"Hermes Agent v{get_version_info().derived_version}"
+        label = f"Loki v{get_version_info().derived_version}"
         if stamp.get("source") == "commit-build":
             return f"{label} · commit-build · {str(stamp.get('commit') or '')[:12]}"
         if stamp.get("tag"):
-            channel = "canary" if is_canary_tag(stamp["tag"]) else "stable"
+            channel = ("canary" if is_canary_tag(stamp["tag"]) else
+                       "stable" if STABLE_TAG_RE.fullmatch(stamp["tag"]) else "preview")
             return f"{label} · {channel}"
         if stamp.get("payload") == "bootstrap":
             # The old installer shell's CLI backend: the shell never updates
@@ -223,22 +222,18 @@ def format_banner_version_label() -> str:
             return f"{label} · installer"
         return label
 
-    base = f"Hermes Agent v{get_version_info().derived_version} ({RELEASE_DATE})"
+    from loki_identity import UPSTREAM_COMMIT
+
+    info = get_version_info()
+    base = f"Loki v{info.derived_version} ({RELEASE_DATE})"
     from hermes_cli.config import load_config
     from hermes_cli.update_channel import resolve_update_channel
 
     channel = resolve_update_channel(_quiet(load_config), get_project_root())
     if channel != "main":
-        head = source_check._git_stdout(["rev-parse", "HEAD"], cwd=get_project_root())
-        return f"{base} · {channel}" + (f" · local {head[:12]}" if head else "")
-    state = get_git_banner_state()
-    if not state:
-        return base
-    upstream, local = state["upstream"], state["local"]
-    ahead = int(state.get("ahead") or 0)
-    if ahead <= 0 or upstream == local:
-        return f"{base} · upstream {upstream}"
-    return f"{base} · upstream {upstream} · local {local} (+{ahead} carried {_plural(ahead, 'commit')})"
+        base += f" · {channel}"
+    local = f" · Loki {info.commit[:8]}" if info.commit else ""
+    return f"{base}{local} · Hermes {UPSTREAM_COMMIT[:8]}"
 
 
 # === Non-blocking update check ===
@@ -516,8 +511,8 @@ def _mcp_failed_line(name: str, transport: str, error: Optional[str]) -> str:
     exact next command, so 'failed' is never the whole story."""
     from rich.markup import escape
     reason = escape(" ".join(str(error or "").split())[:120]) or "no details recorded"
-    next_cmd = (f"hermes mcp login {name}" if re.search(r"\b401\b|unauthori[sz]ed", reason, re.IGNORECASE)
-                else f"hermes mcp test {name}")
+    next_cmd = (f"loki mcp login {name}" if re.search(r"\b401\b|unauthori[sz]ed", reason, re.IGNORECASE)
+                else f"loki mcp test {name}")
     return (f"[red]{name}[/] [dim]({transport})[/] [red]— could not connect:[/] {reason} "
             f"[dim]— run `{next_cmd}`[/]")
 
@@ -613,7 +608,7 @@ def _banner_left_lines(model: str, cwd: str, session_id, context_length, provide
         lines.append(f"[{accent}]MoA: {_short_label(model)}[/]{agg_str}{ctx_str}{nous_str}")
     elif not (model or "").strip() or (model or "").strip().lower() == "unknown":
         # Unconfigured install: the clearest place to say what is wrong and how to fix it.
-        lines.append(f"[bold red]no model configured[/] [dim {dim}]— run /model or hermes setup[/]")
+        lines.append(f"[bold red]no model configured[/] [dim {dim}]— run /model or loki setup[/]")
     else:
         model_short = model.split("/")[-1].removesuffix(".gguf")
         lines.append(f"[{accent}]{_short_label(model_short)}[/]{ctx_str}{nous_str}")

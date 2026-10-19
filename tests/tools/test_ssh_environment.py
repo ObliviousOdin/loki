@@ -154,7 +154,7 @@ class TestControlSocketPath:
     _SSH_CONTROLMASTER_SUFFIX = 17
     _MAX_SUN_PATH = 103
 
-    def test_fits_under_macos_socket_limit_with_ipv6_host(self, monkeypatch):
+    def test_fits_under_macos_socket_limit_with_ipv6_host(self, monkeypatch, tmp_path):
         """A realistic macOS $TMPDIR + IPv6 host must still produce a
         control socket path that fits once SSH appends its ControlMaster
         suffix (see issue #11840)."""
@@ -163,10 +163,22 @@ class TestControlSocketPath:
         fake_tmp = "/var/folders/2t/wbkw5yb158jc3zhswgl7tz9c0000gn/T"
         monkeypatch.setattr("tools.environments.ssh.tempfile.gettempdir",
                             lambda: fake_tmp)
-        # The simulated path doesn't exist on the test host — skip the
-        # real mkdir so __init__ can proceed.
+        # This path-length fixture has no real /var/folders directory. Its
+        # sole control-directory metadata comes from the test's owned directory;
+        # other mkdir/stat calls and the production ownership check stay real.
         from pathlib import Path as _Path
-        monkeypatch.setattr(_Path, "mkdir", lambda *a, **k: None)
+        control = _Path(fake_tmp) / "loki-ssh"
+        mkdir, lstat = _Path.mkdir, _Path.lstat
+
+        def mkdir_control(path, *args, **kwargs):
+            if path != control:
+                return mkdir(path, *args, **kwargs)
+
+        def stat_control(path, *args, **kwargs):
+            return tmp_path.stat() if path == control else lstat(path, *args, **kwargs)
+
+        monkeypatch.setattr(_Path, "mkdir", mkdir_control)
+        monkeypatch.setattr(_Path, "lstat", stat_control)
 
         env = SSHEnvironment(
             host="9373:9b91:4480:558d:708e:e601:24e8:d8d0",

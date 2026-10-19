@@ -163,7 +163,7 @@ def isolated_checkout(tmp_path: Path) -> Path:
     (root / "hermes_cli").mkdir()
     (root / "scripts").mkdir()
     for relative in ("activate", "activate.fish", "activate.ps1", "scripts/_activation.sh",
-                     "hermes_constants.py", "hermes_cli/__init__.py",
+                     "loki_identity.py", "hermes_constants.py", "hermes_cli/__init__.py",
                      "pm/environments.py", "hermes_cli/runtime_state.py"):
         shutil.copy2(REPO_ROOT / relative, root / relative)
     # Environment-only tests do not exercise provisioning; the runtime tests
@@ -182,10 +182,12 @@ def bash_env(store: Path) -> dict:
     env = child_env()
     home = store.parent / "home"
     home.mkdir(exist_ok=True)
-    env.update(HOME=posix(home), USERPROFILE=str(home), HERMES_HOME=posix(home / "hermes"))
+    env.update(HOME=posix(home), USERPROFILE=str(home), LOKI_HOME=posix(home / "loki"))
     for key in ("PYTHONHOME", "PYTHONPATH", "VIRTUAL_ENV", "BASH_ENV", "__HERMES_ACTIVATED"):
         env.pop(key, None)
-    env["HERMES_RUNTIME_DIR"] = posix(store)
+    env["LOKI_RUNTIME_DIR"] = posix(store)
+    env["HERMES_HOME"] = env["LOKI_HOME"]
+    env["HERMES_RUNTIME_DIR"] = env["LOKI_RUNTIME_DIR"]
     # Keep the real env out of the composed pm output so the canary export
     # is the only thing activate adds beyond the ambient environment.
     env.pop(CANARY, None)

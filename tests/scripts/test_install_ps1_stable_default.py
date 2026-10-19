@@ -12,7 +12,7 @@ import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-OFFICIAL = "https://github.com/NousResearch/hermes-agent.git"
+OFFICIAL = "https://github.com/ObliviousOdin/loki.git"
 
 pytestmark = pytest.mark.platforms("windows")
 
@@ -38,7 +38,11 @@ def _git(cwd, *args, env=None):
     (True, "tip", "stable", True, "tip"),
     (True, "before", "", True, "release"),
 ])
-def test_install_ps1_lands_on_the_latest_stable_release(tmp_path, side, start, channel, tagged, lands):
+@pytest.mark.parametrize("default_channel", [None, "stable"])
+def test_preview_default_and_explicit_stable_preserve_release_selection(tmp_path, side, start, channel, tagged, lands, default_channel):
+    selected_channel = channel or default_channel
+    if selected_channel is None:
+        lands = "tip"
     powershell = shutil.which("powershell")
     if not powershell:
         pytest.skip("Windows PowerShell is required")
@@ -47,6 +51,8 @@ def test_install_ps1_lands_on_the_latest_stable_release(tmp_path, side, start, c
     origin.mkdir()
     home.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    (origin / "pyproject.toml").write_text('[project]\nname = "obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(origin, "add", "pyproject.toml")
     _git(origin, "commit", "-q", "--allow-empty", "-m", "before")
     if side:
         _git(origin, "checkout", "-q", "-b", "release/1.2")
@@ -60,13 +66,14 @@ def test_install_ps1_lands_on_the_latest_stable_release(tmp_path, side, start, c
     gitconfig = tmp_path / "gitconfig"
     gitconfig.write_text(f'[url "{origin.as_uri()}"]\n  insteadOf = {OFFICIAL}\n', encoding="utf-8")
     env = {**os.environ, "GIT_CONFIG_GLOBAL": str(gitconfig), "NO_COLOR": "1"}
-    env.pop("HERMES_INSTALL_CHANNEL", None)
+    env.pop("LOKI_INSTALL_CHANNEL", None)
     if start:
         _git(tmp_path, "clone", "-q", OFFICIAL, str(install), env=env)
         _git(install, "checkout", "-q", "--detach", commits[start], env=env)
+    channel_args = f" -Channel '{selected_channel}'" if selected_channel else ""
     wrapper = tmp_path / "stage.ps1"
     wrapper.write_text(
-        f". '{ROOT / 'scripts' / 'install.ps1'}' -InstallDir '{install}' -HermesHome '{home}' -Channel '{channel}'\n"
+        f". '{ROOT / 'scripts' / 'install.ps1'}' -InstallDir '{install}' -LokiHome '{home}'{channel_args}\n"
         "function Ensure-Git { return $true }\n"
         "function Get-LatestStableRelease { return 'v1.2.3' }\n"
         "Stage-Repository\n", encoding="utf-8")
@@ -77,6 +84,13 @@ def test_install_ps1_lands_on_the_latest_stable_release(tmp_path, side, start, c
         stdin=subprocess.DEVNULL, timeout=300, env=env,
     )
 
+    if selected_channel == "stable" and not tagged:
+        assert result.returncode != 0, result.stdout + result.stderr
+        if start:
+            assert _git(install, "rev-parse", "HEAD", env=env) == commits[start]
+        else:
+            assert not install.exists()
+        return
     if lands is None:
         assert result.returncode != 0 and not install.exists(), result.stdout + result.stderr
         return

@@ -33,7 +33,7 @@ class TestGetDefaultHermesRoot:
         monkeypatch.delenv("HERMES_HOME", raising=False)
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
 
-        assert get_default_hermes_root() == tmp_path / ".hermes"
+        assert get_default_hermes_root() == tmp_path / ".loki"
 
 
 
@@ -68,7 +68,7 @@ class TestGetDefaultHermesRoot:
         monkeypatch.setenv("LOCALAPPDATA", str(local_appdata))
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "Home")
 
-        assert get_default_hermes_root() == local_appdata / "hermes"
+        assert get_default_hermes_root() == local_appdata / "loki"
 
     @pytest.mark.platforms("windows")
     def test_root_for_another_environment_ignores_this_process(self, tmp_path, monkeypatch):
@@ -79,16 +79,16 @@ class TestGetDefaultHermesRoot:
         user = tmp_path / "user"
         custom = tmp_path / "data"
         cases = [
-            ({"LOCALAPPDATA": str(local)}, local / "hermes"),
-            ({"LOCALAPPDATA": str(local), "HERMES_HOME": str(local / "hermes" / "profiles" / "work")},
-             local / "hermes"),
+            ({"LOCALAPPDATA": str(local)}, local / "loki"),
+            ({"LOCALAPPDATA": str(local), "HERMES_HOME": str(local / "loki" / "profiles" / "work")},
+             local / "loki"),
             ({"LOCALAPPDATA": str(local), "HERMES_HOME": str(custom / "profiles" / "work")}, custom),
-            ({"LOCALAPPDATA": str(local), "HERMES_DATA_DIR_SUFFIX": "-magic"}, local / "hermes-magic"),
+            ({"LOCALAPPDATA": str(local), "HERMES_DATA_DIR_SUFFIX": "-magic"}, local / "loki-magic"),
             ({"localappdata": str(local), "HERMES_HOME": "%LocalAppData%\\data"}, local / "data"),
             ({"LOCALAPPDATA": str(local), "HERMES_HOME": "$LOCALAPPDATA\\data"}, local / "data"),
             ({"LOCALAPPDATA": str(local), "HERMES_HOME": "${LOCALAPPDATA}\\data"}, local / "data"),
             ({"LOCALAPPDATA": str(local), "USERPROFILE": str(user), "HERMES_HOME": "~\\data"}, user / "data"),
-            ({"USERPROFILE": str(user)}, user / "AppData" / "Local" / "hermes"),
+            ({"USERPROFILE": str(user)}, user / "AppData" / "Local" / "loki"),
             ({"LOCALAPPDATA": str(local), "HERMES_HOME": "relative\\data"}, None),
             ({"LOCALAPPDATA": str(local), "HERMES_HOME": "%UNDEFINED%\\data"}, None),
             ({"LOCALAPPDATA": str(local), "HERMES_HOME": "~\\data"}, None),
@@ -124,7 +124,7 @@ class TestGetHermesHome:
         monkeypatch.setattr(Path, "home", lambda: tmp_path / "Home")
         monkeypatch.setattr(hermes_constants, "_profile_fallback_warned", False)
 
-        assert get_hermes_home() == local_appdata / "hermes"
+        assert get_hermes_home() == local_appdata / "loki"
 
 
 class TestGetProcessHermesHome:
@@ -405,7 +405,7 @@ class TestSecureParentDir:
 
     def test_safe_path_calls_chmod(self, tmp_path, monkeypatch):
         """Normal nested path (depth >= 3) should call os.chmod."""
-        safe_dir = tmp_path / "home" / "user" / ".hermes"
+        safe_dir = tmp_path / "home" / "user" / ".loki"
         safe_dir.mkdir(parents=True)
         target = safe_dir / "auth.json"
         target.touch()
@@ -649,16 +649,16 @@ class TestProjectVenvDirOutOfTree:
         from pm.environments import site_packages
         hermes_constants.venv_python_path(venv).parent.mkdir(parents=True)
         hermes_constants.venv_python_path(venv).write_text("", encoding="utf-8")
-        dist_info = site_packages(venv) / "hermes_agent-0.0.0.dist-info"
+        dist_info = site_packages(venv) / "obliviousodin_loki_agent-0.1.0a1.dist-info"
         dist_info.mkdir(parents=True)
-        (dist_info / "METADATA").write_text("Name: hermes-agent\nVersion: 0.0.0\n", encoding="utf-8")
+        (dist_info / "METADATA").write_text("Name: obliviousodin-loki-agent\nVersion: 0.1.0a1\n", encoding="utf-8")
         (dist_info / "direct_url.json").write_text(
             json.dumps({"url": source.resolve().as_uri(), "dir_info": {"editable": True}}), encoding="utf-8")
 
     def test_out_of_tree_install_resolves_the_running_interpreter_venv(self, monkeypatch, tmp_path):
         checkout = tmp_path / "hermes-agent"
         checkout.mkdir()
-        venv = tmp_path / "venvs" / "hermes"
+        venv = tmp_path / "venvs" / "loki"
         self._venv_installed_from(venv, checkout)
         self._running_from(monkeypatch, checkout, venv)
 
@@ -682,7 +682,7 @@ class TestProjectVenvDirOutOfTree:
         """A temp dir / another clone never claims the running venv; an in-tree venv still wins."""
         checkout = tmp_path / "hermes-agent"
         checkout.mkdir()
-        venv = tmp_path / "venvs" / "hermes"
+        venv = tmp_path / "venvs" / "loki"
         self._venv_installed_from(venv, checkout)
         self._running_from(monkeypatch, checkout, venv)
         other = tmp_path / "not-our-checkout"
@@ -691,3 +691,13 @@ class TestProjectVenvDirOutOfTree:
         assert hermes_constants.project_venv_dir(other) is None
         (checkout / ".venv").mkdir()
         assert hermes_constants.project_venv_dir(checkout) == checkout / ".venv"
+
+
+@pytest.mark.parametrize("product_home", [".loki", ".hermes"])
+def test_product_home_stops_coincidental_profile_ancestry(tmp_path, product_home):
+    from hermes_constants import named_profile_home
+
+    (tmp_path / "config.yaml").write_text("{}", encoding="utf-8")
+    default = tmp_path / "profiles" / "coincidental" / product_home
+    assert named_profile_home(default) is None
+    assert named_profile_home(default / "profiles" / "work") == default / "profiles" / "work"

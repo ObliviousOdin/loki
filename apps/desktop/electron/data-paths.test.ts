@@ -24,7 +24,7 @@ test('default data roots append the suffix literally on each platform', (): void
     const home: string = platform === 'win32' ? 'C:\\Users\\test' : '/home/test'
     const local: string = paths.join(home, 'AppData', 'Local')
     const userData: string = paths.join(home, 'app-data', 'Hermes')
-    const base: string = platform === 'win32' ? paths.join(local, 'hermes') : paths.join(home, '.hermes')
+    const base: string = platform === 'win32' ? paths.join(local, 'loki') : paths.join(home, '.loki')
 
     for (const suffix of ['', '-asdfasdf', 'magic-test', ' spaced ']) {
       const env: NodeJS.ProcessEnv = { LOCALAPPDATA: local, HERMES_DATA_DIR_SUFFIX: suffix }
@@ -51,11 +51,11 @@ test('explicit homes and userData retain precedence, and suffixed Windows homes 
   assert.equal(resolveDesktopUserData('/default/electron', env), path.resolve(env.HERMES_DESKTOP_USER_DATA_DIR!))
   assert.equal(resolveDesktopHermesHome({ home, env, platform: 'linux' }), env.HERMES_HOME)
   delete env.HERMES_HOME
-  assert.equal(resolveDesktopHermesHome({ home, env, platform: 'linux' }), '/explicit/electron/hermes-home')
+  assert.equal(resolveDesktopHermesHome({ home, env, platform: 'linux' }), '/explicit/electron/loki-home')
 
   const windowsHome: string = 'C:\\Users\\test'
   const windowsEnv: NodeJS.ProcessEnv = { HERMES_DATA_DIR_SUFFIX: 'magic-test' }
-  const expected: string = path.win32.join(windowsHome, 'AppData', 'Local', 'hermesmagic-test')
+  const expected: string = path.win32.join(windowsHome, 'AppData', 'Local', 'lokimagic-test')
 
   assert.equal(
     resolveDesktopHermesHome({

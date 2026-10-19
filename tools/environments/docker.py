@@ -38,6 +38,7 @@ from tools.environments.remote_common import (
     bash_argv, client_env_with, load_hermes_env_vars, prepend_unset, resolve_passthrough_env, run_capture)
 
 logger = logging.getLogger(__name__)
+_CONTAINER_OWNER_LABEL = "loki-agent"
 
 # Docker Desktop install paths checked when 'docker' is not in PATH
 # (macOS Intel / Apple Silicon Homebrew / app bundle).
@@ -177,14 +178,14 @@ def _reuse_environment_fingerprint(*, image: str, mount_args: list[str], hermes_
 def reap_orphan_containers(
     *, max_age_seconds: int = 600, profile_filter: str | None = None, docker_exe: str | None = None,
 ) -> int:
-    """Remove stale hermes-tagged containers left behind by prior processes (SIGKILL/OOM
+    """Remove stale Loki-tagged containers left behind by prior processes (SIGKILL/OOM
     exits that bypass atexit). Only ``status=exited`` containers (running ones may belong
     to a sibling process), only the caller's profile, and only if ``FinishedAt`` is older
     than *max_age_seconds* (a just-exited sibling may be about to reuse its container).
     Best-effort and idempotent: failures log at debug and the count removed so far is returned.
     """
     docker = docker_exe or find_docker() or "docker"
-    filters = ["--filter", "label=hermes-agent=1", "--filter", "status=exited"]
+    filters = ["--filter", f"label={_CONTAINER_OWNER_LABEL}=1", "--filter", "status=exited"]
     if profile_filter:
         filters.extend(["--filter", f"label=hermes-profile={_sanitize_label_value(profile_filter)}"])
 
@@ -721,7 +722,7 @@ class DockerEnvironment(BaseEnvironment):
             + egress_host_args + volume_args + env_args + validated_extra)
         logger.info("Docker run_args: %s", all_run_args)
 
-        # Labels identify hermes containers to the orphan reaper (hermes-agent=1),
+        # Labels identify Loki containers to the orphan reaper (loki-agent=1),
         # cross-process reuse (task-id/profile) and operators. The reuse identity
         # is captured at start and never changes for the container's lifetime.
         # Egress posture gets its own label: env/CA mounts are immutable after
@@ -729,7 +730,7 @@ class DockerEnvironment(BaseEnvironment):
         profile_name = _container_identity(shared_container_key)
         task_label = _sanitize_label_value(task_id)
         self._labels = {
-            "hermes-agent": "1",
+            _CONTAINER_OWNER_LABEL: "1",
             "hermes-task-id": task_label,
             "hermes-profile": profile_name,
             _EGRESS_LABEL_KEY: egress_label}
@@ -917,7 +918,7 @@ class DockerEnvironment(BaseEnvironment):
             if not self._image_pinned:
                 logger.warning(
                     "Existing container %s runs image %s; the default docker_image is now %s. Keeping "
-                    "the existing sandbox — approve the switch with `hermes config set "
+                    "the existing sandbox — approve the switch with `loki config set "
                     "terminal.docker_image %s` (files in /root and /workspace carry over) or pin the "
                     "current image to stop this notice (task=%s, profile=%s).",
                     container_id[:12], actual_image, self._image, self._image, task_label, profile_name)
@@ -1011,7 +1012,7 @@ class DockerEnvironment(BaseEnvironment):
         """Start a fresh container and return its id. A failed ``docker run`` (exit 125, timeout
         mid-pull) can leave a "Created" orphan the exited-only reaper never catches, so it is
         removed by name before re-raising."""
-        container_name = f"hermes-{uuid.uuid4().hex[:8]}"
+        container_name = f"loki-{uuid.uuid4().hex[:8]}"
         run_cmd = self._run_command(container_name, cwd)
         logger.debug("Starting container: %s", ' '.join(run_cmd))
         try:
@@ -1130,7 +1131,7 @@ class DockerEnvironment(BaseEnvironment):
                 logger.error("Recovery: no saved image name, cannot recreate container")
                 return False
             try:
-                new_name = f"hermes-{uuid.uuid4().hex[:8]}"
+                new_name = f"loki-{uuid.uuid4().hex[:8]}"
                 result = run_capture(
                     self._run_command(new_name, self.cwd), timeout=120, check=True,
                     env=self._docker_client_env(self._run_env_values))
@@ -1221,7 +1222,7 @@ class DockerEnvironment(BaseEnvironment):
         container this class creates carries the label. The ``{{.Label "key"}}`` template
         function is Docker-only — podman ps exits 125 on it — so the probe never uses it (#99213)."""
         filters = [
-            "--filter", "label=hermes-agent=1",
+            "--filter", f"label={_CONTAINER_OWNER_LABEL}=1",
             "--filter", f"label=hermes-task-id={task_label}",
             "--filter", f"label=hermes-profile={profile_label}",
             "--filter", f"label={_EGRESS_LABEL_KEY}={egress_label}"]

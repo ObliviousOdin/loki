@@ -86,8 +86,8 @@ _MESSAGING_ENV_FALLBACKS: dict[str, dict[str, Any]] = {
         ("WECOM_CALLBACK_AGENT_ID", "WeCom app agent ID", "WeCom Agent ID", {}),
         ("WECOM_CALLBACK_TOKEN", "WeCom callback verification token", "WeCom Token", {}),
         ("WECOM_CALLBACK_ENCODING_AES_KEY", "WeCom callback AES encoding key", "WeCom AES Key", {"password": True}),
-        ("WEIXIN_ACCOUNT_ID", "iLink Bot account ID obtained through QR login in hermes gateway setup", "iLink Bot account ID", {}),
-        ("WEIXIN_TOKEN", "iLink Bot token obtained through QR login in hermes gateway setup", "iLink Bot token", {"password": True}),
+        ("WEIXIN_ACCOUNT_ID", "iLink Bot account ID obtained through QR login in loki gateway setup", "iLink Bot account ID", {}),
+        ("WEIXIN_TOKEN", "iLink Bot token obtained through QR login in loki gateway setup", "iLink Bot token", {"password": True}),
         ("WEIXIN_BASE_URL", "iLink API base URL saved by QR login (default: https://ilinkai.weixin.qq.com)", "iLink API base URL", {}),
         ("FEISHU_APP_ID", "Feishu / Lark app ID", "App ID", {}),
         ("FEISHU_APP_SECRET", "Feishu / Lark app secret", "App secret", {"password": True}),
@@ -691,7 +691,7 @@ async def _telegram_onboarding_request(method: str, path: str, *, body=None, bea
 
 @router.post("/api/messaging/telegram/onboarding/start")
 async def start_telegram_onboarding(body: TelegramOnboardingStart):
-    bot_name = (body.bot_name or "Hermes Agent").strip() or "Hermes Agent"
+    bot_name = (body.bot_name or "Loki").strip() or "Loki"
     payload = await _telegram_onboarding_request("POST", "/v1/telegram/pairings", body={"bot_name": bot_name})
 
     def field(key: str) -> str:
@@ -812,7 +812,7 @@ async def get_messaging_platforms(profile: Optional[str] = None):
         with _profile_scope(profile) as scoped_dir:
             return {
                 "env_path": str(get_env_path()),
-                "gateway_start_command": " ".join(["hermes", *_gateway_subcommand(profile, "start")]),
+                "gateway_start_command": " ".join(["loki", *_gateway_subcommand(profile, "start")]),
                 "platforms": _platform_payloads(scoped_dir, _messaging_platform_catalog()),
             }
 

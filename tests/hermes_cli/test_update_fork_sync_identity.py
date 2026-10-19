@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli.update_cmd_git import UpstreamTargetBroken, _sync_with_upstream_if_needed
 
 
@@ -36,6 +38,8 @@ def test_a_local_branch_named_upstream_main_never_changes_what_the_sync_counts_o
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _git(upstream, "init", "-q", "-b", "main")
+    write_loki_source(upstream)
+    _git(upstream, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     commits = []
     for i in range(3):
         (upstream / "f.txt").write_text(f"{i}\n", encoding="utf-8")
@@ -82,6 +86,8 @@ def _fork_behind_upstream(tmp_path, monkeypatch):
     upstream = tmp_path / "upstream"
     upstream.mkdir()
     _git(upstream, "init", "-q", "-b", "main")
+    write_loki_source(upstream)
+    _git(upstream, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     commits = []
     for i in range(3):
         (upstream / "f.txt").write_text(f"{i}\n", encoding="utf-8")

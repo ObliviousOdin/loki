@@ -12,7 +12,7 @@ import pytest
 
 pytestmark = pytest.mark.platforms("windows")
 INSTALLER = Path(__file__).resolve().parents[3] / "scripts" / "install.ps1"
-REFUSAL = "exists and is not a Hermes git checkout"
+REFUSAL = "exists and is not a Loki git checkout"
 
 
 def _failing_install_env(tmp_path):
@@ -26,7 +26,7 @@ def _failing_install_env(tmp_path):
         git = tools / f"git-2.53.0+3-win32-{arch}" / "cmd" / "git.exe"
         git.parent.mkdir(parents=True)
         git.write_bytes(b"")
-    return dict(os.environ, HERMES_HOME=str(home), HERMES_RUNTIME_DIR=str(tools))
+    return dict(os.environ, LOKI_HOME=str(home), LOKI_RUNTIME_DIR=str(tools))
 
 
 def _powershell():

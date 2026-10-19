@@ -268,7 +268,7 @@ _DEFAULT_EXPORT_INCLUDE_ROOT = frozenset({
 })
 
 # Names that cannot be used as profile aliases
-_RESERVED_NAMES = frozenset({"hermes", "default", "test", "tmp", "root", "sudo"})
+_RESERVED_NAMES = frozenset({"loki", "hermes", "default", "test", "tmp", "root", "sudo"})
 
 # Hermes subcommands that cannot be used as profile names/aliases
 _HERMES_SUBCOMMANDS = frozenset({
@@ -316,24 +316,24 @@ def _is_our_wrapper(path: Path) -> bool:
     """True when *path* reads as a Hermes-generated wrapper (``hermes -p`` in its head)."""
     try:
         with open(path, encoding="utf-8-sig") as f:
-            return "hermes -p" in f.read(_WRAPPER_READ_LIMIT)
+            return "loki -p" in f.read(_WRAPPER_READ_LIMIT)
     except Exception:
         return False
 
 
 def _missing_profile_error(canon: str) -> FileNotFoundError:
-    return FileNotFoundError(f"Profile '{canon}' does not exist. Create it with: hermes profile create {canon}")
+    return FileNotFoundError(f"Profile '{canon}' does not exist. Create it with: loki profile create {canon}")
 
 
 def _unknown_profile_error(canon: str) -> FileNotFoundError:
     """For delete/rename/export of a name that matches no profile (likely a typo)."""
-    return FileNotFoundError(f"No profile named '{canon}'. See your profiles with: hermes profile list")
+    return FileNotFoundError(f"No profile named '{canon}'. See your profiles with: loki profile list")
 
 
 def _profile_exists_error(canon: str) -> FileExistsError:
     return FileExistsError(
-        f"A profile named '{canon}' already exists. Switch to it with `hermes profile use {canon}`, "
-        "see all profiles with `hermes profile list`, or choose a different name."
+        f"A profile named '{canon}' already exists. Switch to it with `loki profile use {canon}`, "
+        "see all profiles with `loki profile list`, or choose a different name."
     )
 
 
@@ -353,7 +353,7 @@ def _invalid_profile_name_error(name: str) -> ValueError:
     suggestion = _suggest_profile_name(name)
     return ValueError(
         f"{name!r} is not a valid profile name. {_PROFILE_NAME_RULE} (for example: {suggestion}). "
-        f"Then run `hermes profile create {suggestion}`."
+        f"Then run `loki profile create {suggestion}`."
     )
 
 
@@ -516,7 +516,7 @@ def check_alias_collision(name: str) -> Optional[str]:
     if canon in _RESERVED_NAMES:
         return f"'{canon}' is a reserved name"
     if canon in _HERMES_SUBCOMMANDS:
-        return f"'{canon}' conflicts with a hermes subcommand"
+        return f"'{canon}' conflicts with a loki subcommand"
     try:
         result = subprocess.run(
             ["where" if sys.platform == "win32" else "which", canon],
@@ -553,9 +553,9 @@ def create_wrapper_script(name: str, target: Optional[str] = None) -> Optional[P
     wrapper_path = _wrapper_path(canon)
     try:
         if sys.platform == "win32":
-            wrapper_path.write_text(f"@echo off\r\nhermes -p {profile} %*\r\n", encoding="utf-8")
+            wrapper_path.write_text(f"@echo off\r\nloki -p {profile} %*\r\n", encoding="utf-8")
         else:
-            hermes_exe = shutil.which("hermes") or "hermes"
+            hermes_exe = shutil.which("loki") or "loki"
             wrapper_path.write_text(f'#!/bin/sh\nexec {shlex.quote(hermes_exe)} -p {profile} "$@"\n', encoding="utf-8")
             wrapper_path.chmod(wrapper_path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
         return wrapper_path
@@ -626,7 +626,7 @@ def build_alias_map() -> dict[str, str]:
     if not wrapper_dir.is_dir():
         return result
     is_windows = sys.platform == "win32"
-    prefix = "hermes -p "
+    prefix = "loki -p "
     for entry in sorted(wrapper_dir.iterdir()):
         if not entry.is_file():
             continue
@@ -1567,7 +1567,7 @@ def backfill_profile_envs(quiet: bool = False) -> list[str]:
 
 
 _BACKEND_TOKENS = frozenset({"serve", "dashboard", "gateway"})
-_HERMES_ARGV_MARKERS = ("hermes_cli.main", "hermes-gateway", "tui_gateway")
+_HERMES_ARGV_MARKERS = ("hermes_cli.main", "loki-gateway", "tui_gateway")
 # python / python3 / python3.12 / pythonw(.exe): the interpreter basenames a
 # `#!/…/python3` console-script shim is exec'd through when something (e.g. Electron's
 # `findOnPath('hermes')`) spawns the shim by handing the interpreter its path — then the
@@ -1576,7 +1576,7 @@ _PYTHON_INTERPRETER_RE = re.compile(r"^python[\d.]*w?(\.exe)?$")
 # Console-script entry points this project ships (pyproject.toml [project.scripts]).
 # argv[1] is matched against exact names, not ``startswith("hermes")``: with a bare
 # interpreter argv[0], argv[1] can be ANY user script ("hermes-notes.py").
-_HERMES_CONSOLE_SCRIPT_NAMES = frozenset({"hermes", "hermes-agent", "hermes-acp"})
+_HERMES_CONSOLE_SCRIPT_NAMES = frozenset({"loki", "loki-agent", "loki-acp"})
 
 
 def _is_hermes_argv(argv: list) -> bool:
@@ -1584,7 +1584,7 @@ def _is_hermes_argv(argv: list) -> bool:
     or a python interpreter directly exec'ing a known ``hermes`` console-script shim."""
     joined = " ".join(argv)
     exe_name = os.path.basename(argv[0]).lower()
-    if any(marker in joined for marker in _HERMES_ARGV_MARKERS) or exe_name.startswith("hermes"):
+    if any(marker in joined for marker in _HERMES_ARGV_MARKERS) or exe_name.startswith("loki"):
         return True
     if len(argv) >= 2 and _PYTHON_INTERPRETER_RE.match(exe_name):
         script_name = os.path.basename(str(argv[1])).lower()
@@ -1751,7 +1751,7 @@ class ProfileIdentitySettlementPending(RuntimeError):
     def __init__(self, profile: str, path: Path):
         self.profile = profile
         self.path = path
-        self.retry_command = f"hermes profile purge-identity {profile}"
+        self.retry_command = f"loki profile purge-identity {profile}"
         super().__init__(
             f"Profile '{profile}' was deleted, but its session/routing identity settlement is "
             f"still pending — run: {self.retry_command}")
@@ -1762,7 +1762,7 @@ def delete_profile(name: str, yes: bool = False) -> Path:
     to prevent auto-restart, gateway stopped if running)."""
     canon = normalize_profile_name(name)
     if canon == "default":
-        raise ValueError("Cannot delete the default profile (~/.hermes).\nTo remove everything, use: hermes uninstall")
+        raise ValueError("Cannot delete the default profile (~/.loki).\nTo remove everything, use: loki uninstall")
     canon, profile_dir = _existing_profile_dir(canon)
     gw_running = _check_gateway_running(profile_dir)
     wrapper_path = _find_our_wrapper(canon)
@@ -2098,7 +2098,7 @@ def _profile_export_directory() -> Path:
     # path another local user could pre-create (or symlink) first.
     uid_suffix = f"-{os.getuid()}" if hasattr(os, "getuid") else ""
     candidates = (
-        Path.home() / ".hermes-profile-exports", Path(tempfile.gettempdir()) / f"hermes-profile-exports{uid_suffix}"
+        Path.home() / ".loki-profile-exports", Path(tempfile.gettempdir()) / f"loki-profile-exports{uid_suffix}"
     )
     for candidate in candidates:
         if not _inside_git_checkout(candidate):
@@ -2265,7 +2265,7 @@ def import_profile(archive_path: str, name: Optional[str] = None) -> Path:
     if not inferred_name:
         raise ValueError(
             "Cannot determine profile name from archive. "
-            "Specify it explicitly: hermes profile import <archive> --name <name>"
+            "Specify it explicitly: loki profile import <archive> --name <name>"
         )
     if archive_root is None:
         raise ValueError("Profile archive must contain exactly one top-level directory.")
@@ -2275,8 +2275,8 @@ def import_profile(archive_path: str, name: Optional[str] = None) -> Path:
     canon = _canon_valid(inferred_name)
     if canon == "default":
         raise ValueError(
-            "Cannot import as 'default' — that is the built-in root profile (~/.hermes). "
-            "Specify a different name: hermes profile import <archive> --name <name>"
+            "Cannot import as 'default' — that is the built-in root profile (~/.loki). "
+            "Specify a different name: loki profile import <archive> --name <name>"
         )
     profile_dir = get_profile_dir(canon)
     if profile_dir.exists():
@@ -2383,7 +2383,7 @@ def rename_profile(old_name: str, new_name: str) -> Path:
             _notify_multiplexer(old_canon)
         _maybe_register_gateway_service(old_canon)
         if service_removed:
-            print(f"⚠ The gateway service was removed. Reinstall it with: hermes -p {old_canon} gateway install")
+            print(f"⚠ The gateway service was removed. Reinstall it with: loki -p {old_canon} gateway install")
         raise
     print(f"✓ Renamed {old_dir.name} → {new_dir.name}")
     # The tombstone lives at profiles/.deleted/<old_name>; old_dir is gone so nothing can
@@ -2423,7 +2423,7 @@ def rename_profile(old_name: str, new_name: str) -> Path:
         _notify_multiplexer(new_canon)
     _maybe_register_gateway_service(new_canon)
     if service_removed:
-        print(f"⚠ The gateway service was removed. Reinstall it with: hermes -p {new_canon} gateway install")
+        print(f"⚠ The gateway service was removed. Reinstall it with: loki -p {new_canon} gateway install")
     return new_dir
 
 

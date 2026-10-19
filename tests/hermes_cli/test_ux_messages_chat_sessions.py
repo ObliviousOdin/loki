@@ -87,7 +87,7 @@ def test_sessions_db_open_failure_points_to_repair(monkeypatch, capsys):
     code = sessions_cmd.cmd_sessions(args, parser)
     out = capsys.readouterr().out
     assert code == 1
-    assert "hermes sessions repair" in out
+    assert "loki sessions repair" in out
 
 
 # ── cli-31: unknown slash command ──────────────────────────────────────────

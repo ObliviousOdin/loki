@@ -31,7 +31,7 @@ def test_goal_judge_reason_names_nous_auth_failure_and_still_fails_open(tmp_path
 
     assert (verdict, parse_failed, wait_directive, judge_errored) == ("continue", False, None, True)
     assert reason.startswith("goal_judge auxiliary client unavailable: Nous Portal runtime credentials unavailable:")
-    assert "hermes model" in reason, reason
+    assert "loki model" in reason, reason
     assert "judge error" not in reason
 
 
@@ -43,7 +43,7 @@ def test_nous_credential_failure_is_remembered_and_warned_once(caplog, monkeypat
         unavailable.record_nous_credential_failure(exc)
 
     assert detail.startswith("Nous Portal runtime credentials unavailable: ")
-    assert "invalid_grant" in detail and "hermes model" in detail
+    assert "invalid_grant" in detail and "loki model" in detail
     assert unavailable.nous_credential_failure_detail() == detail
     assert sum(detail in rec.getMessage() for rec in caplog.records) == 1
     unavailable.clear_nous_credential_failure()
@@ -63,4 +63,4 @@ def test_never_logged_in_is_debug_but_a_dead_credential_warns(caplog, monkeypatc
     levels = {rec.levelno for rec in caplog.records if quiet in rec.getMessage()}
     assert levels == {logging.DEBUG}, caplog.records
     assert {rec.levelno for rec in caplog.records if loud in rec.getMessage()} == {logging.WARNING}
-    assert "hermes model" in quiet  # the goal judge still gets the remediation text
+    assert "loki model" in quiet  # the goal judge still gets the remediation text

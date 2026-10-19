@@ -1,4 +1,6 @@
 """The ordinary no-platform process must earn its bootstrap readiness."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 import json
 import os
@@ -143,7 +145,7 @@ def test_normal_entrypoint_earns_authenticated_authority_readiness(tmp_path, mod
                PYTHONPATH=str(root), PYTHONUNBUFFERED='1',
                OPENAI_API_KEY='loopback-only', OPENAI_BASE_URL=model_url)
     with (tmp_path / 'gateway.log').open('w+') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         descriptor = {}
         try:

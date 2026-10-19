@@ -33,7 +33,7 @@ _FRESH_RESTART_SUPERVISORS = frozenset({"systemd", "launchd", "service", "s6"})
 
 _SYSTEMD_SCOPES = (("user", ["systemctl", "--user"]), ("system", ["systemctl"]))
 _LIST_GATEWAY_UNITS = [
-    "list-units", "hermes-gateway*", "hermes-serve*", "hermes-dashboard*",
+    "list-units", "loki-gateway*", "loki-serve*", "loki-dashboard*",
     "--plain", "--no-legend", "--no-pager",
 ]
 
@@ -497,10 +497,10 @@ def _update_owes_fleet_restart(*, receipt: dict | None = None, pending_manual: l
 def _warn_pending_fleet_restart(*, startup: bool = False) -> None:
     """Print the specific interrupted-update fleet-restart warning."""
     stream = sys.stderr if startup else sys.stdout
-    print("⚠ A previous `hermes update` pulled new code but did not restart running gateways.", file=stream)
+    print("⚠ A previous `loki update` pulled new code but did not restart running gateways.", file=stream)
     print("  Gateways may still be serving pre-update modules (mixed sys.modules).", file=stream)
     if startup:
-        print("  Run `hermes update` or `hermes gateway restart`.", file=stream)
+        print("  Run `loki update` or `loki gateway restart`.", file=stream)
 
 
 def _warn_pending_fleet_restart_on_startup() -> None:
@@ -598,7 +598,7 @@ def _restart_systemd_gateway_units_best_effort(failed: list, listings) -> None:
         print(
             f"  • {unit_key} is a legacy per-profile unit sharing one host gateway process with "
             f"{owner_key}; restarting it again would restart that process twice. Fold the units "
-            "together with: hermes gateway migrate"
+            "together with: loki gateway migrate"
         )
 
     for key in keys:
@@ -715,6 +715,9 @@ def _systemd_unit_owned_by_update(scope_cmd: list, svc_name: str) -> bool:
     listed, not because it ran the updated code. Foreign or unreadable ownership prints a notice
     and leaves the unit alone; it is not a failed restart.
     """
+    from hermes_cli.main_dashboard import _foreign_backend_service
+    if _foreign_backend_service(svc_name):
+        return False
     from hermes_cli.update_fleet_scope import describe_skipped_runtime, systemd_unit_hermes_home, home_in_update_scope
     home = systemd_unit_hermes_home(scope_cmd, svc_name)
     if home is not None and home_in_update_scope(home):
@@ -741,15 +744,15 @@ def _is_hermes_gateway_unit(unit: str) -> bool:
     return (
         # list-units is already pattern-filtered, but keep the name gate so a stray non-gateway/serve line
         # cannot enter the restart path. See #83595.
-        unit == "hermes-gateway.service"
-        or unit.startswith("hermes-gateway-")
-        or unit == "hermes-serve.service"
-        or unit.startswith("hermes-serve-")
+        unit == "loki-gateway.service"
+        or unit.startswith("loki-gateway-")
+        or unit == "loki-serve.service"
+        or unit.startswith("loki-serve-")
         # #125297: ``hermes-dashboard*`` units are systemd-supervised dashboard backends — the
         # same fleet this pass restarts. Leaving them out meant a successful update reported
         # the dashboard ``deferred`` (still on pre-update code) while nothing ever restarted it.
-        or unit == "hermes-dashboard.service"
-        or unit.startswith("hermes-dashboard-")
+        or unit == "loki-dashboard.service"
+        or unit.startswith("loki-dashboard-")
     )
 
 
@@ -785,7 +788,7 @@ def _service_unit_supports_graceful_sigusr1_restart(svc_name: str) -> bool:
 
     See #83438.
     """
-    return svc_name == "hermes-gateway" or svc_name.startswith("hermes-gateway-")
+    return svc_name == "loki-gateway" or svc_name.startswith("loki-gateway-")
 
 
 def _warn_incomplete_gateway_fleet_restart(failed_units: list) -> None:
@@ -804,17 +807,17 @@ def _warn_incomplete_gateway_fleet_restart(failed_units: list) -> None:
         # See #88848.
         print("  Listed services may be deregistered from launchd, or still")
         print("  running pre-update code (mixed sys.modules). Recover with:")
-        print("    hermes gateway status")
+        print("    loki gateway status")
         print("    launchctl list | grep <label>")
         print("    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/<label>.plist")
         return
     print("  Skipped units may still be running pre-update code (mixed")
     print("  sys.modules). Restart them manually, then verify:")
-    print("    hermes gateway status")
-    if any(not name.startswith("ai.hermes.") for name in ordered):
+    print("    loki gateway status")
+    if any(not name.startswith("com.obliviousodin.loki.") for name in ordered):
         print("    systemctl --user restart <unit>   # user-scope")
         print("    sudo systemctl restart <unit>     # system-scope")
-    if any(name.startswith("ai.hermes.") for name in ordered):
+    if any(name.startswith("com.obliviousodin.loki.") for name in ordered):
         print("    launchctl kickstart -k gui/$UID/<label>   # macOS (or user/$UID)")
 
 
@@ -857,7 +860,7 @@ def _restart_launchd_gateway_after_update(
             print(
                 f"  ⚠ Gateway restart failed: {stderr}\n"
                 "    The gateway may be DOWN on pre-update code. "
-                "Recover manually: hermes gateway restart"
+                "Recover manually: loki gateway restart"
             )
             return [], [current_label]
     except (FileNotFoundError, subprocess.TimeoutExpired) as e:
@@ -867,7 +870,7 @@ def _restart_launchd_gateway_after_update(
             # The old code `pass`ed here (#74973's second silent variant); count it and tell the operator.
             "  ⚠ Could not restart the gateway "
             f"({e.__class__.__name__}: {e}).\n"
-            "    Recover manually: hermes gateway restart"
+            "    Recover manually: loki gateway restart"
         )
         return [], [current_label]
 
@@ -891,7 +894,7 @@ def _restart_launchd_gateway_after_update(
         return [current_label], []
     print(
         f"  ✗ {current_label} restarted but launchd is not supervising a new process for it.\n"
-        "    Check logs, then: hermes gateway restart"
+        "    Check logs, then: loki gateway restart"
     )
     return [], [current_label]
 
@@ -1092,8 +1095,8 @@ def _warn_gateway_restart_phase_aborted(exc: BaseException, pids) -> None:
         print("  Any gateway still running is serving pre-update code")
         print("  (mixed sys.modules) against the updated checkout.")
     print("  Restart it manually, then verify:")
-    print("    hermes gateway restart")
-    print("    hermes gateway status")
+    print("    loki gateway restart")
+    print("    loki gateway status")
 
 
 def _drain_or_signal_gateway_for_update(
@@ -1222,7 +1225,7 @@ def _repair_unit_without_fatal_exit_park(svc_name: str, scope: str) -> None:
     print(
         f"  ⚠ {svc_name} lacks RestartPreventExitStatus={GATEWAY_FATAL_CONFIG_EXIT_CODE}: a permanent refusal "
         f"(exit {GATEWAY_FATAL_CONFIG_EXIT_CODE}) would crash-loop it instead of parking.\n"
-        f"    Repair: {'sudo ' if system else ''}hermes gateway install{' --system' if system else ''}"
+        f"    Repair: {'sudo ' if system else ''}loki gateway install{' --system' if system else ''}"
     )
 
 
@@ -1298,7 +1301,7 @@ def _restart_one_systemd_gateway_unit(
             f"  ⚠ {svc_name} is a system service and restarting it needs root.\n"
             f"    Restart it manually to load the new version:\n"
             f"      sudo systemctl restart {svc_name}\n"
-            f"    To let `hermes update` restart it automatically, allow\n"
+            f"    To let `loki update` restart it automatically, allow\n"
             f"    passwordless sudo for systemctl, or run updates with sudo."
         )
         return
@@ -1354,7 +1357,7 @@ def _restart_systemd_gateway_units(
         print(
             f"  ⚠ systemctl timed out listing {scope}-scope "
             f"gateway units ({exc.cmd if exc.cmd else 'unknown command'}). "
-            f"Check the gateway with: hermes gateway status"
+            f"Check the gateway with: loki gateway status"
         )
 
     def _on_unit_timeout(svc_name: str, exc: subprocess.TimeoutExpired) -> None:
@@ -1391,7 +1394,7 @@ def _restart_systemd_gateway_units(
         print(
             f"  • {unit_key} is a legacy per-profile unit sharing one host gateway process with "
             f"{owner_key}; restarting it again would restart that process twice. Fold the units "
-            "together with: hermes gateway migrate"
+            "together with: loki gateway migrate"
         )
 
     from hermes_cli.update_cmd_posix_pause import already_restarted
@@ -1560,9 +1563,9 @@ def _restart_manual_gateways(out: _GatewayRestartOutcome, _drain_budget) -> None
         unmapped_count = (len(out.killed_pids) - len(out.relaunched_profiles) - len(out.externally_supervised_profiles))
         if unmapped_count:
             print(f"  → Stopped {unmapped_count} manual gateway process(es)")
-            print("    Restart manually: hermes gateway run")
+            print("    Restart manually: loki gateway run")
             if unmapped_count > 1:
-                print("    (or: hermes -p <profile> gateway run  for each profile)")
+                print("    (or: loki -p <profile> gateway run  for each profile)")
 
 
 def _force_kill_stuck_gateways(killed_pids) -> None:

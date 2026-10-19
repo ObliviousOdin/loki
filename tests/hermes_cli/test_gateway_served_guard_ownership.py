@@ -75,7 +75,7 @@ def test_foreign_tenants_host_gateway_never_serves_this_home(tmp_path, monkeypat
 def test_own_standalone_gateway_is_not_a_multiplexer_refusing_its_restart(tmp_path, monkeypatch, gw):
     """#120871 (T1/T6 standalone fleet): argus's own host record is ours to restart."""
     fake_home = tmp_path / "fakehome"
-    own_home = fake_home / ".hermes" / "profiles" / "argus"
+    own_home = fake_home / ".loki" / "profiles" / "argus"
     _use_home(monkeypatch, fake_home, own_home)
     _publish_host(monkeypatch, own_home, ("argus",))
 
@@ -89,14 +89,14 @@ def test_own_standalone_gateway_is_not_a_multiplexer_refusing_its_restart(tmp_pa
 def test_satellite_served_by_same_tenants_multiplexer_is_still_refused(tmp_path, monkeypatch, gw):
     """Control: the default multiplexer of OUR tenant lists coder -> refused, hint names the owner."""
     fake_home = tmp_path / "fakehome"
-    root = fake_home / ".hermes"
+    root = fake_home / ".loki"
     _use_home(monkeypatch, fake_home, root / "profiles" / "coder")
     _publish_host(monkeypatch, root, ("default", "coder"))
 
     assert gw.named_profile_served_by_running_multiplexer() is True
     refused, out = _refusal(gw)
     assert refused is True
-    assert "hermes -p default gateway restart" in out
+    assert "loki -p default gateway restart" in out
     with pytest.raises(SystemExit) as exc:
         with redirect_stdout(io.StringIO()):
             gw._guard_named_profile_under_multiplexer()
@@ -104,12 +104,12 @@ def test_satellite_served_by_same_tenants_multiplexer_is_still_refused(tmp_path,
 
 
 def test_cron_status_restart_hint_names_the_profile_hosting_the_scheduler(tmp_path, monkeypatch, gw):
-    """#120871: `hermes -p argus cron status` on a standalone fleet points at argus, not default."""
+    """#120871: `loki -p argus cron status` on a standalone fleet points at argus, not default."""
     from gateway.host_topology import HostGatewayTopology
     from hermes_cli import cron as cron_mod
 
     fake_home = tmp_path / "fakehome"
-    own_home = fake_home / ".hermes" / "profiles" / "argus"
+    own_home = fake_home / ".loki" / "profiles" / "argus"
     _use_home(monkeypatch, fake_home, own_home)
     _publish_host(monkeypatch, own_home, ("argus",))
     monkeypatch.setattr(cron_mod, "_active_cron_provider_name", lambda: "builtin")
@@ -121,11 +121,11 @@ def test_cron_status_restart_hint_names_the_profile_hosting_the_scheduler(tmp_pa
     class _Stop(Exception):
         pass
 
-    def _capture(pids, restart_command="hermes gateway restart"):
+    def _capture(pids, restart_command="loki gateway restart"):
         seen.append(restart_command)
         raise _Stop
 
     monkeypatch.setattr(cron_mod, "_print_ticker_health", _capture)
     with pytest.raises(_Stop), redirect_stdout(io.StringIO()):
         cron_mod.cron_status()
-    assert seen == ["hermes --profile argus gateway restart"]
+    assert seen == ["loki --profile argus gateway restart"]

@@ -4,6 +4,8 @@ Both route api_mode per model in core; these profiles carry the
 chat_completions reasoning translations (GLM-5.2, Kimi K2, DeepSeek, Ox Alpha).
 """
 
+from loki_identity import CLIENT_USER_AGENT
+
 from typing import Any
 
 from agent import reasoning_effort as re_
@@ -15,9 +17,9 @@ from datetime import UTC
 # Attribution headers (same values as OpenRouter / Vercel / Fireworks); via
 # default_headers so they survive model switches and credential rotation.
 _ATTRIBUTION_HEADERS = {
-    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-    "X-Title": "Hermes Agent",
-    "User-Agent": f"HermesAgent/{get_version_info().base_version}",
+    "HTTP-Referer": "https://github.com/ObliviousOdin/loki",
+    "X-Title": "Loki",
+    "User-Agent": CLIENT_USER_AGENT,
 }
 
 

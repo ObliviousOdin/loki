@@ -100,9 +100,9 @@ def launchd_job_label(environ: Mapping[str, str] | None = None) -> str | None:
     (drain cap, restart route, control-socket supervisor declaration).
     """
     env = os.environ if environ is None else environ
-    for var in ("XPC_SERVICE_NAME", LAUNCHD_LABEL_ENV):
+    for var in ("XPC_SERVICE_NAME", "LOKI_LAUNCHD_LABEL", LAUNCHD_LABEL_ENV):
         label = str(env.get(var, "") or "").strip()
-        if label.startswith("ai.hermes"):
+        if label == "com.obliviousodin.loki.gateway" or label.startswith("com.obliviousodin.loki.gateway-"):
             return label
     return None
 

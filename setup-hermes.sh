@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ============================================================================
-# Hermes Agent Setup Script — THE dev-environment entry point.
+# Loki Setup Script — THE dev-environment entry point.
 # ============================================================================
 # Sets up the pm-managed development environment from a fresh clone:
 #   1. Stage the pinned uv from pm/lock.json (sha256-verified, into the pm
@@ -14,6 +14,23 @@
 # ============================================================================
 
 set -e
+
+# Source setup is a Loki entry point too; public overrides are LOKI_*.
+if [ "${__LOKI_ENV_BOUND:-}" != 1 ]; then
+    for _loki_key in ${!HERMES_@} ${!__HERMES_@}; do
+        case "$_loki_key" in HERMES_*|__HERMES_*) unset "$_loki_key" ;; esac
+    done
+    for _loki_key in ${!LOKI_@}; do
+        case "$_loki_key" in LOKI_*) export "HERMES_${_loki_key#LOKI_}=${!_loki_key}" ;; esac
+    done
+    unset _loki_key
+    export HERMES_HOME="${LOKI_HOME:-$HOME/.loki}"
+    export __LOKI_ENV_BOUND=1
+fi
+
+# Bootstrap downloads and interpreters have a Loki-owned cache, too.
+export UV_CACHE_DIR="$HERMES_HOME/cache/bootstrap-uv"
+export UV_PYTHON_INSTALL_DIR="$HERMES_HOME/cache/bootstrap-python"
 
 # Setup and activation prepare the isolated test environment. Installers call
 # pm.cli directly and never select it.
@@ -41,7 +58,7 @@ cd "$SCRIPT_DIR"
 export UV_NO_CONFIG=1
 
 echo ""
-echo -e "${CYAN}☤ Hermes Agent Setup${NC}"
+echo -e "${CYAN}☤ Loki Setup${NC}"
 echo ""
 
 # ============================================================================
@@ -106,7 +123,7 @@ uv_version="$(pin version)"
 py_version="$(pin version python | cut -d+ -f1 | cut -d. -f1,2)"
 [ -n "$uv_version" ] || { echo -e "${RED}✗${NC} no uv pin in pm/lock.json" >&2; exit 1; }
 
-store="${HERMES_RUNTIME_DIR:-$HOME/.hermes/tools}"
+store="${HERMES_RUNTIME_DIR:-$HOME/.loki/tools}"
 entry="$store/uv-$uv_version-$target"
 uv="$entry/uv"; [ "$os" = win32 ] && uv="$entry/uv.exe"
 
@@ -210,12 +227,12 @@ fi
 # Publish user-facing launchers
 # ============================================================================
 
-echo -e "${CYAN}→${NC} Setting up hermes command..."
+echo -e "${CYAN}→${NC} Setting up loki command..."
 
 # Reuse the bootstrap interpreter only to run the shared launcher writer.
 bin_dir="$HOME/.local/bin"
 if [ "$os" = win32 ]; then
-    bin_dir="$(cygpath -am "${HERMES_HOME:-${LOCALAPPDATA:-$HOME/AppData/Local}/hermes}/bin")"
+    bin_dir="$(cygpath -am "${HERMES_HOME:-${LOCALAPPDATA:-$HOME/AppData/Local}/loki}/bin")"
 fi
 if ! "$boot_py" -I -X utf8 hermes_cli/_launchers.py "$bin_dir"; then
     echo -e "${RED}✗${NC} launcher publication failed" >&2
@@ -265,7 +282,7 @@ fi
 # Seed bundled skills into ~/.hermes/skills/
 # ============================================================================
 
-HERMES_SKILLS_DIR="${HERMES_HOME:-$HOME/.hermes}/skills"
+HERMES_SKILLS_DIR="${HERMES_HOME:-$HOME/.loki}/skills"
 mkdir -p "$HERMES_SKILLS_DIR"
 
 echo ""
@@ -293,14 +310,14 @@ echo "  1. Activate the dev environment (venv-style, in THIS shell):"
 echo "     source ./activate"
 echo ""
 echo "  2. Run the setup wizard to configure API keys:"
-echo "     hermes setup"
+echo "     loki setup"
 echo ""
 echo "  3. Start chatting:"
 echo "     hermes"
 echo ""
 echo "Other commands:"
-echo "  hermes pm install     # Re-run the tool + dependency install"
-echo "  hermes status         # Check configuration"
-echo "  hermes doctor         # Diagnose issues"
+echo "  loki pm install     # Re-run the tool + dependency install"
+echo "  loki status         # Check configuration"
+echo "  loki doctor         # Diagnose issues"
 echo "  deactivate            # Undo the activation (restore PATH etc.)"
 echo ""

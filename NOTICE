@@ -1,0 +1,11 @@
+Loki is an independent fork of Hermes Agent.
+Upstream: https://github.com/NousResearch/hermes-agent
+Pinned source: 18c525b669b6ea4ba62e6967d228af21d89aa9d3 (2026-10-17)
+
+Hermes Agent Copyright (c) 2025 Nous Research, licensed under MIT.
+The full upstream LICENSE is retained without modification.
+Loki modifications Copyright (c) 2026 Loki contributors, under the same MIT license.
+
+Existing third-party licenses and notices remain applicable. Internal Hermes module,
+protocol, data-schema and plugin identifiers are retained for compatibility. They do
+not imply access to Nous Research infrastructure, OAuth apps, trials or subscriptions.

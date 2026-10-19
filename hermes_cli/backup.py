@@ -37,7 +37,7 @@ from hermes_cli.backup_restore import (
     _extract_member_atomically,
     _import_db_member,
     _restore_auth_json,
-    _restore_destination_epoch,
+    _restore_destination_epoch, _restore_command,
     _safe_restore_db,
     _validate_backup_zip,
 )
@@ -61,7 +61,7 @@ _QUICK_SNAPSHOTS_DIR = "state-snapshots"
 def _snapshot_recovery_hint() -> str:
     """How to restore a state snapshot. There is no `hermes snapshot` subcommand — only the /snapshot
     slash command inside a `hermes` session (hermes_cli/commands.py)."""
-    return ("To restore a newer snapshot, start `hermes` in a terminal and run `/snapshot list`, then "
+    return ("To restore a newer snapshot, start `loki` in a terminal and run `/snapshot list`, then "
             "`/snapshot restore <id>` (CLI only).")
 
 # Directory names to skip (matched against each path component). ``hermes-agent`` only matches at
@@ -544,7 +544,7 @@ def _print_capped(header: str, lines: list[str], indent: str) -> None:
 
 # --- Backup ---
 
-_RUN_BACKUP_PREFIX = "hermes-backup-"
+_RUN_BACKUP_PREFIX = "loki-backup-"
 
 
 def _resolve_backup_output_path(output: Optional[str]) -> Path:
@@ -558,7 +558,7 @@ def _resolve_backup_output_path(output: Optional[str]) -> Path:
             if out_path.is_dir():
                 out_path = out_path / default_name
         else:
-            out_path = Path.home() / default_name
+            out_path = get_hermes_home() / "backups" / default_name
         if out_path.suffix.lower() != ".zip":
             out_path = out_path.with_suffix(out_path.suffix + ".zip")
         out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -668,7 +668,7 @@ def _run_backup_locked(args, hermes_root: Path) -> bool:
     if errors:
         _print_capped(f"\n  Archive kept, but {len(errors)} file(s) could not be added:", errors, "  ")
     else:
-        print(f"\nRestore with: hermes import {out_path.name}")
+        print(f"\nRestore with: {_restore_command(out_path, powershell=sys.platform == 'win32')}")
     # Prune only after a complete archive: a timer hitting the same unreadable file every run must
     # not rotate the last good backups out in favour of incomplete ones.
     keep = getattr(args, "keep", 0)  # 0 / absent: never prune (non-CLI callers)
@@ -888,19 +888,19 @@ def run_import(args) -> Optional[int]:
                 # hermes_cli.profiles might not be available (fresh install)
                 if any(profiles_dir.iterdir()):
                     print("\n  Profiles detected but aliases could not be created.")
-                    print("  Run: hermes profile list  (after installing hermes)")
+                    print("  Run: loki profile list  (after installing loki)")
 
         # Guidance
         print()
         if not (hermes_root / "hermes-agent").is_dir():
             print("Note: The hermes-agent codebase was not included in the backup.")
-            print("  If this is a fresh install, run: hermes update")
+            print("  If this is a fresh install, run: loki update")
 
         if restored_profiles:
             gw_profiles = [n for n, _ in restored_profiles]
             print("\nTo re-enable gateway services for profiles:")
             for pname in gw_profiles:
-                print(f"  hermes -p {pname} gateway install")
+                print(f"  loki -p {pname} gateway install")
 
         _revive_gateway_after_import(hermes_root)
 
@@ -1080,7 +1080,7 @@ def _revive_gateway_after_import(hermes_root: Path) -> None:
             (native_default / marker).exists() for marker in ("config.yaml", ".env", "state.db")):
         print("\nRestored into a non-default home; leaving the gateway service alone to avoid clashing "
               f"with the install at {native_default}.\n"
-              "To start a gateway for this home, run:  hermes gateway run")
+              "To start a gateway for this home, run:  loki gateway run")
         return
     try:
         from hermes_cli.gateway import _is_service_running
@@ -1092,7 +1092,7 @@ def _revive_gateway_after_import(hermes_root: Path) -> None:
         # Import boundary: the restore already succeeded; any service failure prints the
         # manual fallback instead of failing the import.
         logger.debug("gateway revive after import failed", exc_info=True)
-        print("\nStart the gateway to activate cron jobs and messaging:\n  hermes gateway run")
+        print("\nStart the gateway to activate cron jobs and messaging:\n  loki gateway run")
 
 
 # --- Quick state snapshots (used by /snapshot slash command and hermes backup --quick) ---

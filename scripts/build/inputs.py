@@ -14,6 +14,7 @@ RESOURCE_ENV = {
     "plugins": "HERMES_BUNDLED_PLUGINS",
     "locales": "HERMES_BUNDLED_LOCALES",
     "optional-mcps": "HERMES_OPTIONAL_MCPS",
+    "plugin-catalog": "HERMES_BUNDLED_PLUGIN_CATALOG",
 }
 
 

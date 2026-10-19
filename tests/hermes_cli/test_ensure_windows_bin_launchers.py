@@ -44,7 +44,7 @@ def _make_managed(tmp_path, monkeypatch):
     """Fake managed layout: HERMES_HOME/hermes-agent/venv (+ a fake venv
     python whose path legacy trampolines would embed). New consoles resolve
     this home, so the PATH migration may edit the (injected) User PATH."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "loki"
     root = home / "hermes-agent"
     (root / "venv" / "Scripts").mkdir(parents=True)
     (root / "venv" / "Scripts" / "python.exe").write_bytes(b"MZ fake venv python")
@@ -164,7 +164,7 @@ def test_healthy_store_launcher_is_a_noop(tmp_path, monkeypatch):
     _store, _entry = _make_store(tmp_path, monkeypatch)
     bin_dir = home / "bin"
     bin_dir.mkdir()
-    local = root / ".hermes" / "bin"
+    local = root / ".loki" / "bin"
     local.mkdir(parents=True)
     for name in _WINDOWS_BIN_LAUNCHERS:
         # A launcher that does NOT embed the venv interpreter counts as
@@ -245,7 +245,7 @@ def test_profile_session_still_heals_the_shared_bin(tmp_path, monkeypatch):
     """Under ``hermes -p <name>`` HERMES_HOME points inside profiles/<name>;
     the launcher dir is per-machine, so the heal must anchor on the default
     root and fire anyway — a habitual profile user gets the same repair."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "loki"
     root = home / "hermes-agent"
     (root / "venv" / "Scripts").mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home / "profiles" / "work"))
@@ -298,7 +298,7 @@ def test_migration_moves_path_to_home_bin_and_strips_legacy(managed_install):
         [legacy_bin, legacy_scripts, r"C:\Windows\system32"]
     )
     (root / "bin").mkdir()
-    (root / "bin" / "hermes.cmd").write_text("@echo off\r\n", encoding="ascii")
+    (root / "bin" / "loki.cmd").write_text("@echo off\r\n", encoding="ascii")
 
     ok = migrate_windows_bin_path(
         root, windows=True, read_user_path=read, write_user_path=write
@@ -314,7 +314,7 @@ def test_migration_moves_path_to_home_bin_and_strips_legacy(managed_install):
         assert _launcher_files(home / "bin", name)
     # Legacy FILES stay: editor/ACP configs holding absolute launcher paths
     # keep working. Only the PATH entry (the sweepable resolution route) goes.
-    assert (root / "bin" / "hermes.cmd").exists()
+    assert (root / "bin" / "loki.cmd").exists()
 
 
 def test_migration_works_when_only_legacy_copy_exists(tmp_path, monkeypatch):
@@ -352,7 +352,7 @@ def test_migration_is_idempotent(managed_install):
 
 def test_migration_refuses_empty_store_without_changing_path(tmp_path, monkeypatch):
     """Never point PATH at commands that cannot start."""
-    home = tmp_path / "hermes"
+    home = tmp_path / "loki"
     root = home / "hermes-agent"
     (root / "venv" / "Scripts").mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
@@ -462,11 +462,11 @@ def test_repo_gitignores_the_legacy_bin_dir():
         env.setdefault("ComSpec", r"C:\Windows\system32\cmd.exe")
 
     result = subprocess.run(
-        [git, "-C", str(repo_root), "check-ignore", "-q", "bin/hermes.exe"],
+        [git, "-C", str(repo_root), "check-ignore", "-q", "bin/loki.exe"],
         capture_output=True, env=env,
         check=False,
     )
     assert result.returncode == 0, (
-        "bin/hermes.exe is not gitignored — hermes update's autostash "
+        "bin/loki.exe is not gitignored — hermes update's autostash "
         "(--include-untracked) would sweep pre-migration launchers off disk"
     )

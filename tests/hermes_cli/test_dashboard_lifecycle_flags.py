@@ -33,7 +33,7 @@ class TestDashboardStatus:
             cmd_dashboard(_ns(status=True))
         assert exc.value.code == 0
         out = capsys.readouterr().out
-        assert "No hermes dashboard or serve processes running" in out
+        assert "No loki dashboard or serve processes running" in out
 
     def test_status_with_processes(self, capsys):
         # Includes a serve-mode backend: --status must LIST it, not hide it —

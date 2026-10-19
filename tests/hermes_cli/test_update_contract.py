@@ -99,7 +99,7 @@ def test_admission_marker_refuses_even_on_git_checkout(tmp_path, monkeypatch):
     refusal = evaluate_update_admission(tmp_path)
     assert refusal is not None
     assert refusal.code == "image-marker"
-    assert "docker pull" in refusal.update_command
+    assert "https://github.com/ObliviousOdin/loki/releases" in refusal.update_command
 
 
 def test_admission_invalid_marker_fails_closed(tmp_path, monkeypatch):
@@ -111,7 +111,7 @@ def test_admission_invalid_marker_fails_closed(tmp_path, monkeypatch):
     refusal = evaluate_update_admission(tmp_path)
     assert refusal is not None
     assert refusal.code == "image-marker-invalid"
-    assert "docker pull" in refusal.update_command
+    assert "https://github.com/ObliviousOdin/loki/releases" in refusal.update_command
 
 
 def test_admission_no_marker_falls_back_to_heuristics(tmp_path, monkeypatch):
@@ -203,8 +203,8 @@ def test_admission_source_checkout_on_termux_host_refuses_with_apt_hint(tmp_path
     monkeypatch.setenv("PREFIX", "/data/data/com.termux/files/usr")
     refusal = evaluate_update_admission(tmp_path)
     assert refusal is not None and refusal.code == "apt-termux"
-    assert "pkg install hermes-agent" in refusal.message
-    assert refusal.update_command == "pkg install hermes-agent"
+    assert "https://github.com/ObliviousOdin/loki/releases" in refusal.message
+    assert "https://github.com/ObliviousOdin/loki/releases" in refusal.update_command
     assert "hermes update" not in refusal.update_command
     monkeypatch.setenv("PREFIX", "/usr")
     assert evaluate_update_admission(tmp_path) is None, "the same checkout off Termux stays updatable"
@@ -224,8 +224,8 @@ def test_admission_apt_termux_refuses_with_pkg_upgrade(tmp_path, monkeypatch):
     refusal = evaluate_update_admission(root)
     assert refusal is not None
     assert refusal.code == "apt-termux"
-    assert "pkg upgrade hermes-agent" in refusal.message
-    assert "pkg upgrade hermes-agent" in refusal.update_command
+    assert "Loki package maintainer" in refusal.message
+    assert "https://github.com/ObliviousOdin/loki/releases" in refusal.update_command
 
 
 def test_admission_apt_termux_command_comes_from_steward_table(tmp_path, monkeypatch):

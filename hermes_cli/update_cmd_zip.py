@@ -47,7 +47,7 @@ _ZIP_PRESERVED_NESTED = {
     "web": ("node_modules",),
 }
 
-_STASH_HINT = "  Stash or commit your changes, then rerun `hermes update`."
+_STASH_HINT = "  Stash or commit your changes, then rerun `loki update`."
 
 
 def _remove_path(path: str, *, ignore_errors: bool = False) -> None:
@@ -459,7 +459,7 @@ def _drop_journal_if_clean(root: Path, entries: list[str], suffixes=(".hermes-up
     every one of them is gone, else the next launch's recovery could not tell them from a user's file."""
     left = [item for item in entries if any(os.path.lexists(os.path.join(root, item + x)) for x in suffixes)]
     if left:
-        print(f"  ⚠ Could not remove the update's own copies of {', '.join(left)}; the next `hermes` launch "
+        print(f"  ⚠ Could not remove the update's own copies of {', '.join(left)}; the next `loki` launch "
               "removes them.")
         return
     (root / ZIP_SWAP_JOURNAL).unlink(missing_ok=True)
@@ -478,7 +478,7 @@ def _journaled_stage_and_swap(extracted: str, entries: list[str], root: Path, ta
         raise RuntimeError("an interrupted ZIP update could not be settled; see the warning above")
     with zip_swap_owner_lock(root, wait=10.0) as owned:
         if not owned:
-            raise RuntimeError("another `hermes update` is swapping this install right now"
+            raise RuntimeError("another `loki update` is swapping this install right now"
                                if owned.reason == "busy" else f"no ZIP swap lock, no swap ({owned.reason})")
         # A leftover backup counts: _stage_replacement puts it back as the entry before the swap.
         # Each entry also carries the identities recovery needs before it may delete anything (review
@@ -555,6 +555,9 @@ def _zip_stop_class(exc: BaseException, *, downloaded: bool) -> str:
     if getattr(exc, "errno", None) == errno.ENOSPC or (
             isinstance(exc, RuntimeError) and str(exc).startswith("not enough free disk space")):
         return "disk_full"  # _require_staging_space's own refusal, or ENOSPC mid-copy
+    from hermes_cli.update_loki_identity import TargetIdentityError
+    if isinstance(exc, TargetIdentityError):
+        return "target_identity_refused"
     if isinstance(exc, SyntaxError):
         return "target_syntax_error"  # the pre-commit gate refused the extracted tree; nothing moved
     return "zip_failed" if downloaded else "download_failed"
@@ -588,6 +591,8 @@ def _download_and_swap_zip(branch: str, zip_url: str, target_sha: str | None = N
                              f"{target_sha or 'a full commit SHA'}; refusing to install unidentified bytes")
         target_sha = archived
         extracted = _extracted_root(tmp_dir, branch)
+        from hermes_cli.update_loki_identity import require_tree_identity
+        require_tree_identity(Path(extracted))
         entries = [i for i in os.listdir(extracted) if i not in _ZIP_PRESERVED_TOP_LEVEL]
         project_root = str(_m().PROJECT_ROOT)
         _require_staging_space(extracted, entries, project_root)
@@ -605,7 +610,7 @@ def _download_and_swap_zip(branch: str, zip_url: str, target_sha: str | None = N
         print(f"✗ ZIP update failed: {e}")
         # Two-phase replace commits all or rolls all back, so no mixed tree here — don't push a needless reinstall.
         print("  Your existing install was left in place.")
-        print("  Re-run `hermes update` to retry; if the agent won't start, reinstall from https://hermes-agent.nousresearch.com")
+        print("  Re-run `loki update` to retry; if the agent won't start, follow https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md")
         _record_stop(_zip_stop_class(e, downloaded=downloaded))
         _m().sys.exit(1)
     finally:
@@ -629,8 +634,8 @@ def _update_via_zip(args, *, had_desktop_app_before_update: bool = False,
         print(
             "  This path runs when git file I/O is broken on the system. "
             "Either resolve the git-side breakage (typically an antivirus "
-            "or NTFS filter holding files open) and rerun `hermes update "
-            f"--branch {branch}`, or update against main with `hermes update`."
+            "or NTFS filter holding files open) and rerun `loki update "
+            f"--branch {branch}`, or update against main with `loki update`."
         )
         _record_stop("branch_unsupported")
         _m().sys.exit(1)
@@ -642,7 +647,7 @@ def _update_via_zip(args, *, had_desktop_app_before_update: bool = False,
     if target_sha is not None and not re.fullmatch(r"[0-9a-f]{40}", target_sha):
         raise ValueError("ZIP update requires an exact full commit SHA")
     ref = target_sha if target_sha is not None else f"refs/heads/{branch}"
-    repository = target_repository or "NousResearch/hermes-agent"
+    repository = target_repository or "ObliviousOdin/loki"
     if (not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository)
             or any(part in (".", "..") for part in repository.split("/"))):
         raise ValueError("ZIP update requires a GitHub owner/repository")

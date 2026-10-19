@@ -15,6 +15,7 @@ import pytest
 
 from hermes_cli import main as cli_main, update_cmd, update_receipt
 from hermes_cli.update_inventory import UpdatePlan
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
 from hermes_cli.update_cmd import _sync_with_upstream_if_needed
 
 
@@ -35,9 +36,10 @@ def update_tree(tmp_path, monkeypatch):
     git(origin, 'init', '-q', '-b', 'main')
     git(origin, 'config', 'user.name', 'Fixture')
     git(origin, 'config', 'user.email', 'fixture@example.invalid')
+    write_loki_source(origin)
     (origin / 'content.txt').write_text('base\n', encoding='utf-8')
     (origin / '.gitignore').write_text('.bytecode-fingerprint\n', encoding='utf-8')
-    git(origin, 'add', 'content.txt', '.gitignore')
+    git(origin, 'add', 'content.txt', '.gitignore', 'loki.py', 'loki_identity.py', 'pyproject.toml')
     git(origin, '-c', 'commit.gpgsign=false', 'commit', '-qm', 'base')
     git(origin, 'tag', 'v1.0.0')
     base = git(origin, 'rev-parse', 'HEAD')
@@ -237,15 +239,26 @@ def test_stable_git_uses_remote_identity_without_moving_local_tags(update_tree, 
         assert cwd in {t.clone, t.origin}, (command, cwd)
         assert 'push' not in command and 'pull' not in command and 'ls-remote' not in command, command
         calls.append(command)
-        if 'fetch' in command and t.wanted in command and server == 'fetch-refused':
-            return subprocess.CompletedProcess(command, 128, stdout='', stderr='fixture: raw SHA wants disabled')
         return run(command, *args, **kwargs)
 
+    from hermes_cli import update_custody
+    real_git_run = update_custody.run_git
+    refused = []
+
+    def refuse_target_fetch(git_cmd, git_args, **kwargs):
+        if 'fetch' in git_args and t.wanted in git_args and server == 'fetch-refused':
+            refused.append(t.wanted)
+            return subprocess.CompletedProcess([*git_cmd, *git_args], 128, stdout='',
+                                               stderr='fixture: raw SHA wants disabled')
+        return real_git_run(git_cmd, git_args, **kwargs)
+
+    monkeypatch.setattr(update_custody, 'run_git', refuse_target_fetch)
     monkeypatch.setattr(subprocess, 'run', guarded_run)
     if server == 'fetch-refused':
         with pytest.raises(SystemExit) as error:
             cli_main.cmd_update(t.args)
         assert error.value.code == 1
+        assert refused == [t.wanted]
         assert git(t.clone, 'rev-parse', 'HEAD') == t.base
         assert t.resumed
         assert t.requests == []
@@ -283,7 +296,7 @@ def test_stable_zip_consumes_the_same_commit_through_the_real_swap(update_tree, 
     archive_bytes = archive.read_bytes()
     _publish_stable(monkeypatch, t)
     routes = {
-        f'/NousResearch/hermes-agent/archive/{t.wanted}.zip': archive_bytes,
+        f'/ObliviousOdin/loki/archive/{t.wanted}.zip': archive_bytes,
     }
 
     class Handler(BaseHTTPRequestHandler):
@@ -311,7 +324,7 @@ def test_stable_zip_consumes_the_same_commit_through_the_real_swap(update_tree, 
     def local_open(request, *args, **kwargs):
         url = request.full_url if isinstance(request, urllib.request.Request) else request
         parsed = urlsplit(url)
-        assert parsed.scheme == 'https' and parsed.netloc in {'api.github.com', 'github.com', 'hermes-assets.nousresearch.com'}, url
+        assert parsed.scheme == 'https' and parsed.netloc in {'api.github.com', 'github.com'}, url
         urls.append(url)
         local = f'http://127.0.0.1:{server.server_port}{parsed.path}'
         if parsed.query:
@@ -384,7 +397,7 @@ def test_stable_zip_consumes_the_same_commit_through_the_real_swap(update_tree, 
             assert request['snapshot_id'] == 'release-snapshot'
             assert (t.clone / 'content.txt').read_text(encoding='utf-8-sig') == 'release\n'
             assert [url for url in urls if '/archive/' in url] == [
-                f'https://github.com/NousResearch/hermes-agent/archive/{t.wanted}.zip']
+                f'https://github.com/ObliviousOdin/loki/archive/{t.wanted}.zip']
         assert t.resumed
         if transport in {'git-error', 'dirty'}:
             assert failed and fetched

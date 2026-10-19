@@ -325,3 +325,7 @@ native/fts5_cjk/*.so
 /pm/.lock.json.lock
 
 apps/desktop/.dist-build*
+
+# Loki-owned source launchers and disposable development runtime
+/.loki/
+/.loki-sandbox/

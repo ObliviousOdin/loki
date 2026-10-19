@@ -47,10 +47,10 @@ def _checkout(tmp_path, monkeypatch, *, parent: Path | None = None) -> Path:
     # The layout's default root is ``<tmp>/.hermes`` on every OS. On Windows the platform default is
     # ``%LOCALAPPDATA%\hermes`` (``Path.home`` only backs an unset ``LOCALAPPDATA``), and no
     # ``LOCALAPPDATA`` value spells ``<tmp>/.hermes``, so pin the default itself.
-    monkeypatch.setattr(hermes_constants, "_get_platform_default_hermes_home", lambda: tmp_path / ".hermes")
+    monkeypatch.setattr(hermes_constants, "_get_platform_default_hermes_home", lambda: tmp_path / ".loki")
     monkeypatch.delenv("HERMES_DISABLE_LAZY_INSTALLS", raising=False)
     monkeypatch.delenv("HERMES_RUNTIME_DIR", raising=False)
-    root = (parent or tmp_path / ".hermes") / "hermes-agent"
+    root = (parent or tmp_path / ".loki") / "hermes-agent"
     root.mkdir(parents=True)
     (root / ".git").mkdir()
     (root / "pyproject.toml").write_text("[project]\nname='example'\n", encoding="utf-8")
@@ -81,7 +81,7 @@ def test_a_fresh_install_and_a_custom_root_keep_their_own_store(tmp_path, monkey
     # `install.sh --hermes-home /data/h` owns its tree even if the default root once
     # borrowed it and kept state of its own.
     _state(tmp_path / "data" / "h", root)
-    _state(tmp_path / ".hermes", root)
+    _state(tmp_path / ".loki", root)
     assert owning_home_root(root) is None
     assert store_root(root) == tmp_path / "data" / "h" / "tools"
 
@@ -95,7 +95,7 @@ def test_a_borrowers_own_dependency_state_never_makes_it_the_owner(tmp_path, mon
     monkeypatch.delenv("HERMES_HOME", raising=False)
     assert owning_home_root(root) == custom
 
-    _state(tmp_path / ".hermes", root)  # the borrowing launch's own sync
+    _state(tmp_path / ".loki", root)  # the borrowing launch's own sync
     assert owning_home_root(root) == custom
     assert store_root(root) == custom / "tools"
 
@@ -109,7 +109,7 @@ def test_a_borrower_holding_the_checkout_never_becomes_its_owner(tmp_path, monke
     import pm
     from hermes_cli import _launchers
 
-    default = tmp_path / ".hermes"
+    default = tmp_path / ".loki"
     holder = tmp_path / "data" / "dir"
     root = _checkout(tmp_path, monkeypatch, parent=holder)
     entry = default / "tools" / "python-owner"
@@ -120,7 +120,7 @@ def test_a_borrower_holding_the_checkout_never_becomes_its_owner(tmp_path, monke
         {"schema": 1, "packages": {"python": {"version": "fixture", "entry": entry.name}}}), encoding="utf-8")
     _state(default, root)
     _home(monkeypatch, default)
-    local = root / ".hermes" / "bin"
+    local = root / ".loki" / "bin"
     published = {path: Path(path).read_bytes() for path in _launchers.ensure_install_launchers(root, local)}
     assert published
 
@@ -155,11 +155,11 @@ def test_a_borrowing_launch_syncs_its_own_dependencies_and_nothing_of_the_checko
     from hermes_cli import _launchers
 
     root = _checkout(tmp_path, monkeypatch)
-    _state(tmp_path / ".hermes", root)
+    _state(tmp_path / ".loki", root)
     _home(monkeypatch, tmp_path / "tmp" / "hermes-flash-compat-x" / "a")
     # The owner's store, so no tool store is downloaded into the temporary home.
-    assert owning_home_root(root) == tmp_path / ".hermes"
-    assert store_root(root) == tmp_path / ".hermes" / "tools"
+    assert owning_home_root(root) == tmp_path / ".loki"
+    assert store_root(root) == tmp_path / ".loki" / "tools"
     stamp = (root / "install-stamp.json").read_bytes()
     owner_marker = root / ".update-incomplete"
     owner_marker.write_text("owner's update\n", encoding="utf-8")
@@ -171,7 +171,7 @@ def test_a_borrowing_launch_syncs_its_own_dependencies_and_nothing_of_the_checko
         borrowed_facts.parent.mkdir(parents=True, exist_ok=True)
         borrowed_facts.write_text("{}", encoding="utf-8")
 
-    python = tmp_path / ".hermes" / "tools" / "python" / "bin" / "python3"
+    python = tmp_path / ".loki" / "tools" / "python" / "bin" / "python3"
     monkeypatch.setattr(pm, "venv_is_current", lambda **kw: borrowed_facts.is_file())
     monkeypatch.setattr(pm, "sync_venv", sync)
     monkeypatch.setattr(_launchers, "resolve_store_python", lambda _: python)
@@ -196,7 +196,7 @@ def test_the_owner_still_owes_and_runs_its_tail(tmp_path, monkeypatch, completio
     from hermes_cli import _launchers
 
     root = _checkout(tmp_path, monkeypatch)
-    facts = _state(tmp_path / ".hermes", root)
+    facts = _state(tmp_path / ".loki", root)
     monkeypatch.delenv("HERMES_HOME", raising=False)
     facts.unlink()
     monkeypatch.setattr(pm, "venv_is_current", lambda **kw: facts.is_file())

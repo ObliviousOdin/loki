@@ -27,12 +27,13 @@ from pathlib import Path
 from typing import Any, Dict, Optional
 
 from hermes_constants import get_hermes_home
+from hermes_cli.loki_auth_policy import require_oauth_client_id
 from utils import atomic_json_write, base_url_hostname
 from agent.secret_scope import get_secret as _get_secret
 
 logger = logging.getLogger(__name__)
 
-_OAUTH_CLIENT_ID = "9d1c250a-e61b-44d9-88ed-5944d1962f5e"
+_OAUTH_CLIENT_ID = ""  # Configure an application authorized for Loki explicitly.
 # platform.claude.com is the live token host; console.anthropic.com 404s but is kept as a fallback.
 _OAUTH_TOKEN_URLS = [
     "https://platform.claude.com/v1/oauth/token", "https://console.anthropic.com/v1/oauth/token"
@@ -460,7 +461,7 @@ def refresh_anthropic_oauth_pure(refresh_token: str, *, use_json: bool = False) 
     import urllib.parse
     if not refresh_token:
         raise ValueError("refresh_token is required")
-    payload = {"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": _OAUTH_CLIENT_ID}
+    payload = {"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": require_oauth_client_id("anthropic", _OAUTH_CLIENT_ID)}
     encode, content_type = ((json.dumps, "application/json") if use_json
                             else (urllib.parse.urlencode, "application/x-www-form-urlencoded"))
     result = _post_oauth_token(encode(payload).encode(), content_type=content_type, timeout=10, what="refresh",
@@ -767,7 +768,7 @@ def run_hermes_oauth_login_pure() -> Optional[dict[str, Any]]:
     verifier, challenge = _generate_pkce()
     oauth_state = secrets.token_urlsafe(32)
     params = {
-        "code": "true", "client_id": _OAUTH_CLIENT_ID, "response_type": "code", "redirect_uri": _OAUTH_REDIRECT_URI,
+        "code": "true", "client_id": require_oauth_client_id("anthropic", _OAUTH_CLIENT_ID), "response_type": "code", "redirect_uri": _OAUTH_REDIRECT_URI,
         "scope": _OAUTH_SCOPES, "code_challenge": challenge, "code_challenge_method": "S256", "state": oauth_state,
     }
     auth_url = f"https://claude.ai/oauth/authorize?{urlencode(params)}"
@@ -802,7 +803,7 @@ def run_hermes_oauth_login_pure() -> Optional[dict[str, Any]]:
         return None
     try:
         exchange_data = json.dumps({
-            "grant_type": "authorization_code", "client_id": _OAUTH_CLIENT_ID, "code": code, "state": received_state,
+            "grant_type": "authorization_code", "client_id": require_oauth_client_id("anthropic", _OAUTH_CLIENT_ID), "code": code, "state": received_state,
             "redirect_uri": _OAUTH_REDIRECT_URI, "code_verifier": verifier,
         }).encode()
         result = _post_oauth_token(exchange_data, content_type="application/json", timeout=15, what="exchange")

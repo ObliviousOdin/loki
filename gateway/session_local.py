@@ -186,7 +186,7 @@ def project_plugins_warning(policy):
     from utils import is_truthy_value
     # The client's folder is a path on this host only for a client the gateway proved local.
     env = policy.client_env() if policy is not None and not policy.client_env_remote else None
-    folder = Path(policy.cwd) / '.hermes' / 'plugins' if env else None
+    folder = Path(policy.cwd) / '.loki' / 'plugins' if env else None
     if not env or not is_truthy_value(env.get('HERMES_ENABLE_PROJECT_PLUGINS')) or not folder.is_dir():
         return None
     try:
@@ -195,7 +195,7 @@ def project_plugins_warning(policy):
     except OSError:  # an unlistable folder skips the optional notice, never the session
         return None
     return (f'project plugins in {folder} are not loaded: the gateway that runs Hermes sessions does not '
-            'load ./.hermes/plugins, so HERMES_ENABLE_PROJECT_PLUGINS has no effect here.')
+            'load ./.loki/plugins, so HERMES_ENABLE_PROJECT_PLUGINS has no effect here.')
 
 
 def create_local_session(authority, actor, params, *, trusted_policy=None, trusted_secrets=None, skills_prompt=None,

@@ -107,7 +107,7 @@ class TestSSHBulkDownload:
         cmd_str = " ".join(cmd)
         assert "tar cf -" in cmd_str
         assert "-C /" in cmd_str
-        assert "home/testuser/.hermes" in cmd_str
+        assert "home/testuser/.loki" in cmd_str
         assert "ssh" in cmd_str
         assert "testuser@example.com" in cmd_str
 
@@ -257,18 +257,18 @@ class TestDaytonaBulkDownload:
         # Live sockets cannot be archived; exclude them like the SSH backend.
         assert "--exclude='*.sock'" in tar_cmd
         # PID-suffixed temp path avoids collisions on sync_back retry
-        assert "/tmp/.hermes_sync." in tar_cmd
+        assert "/tmp/.loki_sync." in tar_cmd
         assert ".tar" in tar_cmd
-        assert ".hermes" in tar_cmd
+        assert ".loki" in tar_cmd
 
         cleanup_cmd = env._sandbox.process.exec.call_args_list[1][0][0]
         assert "rm -f" in cleanup_cmd
-        assert "/tmp/.hermes_sync." in cleanup_cmd
+        assert "/tmp/.loki_sync." in cleanup_cmd
 
         # download_file called once with the same PID-suffixed path
         env._sandbox.fs.download_file.assert_called_once()
         download_args = env._sandbox.fs.download_file.call_args[0]
-        assert download_args[0].startswith("/tmp/.hermes_sync.")
+        assert download_args[0].startswith("/tmp/.loki_sync.")
         assert download_args[0].endswith(".tar")
         assert download_args[1] == str(dest)
 
@@ -281,7 +281,7 @@ class TestDaytonaBulkDownload:
         env._daytona_bulk_download(dest)
 
         tar_cmd = env._sandbox.process.exec.call_args_list[0][0][0]
-        assert "home/daytona/.hermes" in tar_cmd
+        assert "home/daytona/.loki" in tar_cmd
 
 class TestDaytonaCleanup:
     """Verify Daytona cleanup() calls sync_back() before stop."""

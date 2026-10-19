@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import asyncio
 import base64
 import json
@@ -108,8 +110,8 @@ def wire(profile, monkeypatch):
 
 
 def _assert_identity(request, account_id="acct-attribution-test"):
-    assert request.headers["originator"] == "hermes-agent"
-    assert request.headers["user-agent"] == f"HermesAgent/{get_version_info().base_version}"
+    assert request.headers["originator"] == "loki-agent"
+    assert request.headers["user-agent"] == CLIENT_USER_AGENT
     assert request.headers["chatgpt-account-id"] == account_id
     assert "extra_headers" not in json.loads(request.content)
 
@@ -139,10 +141,10 @@ def test_new_identity_is_limited_to_the_official_endpoint(base_url, attributed):
 
     headers = _codex_cloudflare_headers(_jwt(), base_url=base_url)
 
-    assert headers["originator"] == ("hermes-agent" if attributed else "codex_cli_rs")
+    assert headers["originator"] == ("loki-agent" if attributed else "codex_cli_rs")
     assert headers["User-Agent"] == (
-        f"HermesAgent/{get_version_info().base_version}"
-        if attributed else "codex_cli_rs/0.0.0 (Hermes Agent)"
+        CLIENT_USER_AGENT
+        if attributed else "codex_cli_rs/0.0.0 (Loki)"
     )
 
 
@@ -180,7 +182,7 @@ def test_primary_client_and_credential_rebuild_send_expected_headers(
         agent.client.responses.create(model=MODEL, input="test")
         assert "originator" not in wire[-1].headers
         assert "chatgpt-account-id" not in wire[-1].headers
-        assert not wire[-1].headers["user-agent"].startswith("HermesAgent/")
+        assert not wire[-1].headers["user-agent"].startswith("Loki/")
     finally:
         for client in clients:
             client.close()
@@ -247,7 +249,7 @@ def test_credential_pool_custom_endpoint_keeps_existing_identity(
         )
         assert wire[-1].url.host == "proxy.example"
         assert wire[-1].headers["originator"] == "codex_cli_rs"
-        assert wire[-1].headers["user-agent"] == "codex_cli_rs/0.0.0 (Hermes Agent)"
+        assert wire[-1].headers["user-agent"] == "codex_cli_rs/0.0.0 (Loki)"
         assert wire[-1].headers["chatgpt-account-id"] == "acct-attribution-test"
     finally:
         client.close()
@@ -338,7 +340,7 @@ def test_required_identity_wins_over_configured_header_defaults(
         proxy.responses.create(model=MODEL, input="test")
         assert wire[-1].headers["originator"] == "codex_cli_rs"
         assert "custom-client" in wire[-1].headers.get_list("user-agent")
-        assert "HermesAgent/" not in wire[-1].headers["user-agent"]
+        assert "Loki/" not in wire[-1].headers["user-agent"]
         assert wire[-1].headers["x-test-header"] == "preserved"
         assert "chatgpt-account-id" not in wire[-1].headers
     finally:

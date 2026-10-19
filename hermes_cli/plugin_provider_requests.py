@@ -58,8 +58,8 @@ def _codex_auth(url: str) -> tuple[dict[str, str], str]:
     token = str(creds.get("api_key") or "").strip()
     if not token:
         raise ProviderNotSignedIn(
-            f"Not signed in to Codex in Hermes. Run `{oauth_relogin_command('openai-codex')}` "
-            "or sign in to OpenAI Codex under Providers in the Hermes desktop app.")
+            f"Not signed in to Codex in Loki. Run `{oauth_relogin_command('openai-codex')}` "
+            "or sign in to OpenAI Codex under Providers in the Loki desktop app.")
     headers = codex_account_headers(token) if url_origin(url)[1] == "chatgpt.com" else {}
     headers["Authorization"] = f"Bearer {token}"
     return headers, str(creds.get("base_url") or "")
@@ -106,7 +106,7 @@ def declared_auth_providers(manifest: Mapping[str, Any]) -> list[str]:
 def requires_auth_notice(manifest: Mapping[str, Any]) -> str:
     """One line for install/show surfaces; empty when the plugin declares no sign-in use."""
     providers = declared_auth_providers(manifest)
-    return (f"Uses your sign-in for: {', '.join(providers)} (Hermes sends the requests; "
+    return (f"Uses your sign-in for: {', '.join(providers)} (Loki sends the requests; "
             "the plugin never receives the token)") if providers else ""
 
 

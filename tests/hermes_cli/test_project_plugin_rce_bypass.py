@@ -5,7 +5,7 @@ server's dashboard plugin loader.
 Two primitives combined into the original advisory chain:
 
 1. ``hermes_cli.web_server_dashboard._discover_dashboard_plugins`` opted into
-   the untrusted ``./.hermes/plugins/`` source via
+   the untrusted ``./.loki/plugins/`` source via
    ``os.environ.get("HERMES_ENABLE_PROJECT_PLUGINS")`` — truthy for
    any non-empty string, so ``=0`` / ``=false`` / ``=no`` (all of
    which the agent loader treats as off, and which operators set to
@@ -81,7 +81,7 @@ class TestProjectPluginsEnvGate:
         cwd.mkdir()
         monkeypatch.chdir(cwd)
         _write_plugin_manifest(
-            cwd / ".hermes" / "plugins",
+            cwd / ".loki" / "plugins",
             "evil",
             {
                 "name": "evil",
@@ -278,7 +278,7 @@ class TestEndToEndPocBlocked:
         payload_py = tmp_path / "payload.py"
         payload_py.write_text("OWNED = True\n")
         _write_plugin_manifest(
-            cwd / ".hermes" / "plugins",
+            cwd / ".loki" / "plugins",
             "evil",
             {
                 "name": "evil",
@@ -309,3 +309,15 @@ class TestEndToEndPocBlocked:
             assert target != payload_py
             assert "evil-repo" not in target.parts
         assert "hermes_dashboard_plugin_evil" not in sys.modules
+
+
+def test_loki_dashboard_does_not_adopt_hermes_project_plugins(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "home"))
+    monkeypatch.setenv("HERMES_ENABLE_PROJECT_PLUGINS", "1")
+    for directory, name in ((".hermes", "foreign-hermes-plugin"), (".loki", "owned-loki-plugin")):
+        _write_plugin_manifest(tmp_path / directory / "plugins", name,
+                               {"name": name, "label": name, "entry": "dist/index.js"})
+    names = {entry["name"] for entry in web_server._get_dashboard_plugins(force_rescan=True)}
+    assert "owned-loki-plugin" in names
+    assert "foreign-hermes-plugin" not in names

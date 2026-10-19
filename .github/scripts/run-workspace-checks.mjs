@@ -15,6 +15,8 @@
 //
 // This also runs on a laptop: `node .github/scripts/run-workspace-checks.mjs`.
 // `--concurrency N` sets the limit. `--list` prints the units and exits.
+// Repeated `--exclude-unit path::script` moves known checks to separate jobs;
+// an unknown unit is an error, so a rename cannot silently drop coverage.
 
 import { execFileSync, spawn } from 'node:child_process'
 import { availableParallelism } from 'node:os'
@@ -76,7 +78,17 @@ function runUnit(unit) {
 
 async function main() {
   const argv = process.argv.slice(2)
-  const units = discoverUnits()
+  let units = discoverUnits()
+  const excluded = new Set()
+  for (let index = 0; index < argv.length; index++) {
+    if (argv[index] !== '--exclude-unit') continue
+    const name = argv[++index]
+    if (!name || !units.some(unit => `${unit.pkg}::${unit.script}` === name)) {
+      throw new Error(`Unknown excluded workspace check: ${name ?? '(missing value)'}`)
+    }
+    excluded.add(name)
+  }
+  units = units.filter(unit => !excluded.has(`${unit.pkg}::${unit.script}`))
 
   if (units.length === 0) {
     console.error(

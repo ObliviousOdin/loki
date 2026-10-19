@@ -69,6 +69,23 @@ def build_cli(data, out, tmp_path):
 
 
 @pytest.mark.platforms("posix")
+def test_public_loki_commands_retain_internal_runtime_protocol_keys(tmp_path):
+    out, data = inputs_fixture(tmp_path)
+    project = Path(data["project"])
+    project.write_text(
+        '[project]\nname="assembly-fixture"\nversion="1.2.3"\n[project.scripts]\n'
+        'loki="entry:main"\nloki-agent="entry:main"\nloki-acp="entry:main"\n', encoding="utf-8")
+    result = build_cli(data, out, tmp_path)
+    assert result.returncode == 0, result.stderr
+    manifest = json.loads((out / "manifest.json").read_text(encoding="utf-8"))
+    assert manifest["runtime"]["commands"] == {
+        "hermes": "bin/loki", "hermes-agent": "bin/loki-agent", "hermes-acp": "bin/loki-acp"}
+    assert manifest["launchers"] == ["loki", "loki-agent", "loki-acp"]
+    for command in manifest["runtime"]["commands"].values():
+        assert (out / command).is_file()
+
+
+@pytest.mark.platforms("posix")
 def test_contained_cli_assembly_runs_after_move_and_preserves_prepared_state(tmp_path):
     out, data = inputs_fixture(tmp_path)
     (out / "provider-state").write_text("retain", encoding="utf-8")

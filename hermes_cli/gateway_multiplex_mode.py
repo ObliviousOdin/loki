@@ -35,7 +35,7 @@ STANDALONE_PROFILE_REASON = "this profile is standalone (gateway.standalone: tru
 #: prints this so nobody builds on it.
 STANDALONE_DEPRECATION_NOTICE = (
     "gateway.standalone is a temporary compatibility shim while multiplexing gaps are fixed; "
-    "it will be removed once they are — plan to fold this profile with `hermes gateway migrate --multiplex`."
+    "it will be removed once they are — plan to fold this profile with `loki gateway migrate --multiplex`."
 )
 
 #: ``gateway.multiplex_profiles: false`` is no longer an opt-out from the one-gateway-per-host

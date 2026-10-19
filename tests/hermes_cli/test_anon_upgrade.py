@@ -7,6 +7,8 @@ persisted over the guest singleton) is exercised rather than mocked away.
 
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import base64
 import json
 import time
@@ -95,6 +97,7 @@ class FakePortal:
 
 @pytest.fixture
 def portal(monkeypatch, tmp_path):
+    configure_auth(monkeypatch, clients=("nous",), hosted_services=True)
     fake = FakePortal()
     monkeypatch.setenv("HERMES_PORTAL_BASE_URL", PORTAL)
     monkeypatch.setenv("HERMES_ANON_API_SECRET", "test-secret")
@@ -238,4 +241,4 @@ class TestSignInCompletionSettlesTheModel:
         assert model_cfg["base_url"] == INFERENCE.rstrip("/")
         out = capsys.readouterr().out
         assert "Default model is now" not in out
-        assert "run `hermes model` to pick one" in out
+        assert "run `loki model` to pick one" in out

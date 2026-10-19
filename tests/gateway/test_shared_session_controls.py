@@ -1,4 +1,6 @@
 """Shared control behavior through real execution and transport boundaries."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import json
 import os
 from pathlib import Path
@@ -14,7 +16,7 @@ def test_shared_approval_outlives_viewer_and_bypasses_fifo(tmp_path):
     env = {k: os.environ[k] for k in ('PATH', 'SYSTEMROOT', 'LANG', 'TZ', 'TIRITH_ENABLED') if k in os.environ}
     env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(state), PYTHONPATH=str(repo))
     result = subprocess.run([sys.executable, str(Path(__file__).parent / 'fixtures' / 'authority_controls_peer.py')],
-                            cwd=repo, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=100, check=False)
+                            cwd=repo, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=100, check=False)
     assert result.returncode == 0, result.stdout + '\n' + result.stderr
     receipt = json.loads((state / 'receipt.json').read_text())
     print(json.dumps(receipt))

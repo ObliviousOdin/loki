@@ -133,11 +133,11 @@ let
           buildSystemOverrides
           pythonPackageOverrides
           # ``setup.py`` permits wheel/sdist creation only from the sealed
-          # Hermes derivation. This is deliberately a derivation environment
+          # Loki derivation. This is deliberately a derivation environment
           # variable, not a devShell variable: ``nix develop -c uv build``
           # must remain blocked.
           (final: prev: {
-            hermes-agent = prev.hermes-agent.overrideAttrs (_old: {
+            obliviousodin-loki-agent = prev.obliviousodin-loki-agent.overrideAttrs (_old: {
               HERMES_NIX_BUILD = "1";
             });
           })
@@ -160,7 +160,7 @@ let
     lib.composeManyExtensions [
       editableOverlay
       (final: prev: {
-        hermes-agent = prev.hermes-agent.overrideAttrs (old: {
+        obliviousodin-loki-agent = prev.obliviousodin-loki-agent.overrideAttrs (old: {
           # point straight at the real source instead of the filtered nix store copy
           src = workspaceRoot;
           nativeBuildInputs = old.nativeBuildInputs ++ final.resolveBuildSystem { editables = [ ]; };
@@ -172,10 +172,10 @@ in
 {
   inherit python;
 
-  venv = pythonSet.mkVirtualEnv "hermes-agent-env" {
-    hermes-agent = dependency-groups;
+  venv = pythonSet.mkVirtualEnv "loki-env" {
+    obliviousodin-loki-agent = dependency-groups;
   };
-  editableVenv = editableSet.mkVirtualEnv "hermes-agent-editable-env" {
-    hermes-agent = dependency-groups;
+  editableVenv = editableSet.mkVirtualEnv "loki-editable-env" {
+    obliviousodin-loki-agent = dependency-groups;
   };
 }

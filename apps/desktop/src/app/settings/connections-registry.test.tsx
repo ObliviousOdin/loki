@@ -209,7 +209,7 @@ describe('ConnectionsRegistrySection', () => {
 
     await screen.findByText('Homelab')
     fireEvent.click(screen.getByText('Add connection'))
-    fireEvent.click(screen.getByRole('button', { name: 'Hermes Cloud' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Loki Cloud' }))
     fireEvent.change(screen.getByPlaceholderText('Homelab'), { target: { value: 'Team cloud' } })
     fireEvent.change(screen.getByPlaceholderText('http://homelab.lan:9119'), {
       target: { value: 'https://team.hermes.cloud' }

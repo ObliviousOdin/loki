@@ -1,4 +1,6 @@
 """Legacy token authentication must become an explicit authority principal."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 import json
 import os
@@ -119,7 +121,7 @@ def test_ordinary_daemon_keeps_control_auth_and_loop_witness(tmp_path, layout):
             temp.mkdir()
             env['TMPDIR'] = str(temp)
         with (tmp_path / 'daemon.log').open('w+') as log:
-            process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+            process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                        stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
             control_path = None
             try:

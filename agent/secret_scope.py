@@ -377,7 +377,9 @@ def load_env_file(env_path: Path) -> dict[str, str]:
         invalidate_env_file_cache(env_path)
         return {}
 
-    secrets = _parse_env_text(_decode_env_bytes(raw))
+    from loki_identity import with_loki_aliases
+
+    secrets = with_loki_aliases(_parse_env_text(_decode_env_bytes(raw)))
     if settled:
         with _ENV_FILE_CACHE_LOCK:
             _ENV_FILE_CACHE[key] = (fingerprint, dict(secrets))

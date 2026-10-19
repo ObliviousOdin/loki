@@ -807,7 +807,7 @@ class LineAdapter(BasePlatformAdapter):
             from hermes_constants import get_hermes_home
             hermes_home = Path(get_hermes_home()).resolve()
         except Exception:
-            hermes_home = Path.home().joinpath(".hermes").resolve()
+            hermes_home = Path.home().joinpath(".loki").resolve()
         resolved = path.resolve()
         if not any(resolved.is_relative_to(r) for r in (Path(tempfile.gettempdir()).resolve(), Path("/tmp").resolve(), hermes_home)):  # no-tmp: ok — macOS /private/tmp alias in the allowed-roots check, not a write target
             logger.warning("LINE: refusing to serve outside allowed roots: %s", resolved)
@@ -978,7 +978,7 @@ def interactive_setup() -> None:
 def register(ctx) -> None:
     ctx.register_platform(
         name="line", label="LINE", adapter_factory=lambda cfg: LineAdapter(cfg), check_fn=check_requirements,
-        dashboard_description="Use Hermes from LINE via the LINE Messaging API webhook.",
+        dashboard_description="Use Loki from LINE via the LINE Messaging API webhook.",
         docs_url="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/line",
         validate_config=validate_config, is_connected=is_connected,
         required_env=["LINE_CHANNEL_ACCESS_TOKEN", "LINE_CHANNEL_SECRET"], install_hint="pip install aiohttp",

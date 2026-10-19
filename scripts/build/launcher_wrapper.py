@@ -69,9 +69,9 @@ def default_pycache_dir(environ):
     PYTHONPYCACHEPREFIX."""
     if sys.platform == "win32":
         base = environ.get("LOCALAPPDATA")
-        return os.path.join(base, "hermes", "pycache") if base else None
+        return os.path.join(base, "loki", "pycache") if base else None
     base = environ.get("HOME")
-    return os.path.join(base, ".cache", "hermes-pycache") if base else None
+    return os.path.join(base, ".cache", "loki-pycache") if base else None
 
 
 def configure(here, environ=None):
@@ -84,6 +84,14 @@ def configure(here, environ=None):
     environ.pop("PYTHONPATH", None)
     environ.pop("PYTHONHOME", None)
     repo_entry, site_entry = payload_sys_paths(here)
+    # Crossing into another payload retains an owned profile, but its dependency
+    # store must be rebound from this payload's public launch environment.
+    if environ.get("__LOKI_ENV_BOUND") == "1" and environ.get("HERMES_HOME"):
+        environ["LOKI_HOME"] = environ["HERMES_HOME"]
+    environ.pop("__LOKI_ENV_BOUND", None)
+    environ["LOKI_RUNTIME_DIR"] = os.path.join(os.path.dirname(os.path.abspath(repo_entry)), "tools")
+    environ["LOKI_PYTHON"] = sys.executable
+    environ["LOKI_PYTHON_SRC_ROOT"] = repo_entry
     # Repo snapshot first — its hermes_cli wins over anything stale in
     # site-packages (the sealed payload has no working editable install).
     sys.path.insert(0, repo_entry)

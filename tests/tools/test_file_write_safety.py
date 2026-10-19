@@ -985,7 +985,8 @@ class TestProfileHomeExemptsHermesRoot:
         assert (root / "LEDGER.md").read_text(encoding="utf-8") == "caliber fixed"
         assert approvals["calls"] == []
 
-    def test_only_a_real_hermes_root_is_exempt(self, tmp_path, monkeypatch, approvals):
+    @pytest.mark.parametrize("project_home", [".loki", ".hermes"])
+    def test_only_a_real_hermes_root_is_exempt(self, tmp_path, monkeypatch, approvals, project_home):
         """Negatives hold with a named profile active: a checkout's ``.hermes/config.yaml`` and
         protected basenames stay gated (fail-closed, unwritten), and a coincidental
         ``.../profiles/<name>`` tree that is NOT a Hermes root never exempts its parent."""
@@ -994,13 +995,13 @@ class TestProfileHomeExemptsHermesRoot:
 
         _root, profile = self._profile_layout(tmp_path)
         repo = tmp_path / "repo"
-        (repo / ".hermes").mkdir(parents=True)
+        (repo / project_home).mkdir(parents=True)
         monkeypatch.delenv("HERMES_HOME", raising=False)
         token = set_hermes_home_override(str(profile))
         try:
-            assert ft._protected_instruction_reason(str(repo / ".hermes" / "config.yaml"))
+            assert ft._protected_instruction_reason(str(repo / project_home / "config.yaml"))
             assert ft._protected_instruction_reason(str(repo / "AGENTS.md")) == "AGENTS.md"
-            target = repo / ".hermes" / "config.yaml"
+            target = repo / project_home / "config.yaml"
             res = self._write(target, "gate: off\n")
         finally:
             reset_hermes_home_override(token)

@@ -24,11 +24,12 @@ def bundle(tmp_path, monkeypatch):
     archive = resources / 'app.asar'
     archive.write_bytes(struct.pack('<4I', 4, 8 + len(padded), 4 + len(padded), len(header)) + padded + package)
     (tmp_path / '.gitignore').write_text('apps/desktop/release/\n', encoding='utf-8')
-    monkeypatch.setattr(verify, '_desktop_packaged_executable', lambda _: resources.parent / 'Hermes.exe')
+    monkeypatch.setattr(verify, '_desktop_packaged_executable', lambda _: resources.parent / 'Loki.exe')
     monkeypatch.setattr(verify, '_desktop_exe_integrity_error', lambda _: None)
     # Host-independent artifact contract; executable lookup itself is covered natively.
     from hermes_cli import main_desktop
-    monkeypatch.setattr(main_desktop, '_desktop_packaged_executable', lambda _: resources.parent / 'Hermes.exe')
+    monkeypatch.setattr(main_desktop, '_desktop_packaged_executable', lambda _: resources.parent / 'Loki.exe')
+    monkeypatch.setattr(main_desktop, '_packaged_resources_dir', lambda _: resources)
     copy_freshness_scripts(tmp_path)
     stamp_product(tmp_path, "desktop", dist)
     use_host_node_as_pm_node(monkeypatch)
@@ -74,7 +75,7 @@ def _app_only_under(root):
     desktop = (root / 'apps' / 'desktop').resolve()
 
     def lookup(candidate):
-        return desktop / 'release/fixture/Hermes.exe' if Path(candidate).resolve() == desktop else None
+        return desktop / 'release/fixture/Loki.exe' if Path(candidate).resolve() == desktop else None
 
     return lookup
 

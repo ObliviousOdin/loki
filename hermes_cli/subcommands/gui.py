@@ -24,10 +24,10 @@ def build_gui_parser(subparsers, *, cmd_gui: Callable) -> None:
     gui_parser.add_argument(
         "--ignore-existing", action="store_true",
         help="Skip the installed Hermes runtime (~/.hermes/hermes-agent) so no local "
-             "backend starts and Desktop offers connect or install instead. --hermes-root "
+             "backend starts and Desktop offers connect or install instead. --loki-root "
              "and the bundled runtime still win; a runtime installed during this launch is used.")
     gui_parser.add_argument(
-        "--hermes-root",
+        "--loki-root", "--hermes-root", dest="hermes_root", metavar="PATH",
         help="Override the Hermes source root used by Desktop (sets HERMES_DESKTOP_HERMES_ROOT)")
     gui_parser.add_argument(
         "--cwd",
@@ -51,8 +51,8 @@ def build_gui_parser(subparsers, *, cmd_gui: Callable) -> None:
             "rebuilds with a certificate-anchored identity. Idempotent — safe "
             "to re-run after updates.")
     gui_parser.add_argument(
-        "--identity", default="Hermes Local Signing",
-        help="Certificate name to create/use for --setup-tcc-identity (default: Hermes Local Signing)",
+        "--identity", default="Loki Local Signing",
+        help="Certificate name to create/use for --setup-tcc-identity (default: Loki Local Signing)",
     )
     gui_parser.add_argument(
         "--close-preview",

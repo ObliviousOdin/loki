@@ -16,17 +16,17 @@ def test_windows_update_writes_locale_independent_marker_and_result(tmp_path, mo
     shell = shutil.which("powershell.exe")
     assert shell, "native Windows acceptance requires PowerShell"
     script = Path(__file__).resolve().parent.parent.parent.parent / "scripts/desktop-update/windows.ps1"
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
-    monkeypatch.delenv("HERMES_UPDATE_STARTED_AT", raising=False)
+    monkeypatch.setenv("LOKI_HOME", str(tmp_path))
+    monkeypatch.delenv("LOKI_UPDATE_STARTED_AT", raising=False)
     # -SelfTestMarker runs the actual claim and finally/result publication,
     # but never updates a checkout, waits on Desktop, or launches processes.
     command = (
         "[Threading.Thread]::CurrentThread.CurrentCulture = [Globalization.CultureInfo]::GetCultureInfo('es-ES'); "
-        "& $env:HERMES_TIMESTAMP_TEST_SCRIPT -InstallRoot $env:HERMES_HOME -NoUi -NoMarkerCleanup -SelfTestMarker"
+        "& $env:LOKI_TIMESTAMP_TEST_SCRIPT -InstallRoot $env:LOKI_HOME -NoUi -NoMarkerCleanup -SelfTestMarker"
     )
     started = int(time.time())
     result = subprocess.run([shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", command],
-                            env={**os.environ, "HERMES_TIMESTAMP_TEST_SCRIPT": str(script)},
+                            env={**os.environ, "LOKI_TIMESTAMP_TEST_SCRIPT": str(script)},
                             capture_output=True, text=True, timeout=60, check=False)
     finished = int(time.time())
     assert result.returncode == 0, result.stdout + result.stderr

@@ -17,11 +17,11 @@ import { copyFile, mkdir, readdir } from 'node:fs/promises'
 import { runPython } from '../../../scripts/build/python.mjs'
 
 import { assertPackagedBackendReadyArtifact, resolvePackagedAsarPath } from './backend-ready-artifact.mjs'
-import { batchSignAppTree } from './batch-sign-binaries.mjs'
 import { rehashPayloadDigests } from './payload-digests.mjs'
-import { resolveSigningIdentity, signNestedChromium } from './sign-nested-chromium.mjs'
+import { signNestedChromium } from './sign-nested-chromium.mjs'
 import { signWheelZipMembers } from './sign-wheel-zips.mjs'
 import { sanitizeTree } from './sanitize-pe-signatures.mjs'
+import { sealMacPreview } from './mac-preview-seal.mjs'
 
 /**
  * Put our full-resolution `assets/icon.icns` back as the bundle's legacy icon.
@@ -82,7 +82,8 @@ export default async function afterPack(context) {
     await restoreMacLocaleMarkers(context)
     if (fs.existsSync(payload)) {
       const entitlements = path.join(import.meta.dirname, '..', 'electron', 'entitlements.mac.inherit.plist')
-      const { identity, keychain } = await resolveSigningIdentity(context.packager)
+      const identity = null
+      const keychain = undefined
       const nested = signNestedChromium(payload, { entitlements, identity, keychain })
       console.log(
         `[after-pack] repaired ${nested.repaired} framework links; signed ${nested.signed} nested chromium targets` +
@@ -97,9 +98,11 @@ export default async function afterPack(context) {
             (identity ? ` as ${identity}` : ' (no Developer ID in the builder keychain)'))
       }
       // The macOS signer refreshes this again before sealing the outer app.
-      // Unsigned builds end here and still need final-byte facts.
+      // Record relocation facts; the local sealer refreshes final signed bytes
+      // again before sealing the outer app.
       rehashPayloadDigests(payload)
     }
+    await sealMacPreview(context)
     return
   }
   if (platform === 'linux') {
@@ -135,9 +138,6 @@ export default async function afterPack(context) {
   // per-file by the customSign hook (scripts/batch-sign-binaries.mjs) after
   // electron-builder's own rcedit + fuses pass. No-op with a loud warning when
   // the AZURE_SIGN_* environment is absent (unsigned/fork/canary lanes).
-  await batchSignAppTree(context.appOutDir, exe, {
-    config: context.packager.config,
-    resourcesDir: context.packager.buildResourcesDir,
-  })
+  console.log('[after-pack] Loki preview is unsigned; no inherited signing provider is used')
   rehashPayloadDigests(payload)
 }

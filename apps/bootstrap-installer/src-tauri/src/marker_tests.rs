@@ -280,7 +280,7 @@ fn heal_end_to_end_marker_lifecycle() {
     );
 
     // And with the marker gone the heal can never fire twice (the retry's
-    // own exit 2, e.g. a genuinely still-running Hermes, stays terminal).
+    // own exit 2, e.g. a genuinely still-running Loki, stays terminal).
     assert!(!should_heal_self_marker_refusal(
         Some(UPDATE_EXIT_CONCURRENT),
         &marker,

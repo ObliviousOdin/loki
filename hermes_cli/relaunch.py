@@ -93,7 +93,7 @@ def resolve_hermes_bin() -> Optional[str]:
         abs_path = os.path.abspath(argv0)
         if os.access(abs_path, os.X_OK) and not _is_unsafe_python_launcher(abs_path):
             return abs_path
-    path_bin = shutil.which("hermes")
+    path_bin = shutil.which("loki")
     if path_bin and not _is_unsafe_python_launcher(path_bin):
         return path_bin
     return None

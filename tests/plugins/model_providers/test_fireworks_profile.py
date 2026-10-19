@@ -7,6 +7,8 @@ IDs, not the router-only tier).
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import pytest
 
 
@@ -41,7 +43,7 @@ class TestFireworksHeaders:
     def test_user_agent_identifies_hermes(self, fireworks_profile):
         from hermes_cli.version_info import get_version_info
         assert fireworks_profile.default_headers["User-Agent"] == (
-            f"HermesAgent/{get_version_info().base_version}"
+            CLIENT_USER_AGENT
         )
 
 

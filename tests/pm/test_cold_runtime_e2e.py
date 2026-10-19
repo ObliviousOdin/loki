@@ -101,7 +101,7 @@ def test_cold_cli_builds_own_runtime_discovers_plugins_and_repairs_app(tmp_path,
     for name in ("pm", "hermes_cli"):
         shutil.copytree(source / name, repo / name,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    for name in ("utils.py", "hermes_constants.py", "hermes_yaml.py",
+    for name in ("utils.py", "loki_identity.py", "hermes_constants.py", "hermes_yaml.py",
                  "hermes_bootstrap.py"):
         shutil.copy2(source / name, repo / name)
     # No production application lock or metadata enters this source snapshot.
@@ -116,7 +116,7 @@ def test_cold_cli_builds_own_runtime_discovers_plugins_and_repairs_app(tmp_path,
         '[tool.uv]\npackage=false\n', encoding="utf-8",
     )
     home = tmp_path / "home"
-    hermes_home = home / ".hermes"
+    hermes_home = home / ".loki"
     plugin = hermes_home / "plugins" / "cold-proof"
     plugin.mkdir(parents=True)
     config = hermes_home / "config.yaml"
@@ -129,8 +129,8 @@ def test_cold_cli_builds_own_runtime_discovers_plugins_and_repairs_app(tmp_path,
     scratch = tmp_path / "scratch"
     scratch.mkdir()
     env = {
-        "HOME": str(home), "HERMES_HOME": str(hermes_home),
-        "HERMES_RUNTIME_DIR": str(store), "PATH": os.defpath,
+        "HOME": str(home), "LOKI_HOME": str(hermes_home), "HERMES_HOME": str(hermes_home),
+        "LOKI_RUNTIME_DIR": str(store), "HERMES_RUNTIME_DIR": str(store), "PATH": os.defpath,
         "TMPDIR": str(scratch), "LANG": "C.UTF-8", "LC_ALL": "C.UTF-8",
         "UV_PYTHON_DOWNLOADS": "never", "UV_NO_CONFIG": "1",
         "UV_CACHE_DIR": str(tmp_path / "seed-cache"),
@@ -188,7 +188,7 @@ assert importlib.util.find_spec('idna') is None
         assert not (hermes_home / "installs").exists()
         result = _bare(bootstrap_python, repo, bootstrap + cli.format(action="install"), env=env)
         assert "✓ venv" in result.stdout
-        assert "Preparing the isolated Hermes runtime" in result.stderr
+        assert "Preparing the isolated Loki runtime" in result.stderr
         if bootstrap_name:
             # The installed launcher still starts on the old interpreter after
             # a source swap. Completion must re-exec before importing the app.

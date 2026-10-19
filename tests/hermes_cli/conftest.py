@@ -6,6 +6,40 @@ import pytest
 
 
 @pytest.fixture
+def loki_oauth_test_apps(monkeypatch):
+    """Mock OAuth servers have explicitly provisioned apps; production defaults stay empty."""
+    from copy import deepcopy
+    from hermes_cli import config
+
+    original = config.load_config_readonly
+
+    def configured(*args, **kwargs):
+        cfg = deepcopy(original(*args, **kwargs) or {})
+        clients = cfg.setdefault("auth", {}).setdefault("oauth_clients", {})
+        for provider in ("openai-codex", "xai-oauth", "minimax-oauth", "qwen-oauth", "anthropic", "nous"):
+            clients[provider] = {"client_id": f"test-loki-{provider}"}
+        return cfg
+
+    monkeypatch.setattr(config, "load_config_readonly", configured)
+
+
+@pytest.fixture
+def loki_external_login_opt_in(monkeypatch):
+    """External-login tests opt into borrowing their temporary fixture credentials."""
+    from copy import deepcopy
+    from hermes_cli import config
+
+    original = config.load_config_readonly
+
+    def configured(*args, **kwargs):
+        cfg = deepcopy(original(*args, **kwargs) or {})
+        cfg.setdefault("auth", {})["adopt_external_logins"] = True
+        return cfg
+
+    monkeypatch.setattr(config, "load_config_readonly", configured)
+
+
+@pytest.fixture
 def all_assignees_spawnable(monkeypatch):
     """Pretend every assignee maps to a real Hermes profile.
 

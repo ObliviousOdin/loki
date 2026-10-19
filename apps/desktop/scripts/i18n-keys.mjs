@@ -43,6 +43,7 @@ async function loadEnglishCatalog(source) {
   const alias = {
     '@hermes/shared/ansi': join(source, 'apps/shared/src/ansi.ts'),
     '@hermes/shared/billing': join(source, 'apps/shared/src/billing-types.ts'),
+    '@hermes/shared/branding': join(source, 'apps/shared/src/branding.ts'),
     '@hermes/shared/color': join(source, 'apps/shared/src/color.ts'),
     '@hermes/shared/i18n': join(source, 'apps/shared/src/i18n.ts'),
     '@hermes/shared/translucency': join(source, 'apps/shared/src/translucency.ts'),

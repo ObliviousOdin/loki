@@ -91,11 +91,11 @@ _BOOTSTRAPS = (
     ("entry", re.compile(r"import os, re, sys\s.*\bfrom\s+(?P<target>[\w.]+)\s+import\s+(?P<func>\w+)\b.*\bsys\.exit\(\s*(?P=func)\(\)\s*\)", re.DOTALL)),
     # scripts/build/launchers.py::posix_launcher (the bundled/Docker payload's bin/hermes). Spelled out
     # statement by statement: a ``.*`` would span a carrier's source plus the launcher argv it carries.
-    # Only the ``hermes`` entry: the same shape importing any other module is someone else's program.
+    # Only known product entry modules: the same shape importing another module is someone else's program.
     ("module", re.compile(
         rf"import os, site, sys;\s*sys\.argv\[0\]\s*=\s*{_Q}[\w.-]+{_Q};\s*"
         rf"site\.addsitedir\(os\.environ\[{_Q}HERMES_SITE{_Q}\]\);"
-        r"\s*from\s+(?P<target>hermes_cli\.main)\s+import\s+main\s*;\s*sys\.exit\(\s*main\(\)\s*\)")),
+        r"\s*from\s+(?P<target>hermes_cli\.main|loki)\s+import\s+main\s*;\s*sys\.exit\(\s*main\(\)\s*\)")),
     # hermes_cli._launchers._write_cmd_launcher: the launcher script, base64-encoded
     ("base64", re.compile(rf"import base64; exec\(base64\.b64decode\({_Q}(?P<target>[A-Za-z0-9+/=]+){_Q}\)\)")),
 )
@@ -113,6 +113,9 @@ def _bootstrap_entry(source: str, argv: list[str]) -> list[str] | None:
     if match is None:
         return None
     target = match["target"]
+    # Loki's public wrapper binds its namespace and enters the retained upstream CLI in-process.
+    if kind == "module" and target == "loki":
+        target = "hermes_cli.main"
     if kind == "base64":
         import base64
         import binascii

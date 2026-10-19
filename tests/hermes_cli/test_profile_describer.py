@@ -62,15 +62,19 @@ def test_describer_writes_description_with_auto_true(profile_env, monkeypatch):
     monkeypatch.setattr(
         profiles_mod, "get_profile_dir", lambda n: profile_env,
     )
+    monkeypatch.setattr(profiles_mod, "_read_config_model", lambda _dir: ("Hermes-3", "Hermes-provider"))
 
     payload = jsonlib.dumps({"description": "writes Python codebases"})
-    with _patch_aux_client(payload), patch(
+    with _patch_aux_client(payload) as called, patch(
         "agent.auxiliary_client.get_auxiliary_extra_body", return_value={}
     ):
         outcome = describer.describe_profile("myprof")
 
     assert outcome.ok, outcome.reason
     assert outcome.description == "writes Python codebases"
+    messages = called.call_args.kwargs["messages"]
+    assert messages[0]["content"].startswith("You are a profile-describer for the Loki kanban board.")
+    assert "Hermes-3" in messages[1]["content"] and "Hermes-provider" in messages[1]["content"]
     meta = profiles_mod.read_profile_meta(profile_env)
     assert meta["description"] == "writes Python codebases"
     assert meta["description_auto"] is True

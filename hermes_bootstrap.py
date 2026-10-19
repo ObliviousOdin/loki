@@ -507,9 +507,14 @@ def _legacy_post_swap_invocation(argv: list[str]) -> tuple[Path, list[str]] | No
 # without this, ``pm`` is unimportable and the launch silently skips PM adoption.
 harden_import_path(str(_root))
 
+# Resolve the fork identity from this checkout before any stateful application imports.
+from loki_identity import bind_loki_environment
+
+bind_loki_environment()
+
 
 def _settle_interrupted_update() -> None:
-    """Put back the tree a killed ``hermes update`` left half-moved, before PM, launch preparation or
+    """Put back the tree a killed ``loki update`` left half-moved, before PM, launch preparation or
     any Hermes package imports from it (``hermes_cli._early_recovery``; ``hermes_cli.main`` repeats the
     call for entries that never reach this module). A killed ZIP swap can leave ``hermes_cli/`` itself
     moved aside: the journal-driven restore then runs from that moved-aside copy, the code that wrote
@@ -599,24 +604,24 @@ if not _pm_repair:
             os.execv(str(_launch_python), _command)
     except Exception as exc:
         if isinstance(exc, PermissionError) and (message := install_state_permission_message(_root, exc)):
-            print(f"hermes: {message}", file=sys.stderr)
+            print(f"loki: {message}", file=sys.stderr)
             raise SystemExit(1) from None
         # Degrade, never brick the CLI: the previous dependency generation is still selected
         # (a failed sync commits nothing), so an offline or half-finished update leaves a
         # usable Hermes plus a warning. Activation below is the real gate — a tree whose
         # dependencies cannot load still exits with the repair remedy.
-        print(f"hermes: source-update completion failed: {exc}; "
-              "running with the previous dependencies — run `hermes update` to finish it",
+        print(f"loki: source-update completion failed: {exc}; "
+              "running with the previous dependencies — run `loki update` to finish it",
               file=sys.stderr)
     try:
         recover_if_needed(_root)
         activate_dependencies(_root)
     except (RuntimeError, OSError) as exc:
         if isinstance(exc, PermissionError) and (message := install_state_permission_message(_root, exc)):
-            print(f"hermes: {message}", file=sys.stderr)
+            print(f"loki: {message}", file=sys.stderr)
             raise SystemExit(1) from None
         if command_argv(sys.argv[1:])[:1] != ["pm"]:
-            print(f"hermes: {exc}; run `hermes pm repair`", file=sys.stderr)
+            print(f"loki: {exc}; run `loki pm repair`", file=sys.stderr)
             raise SystemExit(1) from None
 install_happy_eyeballs_socket_connect()
 export_scratch_tmp_env()

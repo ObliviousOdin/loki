@@ -210,7 +210,7 @@ def collect_directory_manifests() -> list[PluginManifest]:
     logger.debug("Scanning user plugins: %s", user_dir)
     _scan("user", user_dir, "user")
     if _origin._env_enabled("HERMES_ENABLE_PROJECT_PLUGINS"):
-        project_dir = Path.cwd() / ".hermes" / "plugins"
+        project_dir = Path.cwd() / ".loki" / "plugins"
         logger.debug("Scanning project plugins: %s", project_dir)
         _scan("project", project_dir, "project")
     else:
@@ -298,7 +298,7 @@ def gate_manifest(
             return ManifestGate("defer")
     if enabled is None or not names & enabled:
         return _placeholder(
-            f"not enabled in config (run `hermes plugins enable {lookup_key}` to activate)", logging.DEBUG,
+            f"not enabled in config (run `loki plugins enable {lookup_key}` to activate)", logging.DEBUG,
             "Skipping '%s' (not in plugins.enabled)",
         )
     if manifest.source != "bundled":
@@ -308,6 +308,6 @@ def gate_manifest(
         removed = installed_plugin_removal(manifest.name, manifest.path)
         if removed is not None:
             error = f"removed from the Hermes plugin catalog: {removed.reason or 'no reason recorded'}"
-            return _placeholder(error, logging.WARNING, "Refusing to load plugin '%s' — %s; run `hermes plugins remove`",
+            return _placeholder(error, logging.WARNING, "Refusing to load plugin '%s' — %s; run `loki plugins remove`",
                                 error)
     return ManifestGate("load")

@@ -20,8 +20,8 @@ def _blank_slate_done(config: dict, hermes_home, tools_line: str, *extra: str, i
     from hermes_cli.setup import _info, _print_setup_summary, print_success
     print()
     print_success("Blank Slate setup complete — minimal agent ready.")
-    _info(*([intro] if intro else []), tools_line, "  Seed skills:         hermes skills opt-in --sync",
-          "  Add MCP servers:     hermes mcp add", *extra, "  Tune agent settings: hermes setup agent", None)
+    _info(*([intro] if intro else []), tools_line, "  Seed skills:         loki skills opt-in --sync",
+          "  Add MCP servers:     loki mcp add", *extra, "  Tune agent settings: loki setup agent", None)
     _print_setup_summary(config, hermes_home)
 
 
@@ -57,22 +57,22 @@ def _run_nous_flow(config: dict, *, context: str, cancel_exc: tuple, cancel_line
 def _run_portal_one_shot(config: dict) -> None:
     """One-shot Nous Portal setup (``hermes setup --portal`` / ``hermes portal``)."""
     from hermes_cli.setup import _info, _print_banner, _record_setup_completed, print_error, print_info, print_success
-    _print_banner("│     ☤ Hermes Setup — Nous Portal (one-shot)             │")
-    _info(None, "  One subscription, 300+ models, plus the Tool Gateway:",
-          "    web search, image generation, TTS, browser automation",
-          "    — all routed through your Nous Portal sub.", None,
-          "  Sign up: https://portal.nousresearch.com/manage-subscription", None)
+    _print_banner("│     ᛚ Loki Setup — Nous Portal (one-shot)             │")
+    _info(None, "  Use your own Nous Portal account.",
+          "  OAuth requires a client authorized for Loki.",
+          "  Available models and tools depend on your account.", None,
+          "  Account settings: https://portal.nousresearch.com/manage-subscription", None)
 
     def _on_error(exc: Exception) -> None:
         from hermes_cli.auth_error_copy import provider_setup_failure_lines
         print()
-        lead, *rest = provider_setup_failure_lines(exc, retry_command="hermes portal")
+        lead, *rest = provider_setup_failure_lines(exc, retry_command="loki portal")
         print_error(f"  {lead}")
         for line in rest:
             print_info(f"  {line}")
 
-    if not _run_nous_flow(config, context="`hermes portal`", cancel_exc=(KeyboardInterrupt, EOFError, SystemExit),
-                          cancel_lines=(None, "  Setup cancelled.", "  You can retry later with `hermes portal`."),
+    if not _run_nous_flow(config, context="`loki portal`", cancel_exc=(KeyboardInterrupt, EOFError, SystemExit),
+                          cancel_lines=(None, "  Setup cancelled.", "  You can retry later with `loki portal`."),
                           print_error=_on_error):
         return
 
@@ -81,7 +81,7 @@ def _run_portal_one_shot(config: dict) -> None:
         _reload_config_into(config, dict_only=True)
     print()
     print_success("Portal setup complete.")
-    _info("  Run `hermes portal info` to inspect routing.", "  Run `hermes` to start chatting.")
+    _info("  Run `loki portal info` to inspect routing.", "  Run `loki` to start chatting.")
     _record_setup_completed(config)
 
 
@@ -94,19 +94,20 @@ def _run_first_time_quick_setup(config: dict, hermes_home, is_existing: bool):
     )
     # Step 1: Nous Portal — OAuth login + model selection (provider set to "nous" by the save).
     print_header("Nous Portal", gap=True)
-    _info("One subscription, 300+ models, plus the Tool Gateway:",
-          "  web search, image generation, TTS, browser automation.",
-          "Sign up: https://portal.nousresearch.com/manage-subscription", None)
+    _info("Use your own Nous Portal account.",
+          "OAuth requires a client authorized for Loki.",
+          "Available models and tools depend on your account.",
+          "Account settings: https://portal.nousresearch.com/manage-subscription", None)
 
     def _on_error(exc: Exception) -> None:
         from hermes_cli.auth_error_copy import provider_setup_failure_lines
-        lead, *rest = provider_setup_failure_lines(exc, retry_command="hermes model")
+        lead, *rest = provider_setup_failure_lines(exc, retry_command="loki model")
         print_warning(lead)
         for line in rest:
             print_info(line)
 
-    _run_nous_flow(config, context="quick setup", cancel_exc=(KeyboardInterrupt, EOFError),
-                   cancel_lines=(None, "Nous Portal setup cancelled."), print_error=_on_error)
+    provider_ready = _run_nous_flow(config, context="quick setup", cancel_exc=(KeyboardInterrupt, EOFError),
+                                    cancel_lines=(None, "Nous Portal setup cancelled."), print_error=_on_error)
     # The wizard's later save_config(config) must not clobber the login/model save.
     _reload_config_into(config)
 
@@ -118,7 +119,7 @@ def _run_first_time_quick_setup(config: dict, hermes_home, is_existing: bool):
     # Step 4: Offer messaging gateway setup
     print()
     gateway_choice = prompt_choice("Connect a messaging platform? (Telegram, Discord, etc.)", [
-        "Set up messaging now (recommended)", "Skip — set up later with 'hermes setup gateway'",
+        "Set up messaging now (recommended)", "Skip — set up later with 'loki setup gateway'",
     ], 0)
     if gateway_choice == 0:
         setup_gateway(config)
@@ -128,13 +129,18 @@ def _run_first_time_quick_setup(config: dict, hermes_home, is_existing: bool):
         from hermes_cli.gateway_setup_service import ensure_gateway_service
         ensure_gateway_service(context="setup", interactive=True, config=config)
     print()
-    print_success("Setup complete! You're ready to go.")
-    _info(None, "  Configure all settings:    hermes setup")
+    if provider_ready:
+        print_success("Setup complete! You're ready to go.")
+    else:
+        print_warning("Settings saved. Provider setup is incomplete; Loki cannot chat yet.")
+        print_info("  Finish provider setup:     loki model")
+    _info(None, "  Configure all settings:    loki setup")
     if gateway_choice != 0:
-        print_info("  Connect Telegram/Discord:  hermes setup gateway")
+        print_info("  Connect Telegram/Discord:  loki setup gateway")
     _print_macos_fda_tip()
     print()
-    _print_setup_summary(config, hermes_home)
+    if provider_ready:
+        _print_setup_summary(config, hermes_home)
 
 
 def _print_macos_fda_tip() -> None:
@@ -156,9 +162,9 @@ def _print_macos_fda_tip() -> None:
         return  # indeterminate — don't nag
     _info(None, "  macOS tip: silence ALL folder permission prompts with one switch —",
           "  System Settings → Privacy & Security → Full Disk Access → enable",
-          "  your terminal (and Hermes.app if you use Desktop), or run:",
+          "  your terminal (and Loki.app if you use Desktop), or run:",
           "    open \"x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles\"",
-          "  The grant is permanent — it survives every Hermes update.")
+          "  The grant is permanent — it survives every Loki update.")
 
 
 def _blank_slate_minimal_toolsets(config: dict):
@@ -233,7 +239,7 @@ def _run_blank_slate_setup(config: dict, hermes_home, is_existing: bool):
           "Everything else (web, browser, code exec, memory,",
           "delegation, cron, plugins, MCP, …) starts disabled. The",
           "essential `hermes-agent` skill is always kept so the agent",
-          "can help you drive and configure Hermes itself.", None)
+          "can help you drive and configure Loki itself.", None)
 
     # Step 1: Provider & Model (REQUIRED — the agent cannot run without it)
     print_header("Step 1 — Provider & Model (required)")
@@ -266,7 +272,7 @@ def _run_blank_slate_setup(config: dict, hermes_home, is_existing: bool):
     # Blank Slate means no bundled skills; record the opt-out so future `hermes update` runs
     # don't re-inject them.
     _set_bundled_skills_opt_out(True, "skill opt-out")
-    _blank_slate_done(config, hermes_home, "  Enable tools:        hermes tools", "  Enable plugins:      hermes plugins",
+    _blank_slate_done(config, hermes_home, "  Enable tools:        loki tools", "  Enable plugins:      loki plugins",
                       intro="Enable anything later, on demand:")
 
 
@@ -287,8 +293,8 @@ def _blank_slate_walkthrough(config: dict, hermes_home):
     def _opted_out(_result) -> None:
         _info("No skills seeded (except the essential `hermes-agent`",
               "skill). A .no-bundled-skills marker keeps future",
-              "`hermes update` runs from re-injecting them. Opt back in any",
-              "time with `hermes skills opt-in --sync`.")
+              "`loki update` runs from re-injecting them. Opt back in any",
+              "time with `loki skills opt-in --sync`.")
 
     # Seeding first clears any stale opt-out marker; declining sets it (essential skills still seed).
     _set_bundled_skills_opt_out(
@@ -309,16 +315,16 @@ def _blank_slate_walkthrough(config: dict, hermes_home):
             logger.debug("blank-slate tools_command error: %s", exc)
             print_warning(f"Tool selector encountered an error: {exc}")
     else:
-        print_info("Keeping the minimal toolset. Add tools later with `hermes tools`.")
+        print_info("Keeping the minimal toolset. Add tools later with `loki tools`.")
 
     # Built-in plugins and MCP servers (off unless chosen)
     for header, question, yes_msg, no_msg in (
         ("Plugins", "Review and enable built-in plugins now?",
-         "Manage plugins with `hermes plugins list` / `hermes plugins install`.",
-         "No plugins enabled. Add later with `hermes plugins`."),
+         "Manage plugins with `loki plugins list` / `loki plugins install`.",
+         "No plugins enabled. Add later with `loki plugins`."),
         ("MCP Servers", "Add an MCP server now?",
-         "Add servers with `hermes mcp add <name> --url ... | --command ...`.",
-         "No MCP servers configured. Add later with `hermes mcp add`."),
+         "Add servers with `loki mcp add <name> --url ... | --command ...`.",
+         "No MCP servers configured. Add later with `loki mcp add`."),
     ):
         print_header(header, gap=True)
         print_info(yes_msg if prompt_yes_no(question, default=False) else no_msg)
@@ -328,7 +334,7 @@ def _blank_slate_walkthrough(config: dict, hermes_home):
     if prompt_yes_no("Connect a messaging platform (Telegram, Discord, …)?", default=False):
         setup_gateway(config)
     save_config(config)
-    _blank_slate_done(config, hermes_home, "  Enable more tools:   hermes tools")
+    _blank_slate_done(config, hermes_home, "  Enable more tools:   loki tools")
 
 
 def _run_quick_setup(config: dict, hermes_home):
@@ -338,6 +344,7 @@ def _run_quick_setup(config: dict, hermes_home):
         _prompt_and_save_env_var, _prompt_api_key, _section_rule, prompt_checklist, save_config,
     )
     from hermes_cli.config import (get_missing_env_vars, get_missing_config_fields, check_config_version)
+    from hermes_cli.loki_branding import public_env_name
     print_header("Quick Setup — Missing Items Only", gap=True)
 
     # Check what's missing
@@ -348,33 +355,33 @@ def _run_quick_setup(config: dict, hermes_home):
     current_ver, latest_ver = check_config_version()
     if not (missing_required or missing_optional or missing_config or current_ver < latest_ver):
         print_success("Everything is configured! Nothing to do.")
-        _info(None, "Run 'hermes setup' and choose 'Full Setup' to reconfigure,",
+        _info(None, "Run 'loki setup' and choose 'Full Setup' to reconfigure,",
               "or pick a specific section from the menu.")
         return
     if missing_required:
         _info(None, f"{len(missing_required)} required setting(s) missing:")
         for var in missing_required:
-            print(f"     • {var['name']}")
+            print(f"     • {public_env_name(var['name'])}")
         print()
         for var in missing_required:
             print()
-            print(color(f"  {var['name']}", Colors.CYAN))
+            print(color(f"  {public_env_name(var['name'])}", Colors.CYAN))
             print_info(f"  {var.get('description', '')}")
             if var.get("url"):
                 print_info(f"  Get key at: {var['url']}")
-            _prompt_and_save_env_var(var, f"  Saved {var['name']}", f"  Skipped {var['name']}")
+            _prompt_and_save_env_var(var, f"  Saved {public_env_name(var['name'])}", f"  Skipped {public_env_name(var['name'])}")
     missing_tools = [v for v in missing_optional if v.get("category") == "tool"]
     missing_messaging = [v for v in missing_optional if v.get("category") == "messaging" and not v.get("advanced")]
     if missing_tools:  # checklist, then the API-key screen for each pick
         print_header("Tool API Keys", gap=True)
-        labels = [var.get("description", var["name"]) + (f" → {', '.join(var['tools'][:2])}" if var.get("tools") else "")
+        labels = [var.get("description", public_env_name(var["name"])) + (f" → {', '.join(var['tools'][:2])}" if var.get("tools") else "")
                   for var in missing_tools]
         for idx in prompt_checklist("Which tools would you like to configure?", labels):
             _prompt_api_key(missing_tools[idx])
     if missing_messaging:  # checklist, then prompt for each selected platform's vars
         print_header("Messaging Platforms", gap=True)
-        _info("Connect Hermes to messaging apps to chat from anywhere.",
-              "You can configure these later with 'hermes setup gateway'.")
+        _info("Connect Loki to messaging apps to chat from anywhere.",
+              "You can configure these later with 'loki setup gateway'.")
         # Group by platform in first-seen order; vars matching no platform are dropped.
         grouped: dict[str, list] = {}
         emojis = {}

@@ -6,6 +6,8 @@ Split out of ``hermes_cli/auth.py``; origin helpers are imported lazily per func
 
 from __future__ import annotations
 
+from hermes_cli.loki_auth_policy import require_oauth_client_id
+
 import logging
 import json
 import os
@@ -28,6 +30,9 @@ def _qwen_cli_auth_path() -> Path:
 
 def _read_qwen_cli_tokens() -> dict[str, Any]:
     from hermes_cli.auth import _qwen_cli_auth_path
+    from agent.credential_sources import adopt_external_logins_enabled
+    if not adopt_external_logins_enabled():
+        raise _qwen_err("External Qwen login adoption is disabled in Loki. Configure an API key or explicitly enable auth.adopt_external_logins.", "qwen_auth_missing")
     auth_path = _qwen_cli_auth_path()
     if not auth_path.exists():
         raise _qwen_err("Qwen CLI credentials not found. Run 'qwen auth qwen-oauth' first.", "qwen_auth_missing")
@@ -65,7 +70,7 @@ def _refresh_qwen_cli_tokens(tokens: dict[str, Any], timeout_seconds: float = 20
     try:
         response = httpx.post(
             QWEN_OAUTH_TOKEN_URL, headers=_FORM_JSON_HEADERS,
-            data={"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": QWEN_OAUTH_CLIENT_ID},
+            data={"grant_type": "refresh_token", "refresh_token": refresh_token, "client_id": require_oauth_client_id("qwen-oauth", QWEN_OAUTH_CLIENT_ID)},
             timeout=timeout_seconds,
         )
     except Exception as exc:

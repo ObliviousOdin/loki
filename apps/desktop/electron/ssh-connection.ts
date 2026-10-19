@@ -199,12 +199,12 @@ function controlSocketPath(user, host, port, baseDir?, identity: any = {}) {
 
 function shortControlDir(): string {
   // no-tmp: ok — AF_UNIX's short path budget rules out a deep HOME/TMPDIR; the parent and child are checked before use.
-  return `/tmp/hermes-ssh-${process.getuid!()}`
+  return `/tmp/loki-ssh-${process.getuid!()}`
 }
 
 function defaultControlDir(): string {
   if (process.platform === 'win32') {
-    return path.join(os.tmpdir(), 'hermes-desktop-ssh')
+    return path.join(os.tmpdir(), 'loki-desktop-ssh')
   }
 
   const homeDir = path.join(platformDefaultHermesHome(os.homedir()), 'desktop-ssh')
@@ -479,7 +479,7 @@ function sshErrorMessage(kind, conn, stderr?) {
 
       return (
         `Tailscale SSH requires an interactive browser check for ${host}. ` +
-        `Hermes Desktop runs SSH non-interactively. In Terminal, run ` +
+        `Loki Desktop runs SSH non-interactively. In Terminal, run ` +
         `\`ssh${portArg} ${host} true\`, complete the browser check, then retry. ` +
         `If checks recur, use a key-authenticated OpenSSH route or adjust the tailnet SSH check policy.`
       )

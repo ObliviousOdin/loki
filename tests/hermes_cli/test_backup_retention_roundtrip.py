@@ -1,7 +1,9 @@
 """Tests for hermes backup retention (--keep) and the session-store import round trip."""
 
 from argparse import Namespace
+import os
 from pathlib import Path
+import zipfile
 
 import pytest
 
@@ -19,26 +21,93 @@ def _no_real_gateway_service(monkeypatch):
     monkeypatch.setattr(gateway_mod, "_is_service_running", lambda: False)
 
 
-def test_run_backup_prunes_older_default_named_zips_but_not_others(tmp_path, monkeypatch):
+@pytest.mark.parametrize("directory_output", [False, True])
+def test_run_backup_prunes_older_default_named_zips_but_not_others(tmp_path, monkeypatch, capsys, directory_output):
     """Hourly `hermes backup` callers accumulated 150+ zips; --keep bounds the default-named
     ones and leaves custom-named or foreign zips alone (#81317)."""
     from argparse import Namespace
     from hermes_cli import backup as backup_mod
 
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".loki"
     home.mkdir()
     (home / "config.yaml").write_text("model: x\n")
     monkeypatch.setenv("HERMES_HOME", str(home))
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    output_dir = tmp_path / "archives" if directory_output else home / "backups"
+    output_dir.mkdir(parents=True, exist_ok=True)
     for i in range(4):
-        (tmp_path / f"hermes-backup-2026-01-0{i + 1}-000000.zip").write_bytes(b"old")
-    (tmp_path / "my-archive.zip").write_bytes(b"mine")
+        (output_dir / f"loki-backup-2026-01-0{i + 1}-000000.zip").write_bytes(b"old")
+    foreign = {
+        "hermes-backup-2000-01-01-000000.zip": b"Hermes archive",
+        "hermes-backup-2099-01-01-000000.zip": b"Newer Hermes archive",
+        "fabric-backup-2000-01-01-000000.zip": b"Fabric archive",
+        "my-archive.zip": b"mine",
+    }
+    for directory in (tmp_path, output_dir):
+        for name, data in foreign.items():
+            (directory / name).write_bytes(data)
 
-    backup_mod.run_backup(Namespace(output=None, keep=2))
+    assert backup_mod.run_backup(Namespace(output=str(output_dir) if directory_output else None, keep=2)) is True
 
-    kept = sorted(p.name for p in tmp_path.glob("hermes-backup-*.zip"))
-    assert len(kept) == 2 and kept[0] == "hermes-backup-2026-01-04-000000.zip"
-    assert (tmp_path / "my-archive.zip").exists()
+    for directory in (tmp_path, output_dir):
+        for name, data in foreign.items():
+            assert (directory / name).read_bytes() == data
+    kept = sorted(p.name for p in output_dir.glob("loki-backup-*.zip"))
+    assert len(kept) == 2 and kept[0] == "loki-backup-2026-01-04-000000.zip"
+    with zipfile.ZipFile(output_dir / kept[-1]) as archive:
+        assert "config.yaml" in archive.namelist()
+        assert all("backups" not in Path(name).parts for name in archive.namelist())
+    from hermes_cli.backup_restore import _restore_command
+    assert f"Restore with: {_restore_command(output_dir / kept[-1], powershell=os.name == 'nt')}" in capsys.readouterr().out
+
+
+def test_default_backup_is_owned_by_active_profile_and_excludes_all_backups(tmp_path, monkeypatch):
+    from hermes_cli.backup import run_backup
+
+    root = tmp_path / ".loki"
+    profile = root / "profiles" / "work"
+    profile.mkdir(parents=True)
+    (root / "config.yaml").write_text("model: root-model\n")
+    (profile / "config.yaml").write_text("model: work-model\n")
+    for home in (root, profile):
+        (home / "backups").mkdir()
+        (home / "backups" / "keep-user-archive.zip").write_bytes(b"User archive")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.setenv("HERMES_HOME", str(profile))
+
+    assert run_backup(Namespace(output=None, keep=1)) is True
+
+    archives = list((profile / "backups").glob("loki-backup-*.zip"))
+    assert len(archives) == 1
+    assert list((root / "backups").glob("loki-backup-*.zip")) == []
+    assert list(tmp_path.glob("*-backup-*.zip")) == []
+    with zipfile.ZipFile(archives[0]) as archive:
+        assert "config.yaml" in archive.namelist()
+        assert "profiles/work/config.yaml" in archive.namelist()
+        assert all("backups" not in Path(name).parts for name in archive.namelist())
+    for home in (root, profile):
+        assert (home / "backups" / "keep-user-archive.zip").read_bytes() == b"User archive"
+
+
+def test_explicit_legacy_hermes_archive_restores_into_loki_home(tmp_path, monkeypatch):
+    from hermes_cli.backup import run_import
+
+    target = tmp_path / ".loki"
+    monkeypatch.setenv("HERMES_HOME", str(target))
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    archive = tmp_path / "hermes-backup-2025-01-01-000000.zip"
+    config = b"model: {provider: custom, default: legacy-model}\n"
+    with zipfile.ZipFile(archive, "w") as handle:
+        handle.writestr(".hermes/config.yaml", config)
+        handle.writestr(".hermes/notes.txt", "Preserve legacy backup compatibility.\n")
+    original_archive = archive.read_bytes()
+
+    assert run_import(Namespace(zipfile=str(archive), force=True)) is None
+
+    assert (target / "config.yaml").read_bytes() == config
+    assert (target / "notes.txt").read_text() == "Preserve legacy backup compatibility.\n"
+    assert not (tmp_path / ".hermes").exists()
+    assert archive.read_bytes() == original_archive
 
 
 def test_import_restores_the_session_store_with_its_message_uids(tmp_path, monkeypatch):

@@ -372,10 +372,22 @@ def _last_session_key(task_id: str) -> str:
 
 
 def _socket_safe_tmpdir() -> str:
-    """Temp root short enough for the agent-browser socket dir and Chrome's SingletonSocket
-    (``hermes_constants.socket_safe_tmpdir``)."""
-    from hermes_constants import socket_safe_tmpdir
-    return socket_safe_tmpdir()
+    """Short, owned socket root; cleanup must never inspect Hermes browser sessions."""
+    import stat
+    from hermes_constants import SOCKET_TMPDIR_MAX_LEN, socket_safe_tmpdir
+    name = f"loki-browser-{os.getuid()}" if hasattr(os, "getuid") else "loki-browser"
+    root = Path(socket_safe_tmpdir()) / name
+    if os.name != "nt" and len(str(root)) > SOCKET_TMPDIR_MAX_LEN:
+        root = Path("/tmp") / name  # no-tmp: ok — short owned AF_UNIX socket root
+    root.mkdir(mode=0o700, exist_ok=True)
+    info = root.lstat()
+    if (not stat.S_ISDIR(info.st_mode)
+            or getattr(info, "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0)
+            or (hasattr(os, "getuid") and info.st_uid != os.getuid())):
+        raise RuntimeError(f"Refusing unowned Loki browser socket root: {root}")
+    if os.name != "nt":
+        root.chmod(0o700)
+    return str(root)
 
 
 # Active sessions keyed by "session key": the bare task_id, or f"{task_id}::local"
