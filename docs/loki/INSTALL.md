@@ -1,17 +1,15 @@
 # Loki preview installation
 
-Publication is pending the protected CI gate. The tag and release-download commands below apply after the preview is published; see [delivery status](PREVIEW-STATUS.md) for the current candidate and blockers.
+The commands below target `v0.1.0-alpha.1` once that tag is published. The [release page](https://github.com/ObliviousOdin/loki/releases) lists available versions and artifacts; [delivery status](PREVIEW-STATUS.md) defines the required evidence.
 
-Until repository access is public, sign in using `gh auth login` with an account granted access to `ObliviousOdin/loki`. Credentials remain in your normal GitHub credential manager; the installer does not embed tokens. Public source downloads do not require an account. A private repository's source and assets require authorization.
+The source repository is public. Git can clone it without a GitHub account or token.
 
 ## Source preview (macOS and Linux)
 
 ```bash
-gh repo clone ObliviousOdin/loki
+git clone https://github.com/ObliviousOdin/loki.git
 cd loki
 git checkout v0.1.0-alpha.1
-# If Git uses HTTPS, configure its credential helper through GitHub CLI:
-gh auth setup-git
 bash scripts/install.sh --commit "$(git rev-parse HEAD)" --non-interactive
 ```
 
@@ -21,13 +19,12 @@ The source checkout installs at `~/.loki/hermes-agent`; the public command is li
 
 ## Windows source preview
 
-From PowerShell (authenticate GitHub CLI first if repository access is private):
+From PowerShell:
 
 ```powershell
-gh repo clone ObliviousOdin/loki
+git clone https://github.com/ObliviousOdin/loki.git
 Set-Location loki
 git checkout v0.1.0-alpha.1
-gh auth setup-git
 .\scripts\install.ps1 -Commit (git rev-parse HEAD) -NonInteractive
 ```
 
@@ -35,7 +32,7 @@ The product home is `%LOCALAPPDATA%\loki`, with commands in its `bin` directory.
 
 ## Optional Honcho memory
 
-`loki plugins install honcho` installs Loki's pinned compatibility copy from this repository. Git needs read access to `ObliviousOdin/loki`; private access requires authentication. The normal plugin scan, dependency consent and PM installation remain in effect. Configure it with `loki memory setup honcho` using your own API key or self-hosted server. OAuth additionally requires an application authorized for Loki. The provider uses Loki's `honcho.json` and profile host names; it does not import `~/.honcho` or existing agent memory. Explicit backend, workspace and peer settings remain under your control. This optional integration has local configuration/constructor tests; real Honcho service and OAuth qualification require external configuration.
+`loki plugins install honcho` installs Loki's pinned compatibility copy from this public repository. The normal plugin scan, dependency consent and PM installation remain in effect. Configure it with `loki memory setup honcho` using your own API key or self-hosted server. OAuth additionally requires an application authorized for Loki. The provider uses Loki's `honcho.json` and profile host names; it does not import `~/.honcho` or existing agent memory. Explicit backend, workspace and peer settings remain under your control. This optional integration has local configuration/constructor tests; real Honcho service and OAuth qualification require external configuration.
 
 ## Release artifacts
 
@@ -44,7 +41,7 @@ gh release download v0.1.0-alpha.1 --repo ObliviousOdin/loki
 shasum -a 256 -c SHA256SUMS
 ```
 
-The source archive contains the exact release tree, its license/notices, and installers. Extract it and run its installer with the commit from `LOKI-PREVIEW.json`; installation still clones the pinned project source through Git. Private source access requires authentication. The archive is not a Python wheel: upstream deliberately blocks generic wheel/sdist distribution because it would omit runtime resources. Loki preserves that guard.
+The source archive contains the exact release tree, its license/notices, and installers. Extract it and run its installer with the commit from `LOKI-PREVIEW.json`; installation still clones the pinned public project source through Git. The archive is not a Python wheel: upstream deliberately blocks generic wheel/sdist distribution because it would omit runtime resources. Loki preserves that guard.
 
 Native downloads also require the [source and notice companions](SOURCE-ASSETS.md) listed in `LOKI-PREVIEW.json`, including the exact lock-pinned Pilk source archive. Keep those files with the native artifact and verify every companion against `SHA256SUMS`.
 
@@ -56,7 +53,7 @@ Choose the macOS arm64 asset explicitly labeled `UNSIGNED`, verify its SHA-256 a
 
 The app creates its own `loki` launcher in `~/.local/bin`. Add that directory to your shell PATH if necessary, then run `loki --version` and `loki --help`. A native preview reports `0.1.0-alpha.1` and its embedded source commit; the Python source installation reports the equivalent `0.1.0a1`. Check the commit against the artifact's metadata. Configure a dedicated provider in Loki before starting a real conversation.
 
-Earlier native evidence covers an actual ZIP installation and app startup on macOS arm64. Those candidates are superseded; a corrected candidate requires fresh exact-commit build and installation receipts. Published-download installation, native Windows/Linux packages, signing and notarization remain pending; the [delivery status](PREVIEW-STATUS.md) records the exact candidate and measured scope.
+Earlier native evidence covers an actual ZIP installation and app startup on macOS arm64. Those candidates are superseded. Each distributed native artifact requires fresh exact-commit build and installation receipts, plus verification after downloading its published bytes. Consult the release's attached evidence for its measured scope. Native Windows/Linux packages, signing and notarization require separate qualification.
 
 ## Configuration and isolation
 

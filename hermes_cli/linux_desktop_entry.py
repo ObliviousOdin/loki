@@ -27,7 +27,9 @@ from typing import Callable, Mapping, Optional
 # verbatim (Wayland app_id, CHROME_DESKTOP). GNOME links a window to a launcher by StartupWMClass
 # or by a `<app_id>.desktop` file name, so the entry has to carry the same id — under the old
 # "hermes.desktop" name a packaged launch matches neither rung and lands on the placeholder icon.
-APP_ID = "com.obliviousodin.loki"
+# This launcher belongs to the default source build (Loki Source). Bundled
+# previews keep their separately selected packaging identity.
+APP_ID = "com.obliviousodin.loki-source"
 DESKTOP_ENTRY_NAME = f"{APP_ID}.desktop"
 
 # Entry name written before the app-id rename; a successful install converts it into a hidden
@@ -160,7 +162,7 @@ def _desktop_argv_tail(project_root: Optional[Path]) -> list[str]:
     packaged = any(
         (release / dist / name).exists()
         for dist in ("linux-unpacked", "linux-arm64-unpacked")
-        for name in ("loki", "Loki")
+        for name in ("loki", "Loki", "Loki Source")
     )
     return ["desktop", "--skip-build"] if packaged else ["desktop"]
 

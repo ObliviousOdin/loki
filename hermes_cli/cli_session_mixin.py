@@ -683,7 +683,7 @@ class CLISessionMixin:
                 path = Path.cwd() / path
         else:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            path = saved_dir / f"hermes_conversation_{timestamp}.{fmt}"
+            path = saved_dir / f"loki_conversation_{timestamp}.{fmt}"
 
         try:
             content = render_session_for_save(session_data, fmt)

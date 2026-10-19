@@ -417,6 +417,12 @@ async def _check_error_cancel_before_entry(monkeypatch, adapter, app, delivered)
         await app.process_update(update(app.bot))
         await app.stop()
     assert len(scheduled) == 1 and not effects
+    # stop() awaits results; already-done tasks can still have queued callbacks.
+    # Observe the captured task after the registered admission-release callback.
+    settled = asyncio.Event()
+    scheduled[0][0].add_done_callback(lambda _: settled.set())
+    await settled.wait()
+    assert scheduled[0][0].cancelled()
     assert not adapter._inflight_update_ids and not adapter._seen_update_ids
     # The cancelled PTB task never awaited the callback coroutine: it must be closed too.
     try:

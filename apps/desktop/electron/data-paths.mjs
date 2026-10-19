@@ -38,7 +38,7 @@ export function resolveDesktopUserData(defaultPath, env = process.env) {
     : defaultPath + (env.HERMES_DATA_DIR_SUFFIX || '')
 }
 
-export function resolveDesktopHermesHome({ home, env = process.env, platform = process.platform, directoryExists = () => false, readWindowsHome = () => null }) {
+export function resolveDesktopHermesHome({ home, env = process.env, platform = process.platform, readWindowsHome = () => null }) {
   const paths = platform === 'win32' ? path.win32 : path.posix
   if (env.HERMES_HOME) {
     return normalizeHermesHomeRoot(env.HERMES_HOME, paths)

@@ -20,6 +20,7 @@ import pytest
 
 from tests.gateway.fixtures.local_recovery_probe import Model, child_env, daemon
 from tests.gateway.test_cli_plugin_command_in_gateway import _Wire
+from tests.loki_child_fixture import bind_fixture_child_env
 from tests.waiting import wait_until
 
 _PLUGIN = '''import json
@@ -94,8 +95,8 @@ def _gateway(tmp_path, *, isolation=None, beta=False, project=False):
                'plugins': {'enabled': ['probe-hook'], **({'isolation': isolation} if isolation else {})}}
     if project:
         (work / '.git').mkdir()
-        (work / '.hermes' / 'skills' / 'repo-skill').mkdir(parents=True)
-        (work / '.hermes' / 'skills' / 'repo-skill' / 'SKILL.md').write_text(
+        (work / '.loki' / 'skills' / 'repo-skill').mkdir(parents=True)
+        (work / '.loki' / 'skills' / 'repo-skill' / 'SKILL.md').write_text(
             '---\nname: repo-skill\ndescription: Repo-only skill\n---\nSay REPO_SKILL_BODY.\n')
         profile['skills'] = {'trusted_project_dirs': [str(work)], 'auto_load': ['probe-hook:probe']}
     (home / 'config.yaml').write_text(json.dumps({'gateway': {'multiplex_profiles': beta}, **profile}))
@@ -106,6 +107,7 @@ def _gateway(tmp_path, *, isolation=None, beta=False, project=False):
     env = child_env()
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                OPENAI_API_KEY='loopback-only', OPENAI_BASE_URL=url, PYTHONUNBUFFERED='1')
+    env = bind_fixture_child_env(env)
     try:
         with daemon(root, home, env, barrier=False) as (proc, desc):
             yield proc, desc, home, work, env, log, peer

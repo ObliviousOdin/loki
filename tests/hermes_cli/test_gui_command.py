@@ -128,7 +128,7 @@ def _packaged_exe_rel() -> Path:
         return Path("mac-arm64") / "Loki.app" / "Contents" / "MacOS" / "Loki"
     if sys.platform == "win32":
         return Path("win-unpacked") / "Loki.exe"
-    return Path("linux-unpacked") / "hermes"
+    return Path("linux-unpacked") / "loki"
 
 
 def _npm_argv(cmd) -> list:

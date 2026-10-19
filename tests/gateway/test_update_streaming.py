@@ -344,6 +344,7 @@ class TestCmdUpdateGatewayMode:
         import subprocess
         from types import SimpleNamespace
         from hermes_cli import main, update_cmd
+        from tests.hermes_cli.loki_update_fixtures import write_loki_source
 
         root = tmp_path / "checkout"
         root.mkdir()
@@ -354,6 +355,7 @@ class TestCmdUpdateGatewayMode:
         git("init", "-b", "main")
         git("config", "user.email", "test@example.invalid")
         git("config", "user.name", "Test")
+        write_loki_source(root)
         (root / "notes.txt").write_text("committed\n", encoding="utf-8")
         git("add", ".")
         git("commit", "-m", "baseline")

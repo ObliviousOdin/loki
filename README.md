@@ -2,18 +2,17 @@
 
 Loki is a personal AI agent with tools, memory, skills, delegation, scheduling, messaging, a terminal UI, a dashboard and a desktop application.
 
-This is the **0.1.0-alpha.1 preview candidate**, not a stable or fully qualified release. Publication requires the protected CI gate; see the [current delivery status](docs/loki/PREVIEW-STATUS.md). [Upstream provenance](docs/loki/UPSTREAM.json) pins Hermes commit `18c525b669b6ea4ba62e6967d228af21d89aa9d3` from October 17, 2026: 1,376 commits after `v0.22.2`.
+Loki uses the **0.1.0-alpha.1 preview** sequence. The [release page](https://github.com/ObliviousOdin/loki/releases) lists available artifacts and their measured scope; [delivery status](docs/loki/PREVIEW-STATUS.md) explains the qualification gates. [Upstream provenance](docs/loki/UPSTREAM.json) pins Hermes commit `18c525b669b6ea4ba62e6967d228af21d89aa9d3` from October 17, 2026: 1,376 commits after `v0.22.2`.
 
 ## Install the preview
 
-The source lives at [ObliviousOdin/loki](https://github.com/ObliviousOdin/loki). While repository access is private, authenticate with `gh auth login` yourself; do not paste credentials into chat. Public source downloads do not require an account.
+The source is public at [ObliviousOdin/loki](https://github.com/ObliviousOdin/loki). Cloning it does not require a GitHub account.
 
-The tagged installation below becomes available after publication. For development before publication, use `gh pr checkout 6 --repo ObliviousOdin/loki` from the clone and record `git rev-parse HEAD`. No preview release or tag is implied by these instructions.
+The tagged installation below applies when `v0.1.0-alpha.1` appears on the release page. Before publication, developers can select `codex/loki-preview` in the clone and record `git rev-parse HEAD`; that branch is a development candidate.
 
 ```bash
-gh repo clone ObliviousOdin/loki
+git clone https://github.com/ObliviousOdin/loki.git
 cd loki
-gh auth setup-git
 git checkout v0.1.0-alpha.1
 bash scripts/install.sh --commit "$(git rev-parse HEAD)" --non-interactive
 ```

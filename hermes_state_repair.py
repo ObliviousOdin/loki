@@ -66,7 +66,7 @@ _REPAIR_BACKUP_MIN_FREE_BYTES = 256 * 1024 * 1024  # 256 MiB absolute floor
 _REPAIR_BACKUP_FREE_FRACTION = 0.02  # plus 2% of the volume
 _FTS_TABLES = ("messages_fts", "messages_fts_trigram", "messages_fts_cjk")
 _MANUAL_RECOVER_HINT = ("Free disk space, then retry (or recover manually with "
-                        "`hermes sessions recover --source {db_path} --inspect-only` first).")
+                        "`loki sessions recover --source {db_path} --inspect-only` first).")
 
 
 def _sidecars(db_path: Path):
@@ -398,8 +398,8 @@ def _persistent_repair_exhausted_error(db_path: Path) -> str:
     profile_arg = profile_cli_selector()
     return (f"automatic repair has already failed {_MAX_PERSISTENT_REPAIR_ATTEMPTS} times on this exact file — the "
             f"corruption is beyond the schema/FTS repair strategies (likely b-tree page damage). Manual recovery "
-            f"required: restore a backup, or salvage with `hermes {profile_arg}sessions recover --source {db_path} "
-            f"--inspect-only`, then (if it reports recoverable) `hermes {profile_arg}sessions recover --source {db_path} "
+            f"required: restore a backup, or salvage with `loki {profile_arg}sessions recover --source {db_path} "
+            f"--inspect-only`, then (if it reports recoverable) `loki {profile_arg}sessions recover --source {db_path} "
             f"--output recovered-state.db` (recovery snapshots the damaged file first, then runs the page-level "
             f"`.recover` lane on the copy; do NOT point a raw `sqlite3` shell at the live database). "
             f"Delete {_repair_ledger_path(db_path).name} to force another automatic attempt.")

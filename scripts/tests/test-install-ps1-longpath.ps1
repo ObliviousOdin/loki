@@ -117,6 +117,7 @@ function Invoke-Normalization {
         APPDATA      = (Join-Parts @($root, 'AppData', 'Roaming'))
         USERPROFILE  = $root
         HERMES_HOME  = ''
+        LOKI_HOME    = ''
     }
     foreach ($key in $Environment.Keys) { $env0[$key] = $Environment[$key] }
 
@@ -288,7 +289,7 @@ foreach ($name in @('TEMP', 'TMP', 'LOCALAPPDATA', 'APPDATA', 'USERPROFILE')) {
 # This is the difference between "the build works" and "the installer stops
 # claiming a successful build failed". Composed with literal backslashes
 # because that is how install.ps1 itself builds the default Windows path.
-$expectedInstallDir = "$($longRoot)${sep}AppData${sep}Local" + '\hermes\hermes-agent'
+$expectedInstallDir = "$($longRoot)${sep}AppData${sep}Local" + '\loki\hermes-agent'
 Assert-Equal -Expected $expectedInstallDir -Actual $result.InstallDir -Label "InstallDir is re-derived from the long LOCALAPPDATA"
 
 Write-Host ""

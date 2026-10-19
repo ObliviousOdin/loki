@@ -1,6 +1,6 @@
 # Preview delivery status
 
-Recorded October 19, 2026. Loki is preparing its first public preview. No preview tag, published release, or completed protected merge is claimed. Public-release preparation must preserve required licenses and upstream history while excluding private project audit material from every published ref and artifact.
+These are the qualification gates and recorded diagnostics for Loki's first preview, recorded October 19, 2026. Consult [GitHub releases](https://github.com/ObliviousOdin/loki/releases) for available artifacts and [Loki CI](https://github.com/ObliviousOdin/loki/actions/workflows/loki-ci.yml) for current checks. Each release's attached evidence identifies its exact source and measured scope. Public-release preparation must preserve required licenses and upstream history while excluding private project audit material from every published ref and artifact.
 
 ## Publication gates
 
@@ -17,6 +17,8 @@ The pristine upstream macOS arm64 Python baseline was non-green: 6,379 files, 62
 The complete desktop UI diagnostic passed 11,259 tests across 1,309 files, with zero failures or skips. Later changes to relevant UI inputs require new verification. The complete Electron diagnostic remained failed: 384 files, 373 passed, two failed and nine skipped; 3,618 tests passed, two failed and 36 skipped. Both failed assertions reproduced at the pinned upstream source on native macOS: a Linux HUD cross-target warning and a remote installer-wrapper assertion after exec. These observations do not excuse a failed required CI job.
 
 Earlier clean source installation checks covered actual macOS arm64 and a Linux x86-64 CI candidate: help/version, configuration, a real terminal tool, cross-process synthetic session persistence and foreign-state isolation. Gateway, Docker, TUI and dashboard checks have separate receipts. None of these results automatically qualifies a later source tree or every external integration.
+
+A clean Linux arm64 installation of `f5776ead82c599deee6066bb6d29fbe2d1b60352` passed all eight canonical scenarios in a non-root Debian 13 container, using the pinned Python 3.14.7 runtime. It covered installation, help/version, configuration, gateway help, cross-process synthetic session persistence, a real terminal tool and foreign-state isolation. The installed configuration resolved to its own data directory and the Loki update repository; an actual update was not executed. This was the canonical lean source smoke, with browser and computer-use installation explicitly excluded, and does not qualify a native Linux application or a live provider.
 
 All earlier native candidates are superseded and must not be distributed. The corrected candidate needs a fresh build, immutable archive hashes, exact source stamp, complete third-party notices, installed deep/strict seal, version/help, owned paths, local tool execution and native quit/restart persistence. Temporary local extraction is not a published-download test. The current native preview target is an unsigned macOS arm64 ZIP.
 

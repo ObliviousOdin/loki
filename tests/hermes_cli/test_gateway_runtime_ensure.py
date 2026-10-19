@@ -86,7 +86,7 @@ def test_installed_service_start_is_nonmutating_and_failed_manager_never_spawns(
     home = tmp_path / "profile"
     home.mkdir(mode=0o700)
     monkeypatch.setenv("HERMES_HOME", str(home))
-    unit = tmp_path / ".config/systemd/user" / f"hermes-gateway-{service_suffix(home)}.service"
+    unit = tmp_path / ".config/systemd/user" / f"loki-gateway-{service_suffix(home)}.service"
     unit.parent.mkdir(parents=True)
     unit.write_text("[Service]\nExecStart=/owned/inert/gateway\n", encoding="utf-8")
     original = unit.read_bytes()
@@ -95,7 +95,7 @@ def test_installed_service_start_is_nonmutating_and_failed_manager_never_spawns(
     from hermes_cli.gateway_runtime_service_identity import SYSTEMD_IDENTITY_PROPERTIES
     identity = {key: "" for key in SYSTEMD_IDENTITY_PROPERTIES}
     identity.update(User=str(os.getuid()), DynamicUser="no",
-                    Environment=f'"HERMES_HOME={home}"',
+                    Environment=f'"LOKI_HOME={home}"',
                     ExecStart=f'{{ path={sys.executable} ; argv[]={sys.executable} -m hermes_cli.main gateway run ; ignore_errors=no ; }}')
     effective = "\n".join(f"{key}={value}" for key, value in identity.items())
     helper.write_text('#!' + sys.executable + '\nimport json,sys,time\nfrom pathlib import Path\n'
@@ -353,7 +353,7 @@ def test_unmanaged_root_home_child_ignores_sticky_active_profile(tmp_path, monke
     def boundary(argv, **kwargs):
         assert argv[:3] == [sys.executable, "-m", "hermes_cli.main"]
         # Same argv and env as the real child; the module-import bootstrap is what resolves the profile.
-        code = ("import json, os, sys\nsys.argv = ['hermes', *sys.argv[1:]]\nimport hermes_cli.main\n"
+        code = ("import json, os, sys\nsys.argv = ['loki', *sys.argv[1:]]\nimport hermes_cli.main\n"
                 f"open({str(witness)!r}, 'w').write(json.dumps({{'home': os.environ['HERMES_HOME'], 'argv': sys.argv}}))")
         return real([sys.executable, "-c", code, *argv[3:]], **kwargs)
 

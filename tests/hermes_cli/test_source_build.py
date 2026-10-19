@@ -190,7 +190,7 @@ def source_products(source_checkout):
         "import { build } from '../../product.mjs';\n"
         "const flag = '-c.directories.output=';\n"
         "const staging = process.argv.find(arg => arg.startsWith(flag)).slice(flag.length);\n"
-        "build('desktop', relative('../..', staging) + '/linux-unpacked/hermes');\n",
+        "build('desktop', relative('../..', staging) + '/linux-unpacked/loki');\n",
         encoding="utf-8",
     )
     (root / "scripts/build/build-desktop.mjs").write_text(
@@ -259,7 +259,7 @@ def test_update_builds_selected_products_after_one_union_preparation(source_prod
     from hermes_cli.main_web_build import _web_ui_build_needed
 
     root, acquired = source_products
-    app = root / "apps/desktop/release/linux-unpacked/hermes"
+    app = root / "apps/desktop/release/linux-unpacked/loki"
     app.parent.mkdir(parents=True)
     app.write_text("previous app")
     build_update_products(root, desktop=desktop)
@@ -302,7 +302,7 @@ def test_update_failure_raises_without_retries_or_replacing_live_app(source_prod
     from hermes_cli.source_build import ProductBuildError, build_update_products
 
     root, acquired = source_products
-    app = root / "apps/desktop/release/linux-unpacked/hermes"
+    app = root / "apps/desktop/release/linux-unpacked/loki"
     app.parent.mkdir(parents=True)
     app.write_text("previous app")
     (root / f"fail-{step}").touch()
@@ -366,7 +366,7 @@ def test_desktop_dependency_failure_still_builds_the_tui_and_web_ui(source_produ
     assert not (root / "node_modules/apps-desktop").exists()
     out = capsys.readouterr().out
     assert "Desktop app build owed: desktop dependencies failed" in out
-    assert "hermes uninstall --gui" in out
+    assert "loki uninstall --gui" in out
 
 
 @pytest.mark.platforms("linux")
@@ -381,7 +381,7 @@ def test_module_cli_builds_the_requested_products(source_products, desktop, monk
     runpy.run_module("hermes_cli.source_build", run_name="__main__")
     assert acquired == ["npm"]
     assert (root / "hermes_cli/web_dist/index.html").is_file()
-    assert (root / "apps/desktop/release/linux-unpacked/hermes").exists() == desktop
+    assert (root / "apps/desktop/release/linux-unpacked/loki").exists() == desktop
 
 
 @pytest.mark.platforms("posix")

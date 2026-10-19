@@ -358,7 +358,7 @@ function Initialize-ResolvedPaths {
     $storeInside = $cmpStore -eq $cmpDir -or
         $cmpStore.StartsWith($dirPrefix, [StringComparison]::OrdinalIgnoreCase)
     if ($storeInside) {
-        Fail "HermesHome ($resolvedHome) cannot be the install directory or live inside it ($resolvedDir): the tool store would land inside the checkout. Use a separate -HermesHome, or point HERMES_RUNTIME_DIR outside -InstallDir."
+        Fail "HermesHome ($resolvedHome) cannot be the install directory or live inside it ($resolvedDir): the tool store would land inside the checkout. Use a separate -HermesHome, or point LOKI_RUNTIME_DIR outside -InstallDir."
     }
     # The param() variables live in the CALLER's scope, which is the script
     # scope only under -File. Under the documented

@@ -13,6 +13,7 @@ import threading
 import pytest
 
 from tests.gateway.fixtures.local_recovery_probe import daemon, rpc, websocket
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 class Model(BaseHTTPRequestHandler):
@@ -59,6 +60,7 @@ def test_real_agent_worker_persists_context_usage_and_releases_lease(tmp_path, p
     env = {k: os.environ[k] for k in ('PATH', 'LANG', 'TZ', 'TIRITH_ENABLED') if k in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                OPENAI_API_KEY='loopback-only', OPENAI_BASE_URL=url)
+    env = bind_fixture_child_env(env)
     async def create(desc):
         async with websocket(home, desc) as ws:
             response = await rpc(ws, 'session.create', request_id='worker-session', source='cli',

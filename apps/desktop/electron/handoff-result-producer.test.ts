@@ -42,6 +42,18 @@ test.skipIf(process.platform === 'win32').each(['legacy', 'protocol-2'])(
     const bridge = await claimBridgeMarker(home, { pid: desktop.pid, startedAt, runId })
     assert.equal(bridge.ok, true)
 
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      HOME: fixture,
+      LOKI_HOME: home,
+      TMPDIR: temp,
+      LOKI_UPDATE_STARTED_AT: String(startedAt),
+      LOKI_UPDATE_SHIM_GRACE_SECONDS: '0'
+    }
+
+    // This is a fresh launcher, not a child of CI's selected PM profile.
+    delete env.__LOKI_ENV_BOUND
+
     const child = spawn(
       'bash',
       [
@@ -57,14 +69,7 @@ test.skipIf(process.platform === 'win32').each(['legacy', 'protocol-2'])(
         ...(runId ? ['--handoff-run', runId] : [])
       ],
       {
-        env: {
-          ...process.env,
-          HOME: fixture,
-          LOKI_HOME: home,
-          TMPDIR: temp,
-          LOKI_UPDATE_STARTED_AT: String(startedAt),
-          LOKI_UPDATE_SHIM_GRACE_SECONDS: '0'
-        },
+        env,
         stdio: ['ignore', 'pipe', 'pipe']
       }
     )

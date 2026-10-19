@@ -26,14 +26,14 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 try:
     import resvg_py
 except ImportError:
     sys.exit(
-        "resvg-py is missing: run the generator with a Hermes runtime interpreter\n"
-        "  (HERMES_PYTHON=<hermes venv python> node scripts/generate-icons.mjs)"
+        "resvg-py is missing: run the generator with a Loki runtime interpreter\n"
+        "  (LOKI_PYTHON=<Loki runtime python> node scripts/generate-icons.mjs)"
     )
 
 # Copy of hermes_cli.update_channel._CANARY_TAG_RE: builders run this renderer
@@ -176,8 +176,7 @@ TARGETS: list[tuple[str, str, object]] = [
     ("apps/desktop/assets/icon-dark.png", "png_dark", 1024),
     ("apps/desktop/assets/icon-dark.ico", "ico_dark", [16, 24, 32, 48, 64, 128, 256]),
     ("apps/desktop/assets/icon-dark.icns", "icns_dark", None),
-    # The DMG volume icon: our own drive artwork with the girl on its face,
-    # one artwork for light and dark (volume icons have no appearance variants).
+    # The DMG volume keeps stable Loki artwork across all build channels.
     ("apps/desktop/packaging/dmg-volume.icns", "icns", None),
     ("apps/desktop/assets/icon.icon/icon.json", "icon_manifest", None),
     *([("apps/desktop/assets/icon.icon/Assets/border-light.png", "icon_border", "#000000"),
@@ -420,7 +419,7 @@ def compose_svg(art: IconArt, girl: str, bg: str, *, badge: bool = True) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}">\n'
         f'  <defs><clipPath id="icon-silhouette">{clip}</clipPath></defs>\n'
         f"  {inner.strip()}\n"
-        f'  <g clip-path="url(#icon-silhouette)">{badge_svg}{ET.tostring(portrait, encoding="unicode")}</g>\n'
+        f'  <g clip-path="url(#icon-silhouette)">{ET.tostring(portrait, encoding="unicode")}{badge_svg}</g>\n'
         "</svg>\n"
     )
 
@@ -553,8 +552,8 @@ def icon_art_svg(art: IconArt, girl: str) -> str:
     badge = f"  {commit_layer(art.commit, bg)}\n" if art.commit else ""
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ICON_CANVAS} {ICON_CANVAS}">\n'
-        f"{badge}"
         f"  {ET.tostring(portrait, encoding='unicode')}\n"
+        f"{badge}"
         "</svg>\n"
     )
 
@@ -567,7 +566,7 @@ def icon_color(hex_color: str) -> str:
 
 
 # Mono (Clear/Tinted) materials, as luminance + opacity: the dark-ink parts of
-# the girl become a near-black frosted glass instead of black, her white parts
+# the mark become near-black frosted glass; actual highlights and badge glyphs
 # stay white, and the ring (when enabled) is a soft light glass.
 MONO_INK = (0.13, 0.90)
 MONO_RING = (0.82, 0.75)
@@ -587,7 +586,12 @@ def icon_mono_image(art: IconArt) -> Image.Image:
         return layer
 
     out = Image.new("RGBA", (ICON_CANVAS, ICON_CANVAS), (0, 0, 0, 0))
-    paints = [(coverage(icon_art_svg(art, "black")), MONO_INK), (coverage(icon_art_svg(art, "white")), (1.0, 1.0))]
+    # The light/dark Loki marks have the same silhouette. Classify the actual
+    # light artwork's ink and highlights instead of painting its inverse over it.
+    rendered = render_svg(icon_art_svg(art, "black"), ICON_CANVAS).convert("RGBA")
+    alpha = rendered.getchannel("A")
+    highlights = ImageChops.multiply(alpha, rendered.convert("L").point(lambda v: 255 if v >= 128 else 0))
+    paints = [(ImageChops.subtract(alpha, highlights), MONO_INK), (highlights, (1.0, 1.0))]
     if BORDER_ENABLED:
         paints.append((coverage(icon_border_svg("#ffffff")), MONO_RING))
     for alpha, (tone, opacity) in paints:
@@ -792,7 +796,7 @@ def cmd_write(source: Path, out: Path) -> int:
         path = out / rel
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            selected = desktop_art if rel.startswith("apps/desktop/") else art
+            selected = desktop_art if rel.startswith("apps/desktop/") and rel != "apps/desktop/packaging/dmg-volume.icns" else art
             path.write_bytes(target_bytes(selected, kind, arg))
             written += 1
         except Exception as exc:
@@ -838,7 +842,7 @@ def cmd_check(source: Path, out: Path) -> int:
     # every target must generate without error
     for rel, kind, arg in TARGETS:
         try:
-            selected = desktop_art if rel.startswith("apps/desktop/") else art
+            selected = desktop_art if rel.startswith("apps/desktop/") and rel != "apps/desktop/packaging/dmg-volume.icns" else art
             target_bytes(selected, kind, arg)
         except Exception as exc:
             problems.append(f"{rel}: REGENERATE FAILED ({exc})")

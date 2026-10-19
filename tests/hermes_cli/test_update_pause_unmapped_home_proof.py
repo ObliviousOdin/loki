@@ -28,7 +28,7 @@ from hermes_cli.update_cmd_windows import _pause_windows_gateways_for_update, _u
 
 @pytest.fixture
 def homes_and_spawn(tmp_path):
-    entry = tmp_path / "bin" / "hermes"  # a ``hermes`` entry token: the cmdline reads as a gateway
+    entry = tmp_path / "bin" / "loki"  # an owned Loki entry token: the cmdline reads as a gateway
     entry.parent.mkdir()
     entry.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
     argv = [sys.executable, str(entry), "gateway", "run"]

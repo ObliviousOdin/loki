@@ -11,6 +11,7 @@ import time
 import pytest
 
 from tests.gateway.test_normal_runtime_boot import control
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 @pytest.mark.platforms("linux")
@@ -29,6 +30,7 @@ def test_title_create_if_missing_then_resume_by_title_is_deterministic(tmp_path,
     env = {k: os.environ[k] for k in ("PATH", "LANG", "TZ") if k in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED="1", OPENAI_API_KEY="loopback-only", OPENAI_BASE_URL=model_url)
+    env = bind_fixture_child_env(env)
     witness = tmp_path / "client-owner.json"
     wrapper = tmp_path / "client.py"
     wrapper.write_text(encoding='utf-8', data=f'''import json, runpy, sys

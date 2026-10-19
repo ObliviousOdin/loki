@@ -14,6 +14,7 @@ import pytest
 
 from tests.gateway.fixtures.local_recovery_probe import daemon, rpc, websocket
 from tests.gateway.test_worker_agent_execution import Model
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 @pytest.mark.platforms("linux")
@@ -35,6 +36,7 @@ def test_full_agent_worker_rotation_continues_inference_without_canonical_opens(
     env = {k: os.environ[k] for k in ('PATH', 'LANG', 'TZ', 'TIRITH_ENABLED') if k in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                OPENAI_API_KEY='loopback-only', OPENAI_BASE_URL=url)
+    env = bind_fixture_child_env(env)
     async def create(desc, key):
         async with websocket(home, desc) as ws:
             response = await rpc(ws, 'session.create', request_id=key, source='cli', model='worker-model', toolsets=[])

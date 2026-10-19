@@ -146,7 +146,7 @@ def test_minted_launcher_runs_relocated_and_forwards_exit_code(payload_tree, tmp
     assert proc.stdout.strip() == "OK None"  # PYTHONHOME was dropped
 
     # The default pycache prefix kept bytecode out of the (sealed) repo.
-    assert (payload_tree["tmp"] / "lad" / "hermes" / "pycache").exists()
+    assert (payload_tree["tmp"] / "lad" / "loki" / "pycache").exists()
     assert not (moved / "repo" / "hermes_cli" / "__pycache__").exists()
 
 

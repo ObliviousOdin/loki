@@ -24,6 +24,7 @@ import pytest
 from hermes_cli.observability.shared_metrics_consent import OFFER_VERSION
 from tests.gateway.fixtures.local_recovery_probe import Model
 from tests.gateway.test_normal_runtime_boot import control
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 @contextlib.contextmanager
@@ -48,6 +49,7 @@ def classic_session(tmp_path):
     env = {k: os.environ[k] for k in ("PATH", "LANG", "TZ") if k in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED="1", OPENAI_API_KEY="loopback-only", OPENAI_BASE_URL=url)
+    env = bind_fixture_child_env(env)
     tmux_name = "hermes-cli-cmds-" + uuid.uuid4().hex
 
     def tmux(*args):

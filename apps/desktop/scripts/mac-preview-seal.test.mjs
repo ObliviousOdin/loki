@@ -64,7 +64,12 @@ async function observedSeal(f, real) {
   })
   try { await sealMacPreview(f.context) } finally { native.mockRestore(); vi.unstubAllEnvs() }
   assert.equal(commands.filter(args => args.includes('--sign')).at(-1).at(-1), f.app)
-  assert.ok(commands.some(args => args.includes('--verify') && args.includes('--deep') && args.includes('--strict')))
+  assert.ok(commands.some(args => args.includes('--verify') && args.includes('--deep')))
+  // The locked osx-sign gates --strict on the host Darwin kernel version.
+  // Linux's kernel version is unrelated; the real macOS check remains strict.
+  if (process.platform === 'darwin') {
+    assert.ok(commands.some(args => args.includes('--verify') && args.includes('--deep') && args.includes('--strict')))
+  }
   return commands
 }
 

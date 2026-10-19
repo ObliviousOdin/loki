@@ -74,7 +74,7 @@ def test_current_installer_publishes_real_dependencies_and_warm_path(tmp_path, s
     # and its config/env layer consults the stdlib-only safe-worker policy; the rest of agent/ stays
     # out so the tail cannot grow a dependency on the agent runtime.
     (source / "agent").mkdir()
-    for name in ("__init__.py", "jiter_preload.py", "i18n.py", "i18n_layers.py", "i18n_languages.py",
+    for name in ("__init__.py", "jiter_preload.py", "i18n.py", "i18n_branding.py", "i18n_layers.py", "i18n_languages.py",
                  "safe_worker_policy.py"):
         shutil.copy2(ROOT / "agent" / name, source / "agent" / name)
     (source / "locales").mkdir()

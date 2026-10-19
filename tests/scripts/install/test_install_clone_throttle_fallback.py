@@ -147,8 +147,10 @@ def test_ps1_checkout_keeps_long_paths_enabled(tmp_path):
         return subprocess.run(["git", "-C", str(cwd), *args], check=False,
                               capture_output=True, text=True, encoding="utf-8", errors="replace")
     source.mkdir()
+    (source / "pyproject.toml").write_text('[project]\nname="obliviousodin-loki-agent"\n', encoding="utf-8")
     for args in (("init", "-b", "main"), ("config", "user.email", "fixture@example.invalid"),
-                 ("config", "user.name", "Fixture"), ("commit", "--allow-empty", "-m", "fixture"),
+                 ("config", "user.name", "Fixture"), ("add", "pyproject.toml"),
+                 ("commit", "--allow-empty", "-m", "fixture"),
                  ("push", origin.as_posix(), "main")):
         assert git(source, *args).returncode == 0
     git(origin, "config", "uploadpack.allowFilter", "true")

@@ -89,7 +89,7 @@ def test_format_turn_completion_corrupt_never_names_the_live_db():
     assert "sessions recover" in explanation
     assert 'sqlite3 ~/.hermes/state.db ".recover"' not in explanation
     # The replacement guidance names the safe command.
-    assert "hermes sessions recover --source" in explanation
+    assert "loki sessions recover --source" in explanation
 
 
 
@@ -116,8 +116,8 @@ def test_corrupt_guidance_pins_the_failing_profile(tmp_path, monkeypatch):
     monkeypatch.setenv("HERMES_HOME", str(home))
 
     explanation = AIAgent._format_turn_completion_explanation("session_persistence_failed", "corrupt")
-    commands = [line.strip() for line in explanation.splitlines() if "hermes " in line]
-    assert commands and all("hermes -p research " in line for line in commands), commands
+    commands = [line.strip() for line in explanation.splitlines() if "loki " in line]
+    assert commands and all("loki -p research " in line for line in commands), commands
     # The conftest pins hermes_state.DEFAULT_DB_PATH, so the store named is whatever the
     # process resolves — the contract is "the same path the runtime would open".
     assert f"--source {_default_db_path()} " in explanation
@@ -132,9 +132,21 @@ def test_corrupt_guidance_pins_the_failing_profile(tmp_path, monkeypatch):
 
     monkeypatch.setattr(runner, "_send_home_channel_message", _capture_send)
     asyncio.run(runner._send_session_db_warning_notifications())
-    notice_commands = [line.strip() for line in sent[0].splitlines() if "hermes " in line]
-    assert notice_commands and all("hermes -p research " in line for line in notice_commands), notice_commands
+    notice_commands = [line.strip() for line in sent[0].splitlines() if "loki " in line]
+    assert notice_commands and all("loki -p research " in line for line in notice_commands), notice_commands
     assert f"--source {_default_db_path()} " in sent[0]
 
     exhausted = _persistent_repair_exhausted_error(home / "state.db")
-    assert "`hermes -p research sessions recover --source" in exhausted
+    assert "`loki -p research sessions recover --source" in exhausted
+
+
+def test_exhausted_repair_guidance_keeps_the_explicit_database_path(tmp_path, monkeypatch):
+    from hermes_state_repair import _persistent_repair_exhausted_error
+
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "profile-root" / "profiles" / "research"))
+    database = tmp_path / "Hermes project" / "state.db"
+    message = _persistent_repair_exhausted_error(database)
+
+    assert message.count(f"loki -p research sessions recover --source {database}") == 2
+    assert "--inspect-only" in message and "--output recovered-state.db" in message
+    assert "snapshots the damaged file first" in message and "live database" in message

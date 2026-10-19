@@ -85,6 +85,6 @@ def test_dashboard_oauth_choice_requires_project_authority_and_owned_state(monke
     output = capsys.readouterr().out
     assert "loki dashboard register" in output
     assert "authorized for this Loki project" in output
-    assert "Hermes's hosted OAuth clients are not included" in output
+    assert "Upstream hosted OAuth clients are not included" in output
     assert "this Loki profile's .env" in output
     assert "~/.hermes" not in output

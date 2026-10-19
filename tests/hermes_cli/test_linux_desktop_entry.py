@@ -120,7 +120,7 @@ def test_install_prefers_themed_icon_from_hicolor(tmp_path, xdg_home, monkeypatc
     # And the icon really landed in the hicolor tree: the fixture icon is
     # a fake PNG (no valid IHDR), so the size is unknown and the icon
     # lands under 256x256/ (indexed; never scalable, which is SVG-only).
-    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "hermes.png"
+    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "loki.png"
     assert dest.is_file()
     assert dest.read_bytes() == lde.icon_path(root).read_bytes()
 
@@ -159,7 +159,7 @@ def test_install_icon_copy_failure_falls_back_to_absolute(
 def test_installed_entry_is_executable(tmp_path, xdg_home, monkeypatch):
     root = _make_project(tmp_path)
     monkeypatch.setattr(
-        "hermes_cli.relaunch.resolve_hermes_bin", lambda: "/usr/bin/hermes"
+        "hermes_cli.relaunch.resolve_hermes_bin", lambda: "/usr/bin/loki"
     )
     monkeypatch.setattr(lde, "refresh_desktop_databases", lambda _dir: [])
 
@@ -642,25 +642,25 @@ def test_exec_rejects_known_wrapper_from_another_checkout(
         pytest.param(
             "user",
             {},
-            "HOME-SET-BY-TEST/.local/bin/hermes",
+            "HOME-SET-BY-TEST/.local/bin/loki",
             id="user-layout",
         ),
         pytest.param(
             "termux",
             {"PREFIX": "PREFIX-SET-BY-TEST"},
-            "PREFIX-SET-BY-TEST/bin/hermes",
+            "PREFIX-SET-BY-TEST/bin/loki",
             id="termux-prefix-first",
         ),
         pytest.param(
             "root-fhs",
             {"__EUID0__": "1"},
-            "/usr/local/bin/hermes",
+            "/usr/local/bin/loki",
             id="root-fhs",
         ),
         pytest.param(
             "non-root-no-fhs",
             {"__EUID0__": "0"},
-            "HOME-SET-BY-TEST/.local/bin/hermes",
+            "HOME-SET-BY-TEST/.local/bin/loki",
             id="non-root-excludes-fhs",
         ),
     ],
@@ -694,12 +694,12 @@ def test_known_wrapper_candidates_cover_installer_layouts(
         assert candidates[0] == expected_resolved
     if layout == "root-fhs":
         # Root FHS outranks the user layout.
-        assert candidates.index("/usr/local/bin/hermes") < candidates.index(
-            f"{sentinel_home}/.local/bin/hermes"
+        assert candidates.index("/usr/local/bin/loki") < candidates.index(
+            f"{sentinel_home}/.local/bin/loki"
         )
     if layout == "non-root-no-fhs":
         # Non-root euid: /usr/local/bin must be excluded outright.
-        assert "/usr/local/bin/hermes" not in candidates
+        assert "/usr/local/bin/loki" not in candidates
 
 
 @pytest.mark.platforms("linux")
@@ -733,7 +733,7 @@ def test_install_keeps_the_legacy_entry_as_a_hidden_alias(tmp_path, xdg_home, mo
     legacy = xdg_home / "applications" / lde.LEGACY_DESKTOP_ENTRY_NAME
     legacy.parent.mkdir(parents=True)
     legacy.write_text(
-        "[Desktop Entry]\nType=Application\nName=Hermes\nExec=hermes desktop\n",
+        "[Desktop Entry]\nType=Application\nName=Loki\nExec=loki desktop\n",
         encoding="utf-8",
     )
 
@@ -756,7 +756,7 @@ def test_unchanged_entry_still_aliases_a_legacy_entry(tmp_path, xdg_home, monkey
     root = _make_project(tmp_path)
     assert lde.install_desktop_entry(root) is not None
     legacy = xdg_home / "applications" / lde.LEGACY_DESKTOP_ENTRY_NAME
-    legacy.write_text("[Desktop Entry]\nType=Application\nName=Hermes\nExec=hermes desktop\n", encoding="utf-8")
+    legacy.write_text("[Desktop Entry]\nType=Application\nName=Loki\nExec=loki desktop\n", encoding="utf-8")
 
     lde.install_desktop_entry(root)
 
@@ -764,21 +764,22 @@ def test_unchanged_entry_still_aliases_a_legacy_entry(tmp_path, xdg_home, monkey
 
 
 @pytest.mark.platforms("linux")
-def test_install_keeps_foreign_files_at_the_legacy_path(tmp_path, xdg_home, monkeypatch):
+@pytest.mark.parametrize("foreign_name", ["Someone else", "Hermes"])
+def test_install_keeps_foreign_files_at_the_legacy_path(tmp_path, xdg_home, monkeypatch, foreign_name):
     """Only our own entry is converted to an alias; another app's file is not ours to rewrite."""
     _stub_install(tmp_path, monkeypatch)
     root = _make_project(tmp_path)
     foreign = xdg_home / "applications" / lde.LEGACY_DESKTOP_ENTRY_NAME
     foreign.parent.mkdir(parents=True)
     foreign.write_text(
-        "[Desktop Entry]\nType=Application\nName=Someone else\nExec=other-app\n",
+        f"[Desktop Entry]\nType=Application\nName={foreign_name}\nExec=other-app\n",
         encoding="utf-8",
     )
 
     lde.install_desktop_entry(root)
 
     assert foreign.is_file()
-    assert "Name=Someone else" in foreign.read_text(encoding="utf-8")
+    assert f"Name={foreign_name}" in foreign.read_text(encoding="utf-8")
 
 
 @pytest.mark.platforms("linux")
@@ -799,7 +800,7 @@ def test_install_opt_out_preserves_the_legacy_entry(tmp_path, xdg_home, monkeypa
     legacy = xdg_home / "applications" / lde.LEGACY_DESKTOP_ENTRY_NAME
     legacy.parent.mkdir(parents=True)
     legacy.write_text(
-        "[Desktop Entry]\nType=Application\nName=Hermes\nExec=hermes desktop\n",
+        "[Desktop Entry]\nType=Application\nName=Loki\nExec=loki desktop\n",
         encoding="utf-8",
     )
 
@@ -807,7 +808,7 @@ def test_install_opt_out_preserves_the_legacy_entry(tmp_path, xdg_home, monkeypa
 
     assert entry == xdg_home / "applications" / lde.DESKTOP_ENTRY_NAME
     assert legacy.read_text(encoding="utf-8") == (
-        "[Desktop Entry]\nType=Application\nName=Hermes\nExec=hermes desktop\n"
+        "[Desktop Entry]\nType=Application\nName=Loki\nExec=loki desktop\n"
     ), "the opt-out must leave the legacy entry byte-for-byte untouched"
 
 
@@ -835,7 +836,7 @@ def test_app_id_matches_the_desktop_build_identity():
 def test_install_is_idempotent_and_skips_cache_refresh(tmp_path, xdg_home, monkeypatch):
     root = _make_project(tmp_path)
     monkeypatch.setattr(
-        "hermes_cli.relaunch.resolve_hermes_bin", lambda: "/usr/bin/hermes"
+        "hermes_cli.relaunch.resolve_hermes_bin", lambda: "/usr/bin/loki"
     )
     calls: list[Path] = []
     monkeypatch.setattr(
@@ -855,7 +856,7 @@ def test_install_without_source_icon_uses_themed_name(tmp_path, xdg_home, monkey
     root = tmp_path / "hermes-agent"
     root.mkdir()
     monkeypatch.setattr(
-        "hermes_cli.relaunch.resolve_hermes_bin", lambda: "/usr/bin/hermes"
+        "hermes_cli.relaunch.resolve_hermes_bin", lambda: "/usr/bin/loki"
     )
     monkeypatch.setattr(lde, "refresh_desktop_databases", lambda _dir: [])
 
@@ -1270,7 +1271,7 @@ def test_install_icon_handles_truncated_png_header(tmp_path, xdg_home, monkeypat
 
     values = _parse(entry.read_text(encoding="utf-8"))
     assert values["Icon"] == "loki"
-    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "hermes.png"
+    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "loki.png"
     assert dest.is_file()
 
 
@@ -1299,8 +1300,8 @@ def test_install_places_1024_png_in_256x256_not_scalable(
     entry = lde.install_desktop_entry(root)
     values = _parse(entry.read_text(encoding="utf-8"))
 
-    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "hermes.png"
-    stale = xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "hermes.png"
+    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "loki.png"
+    stale = xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "loki.png"
     assert values["Icon"] == "loki"
     assert dest.is_file()
     assert dest.read_bytes() == lde.icon_path(root).read_bytes()
@@ -1315,13 +1316,13 @@ def test_install_removes_stale_scalable_png(tmp_path, xdg_home, monkeypatch):
     lde.icon_path(root).write_bytes(_png_ihdr(1024, 1024))
     _stub_install(tmp_path, monkeypatch)
 
-    stale = xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "hermes.png"
+    stale = xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "loki.png"
     stale.parent.mkdir(parents=True)
     stale.write_bytes(b"old scalable png")
 
     lde.install_desktop_entry(root)
 
-    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "hermes.png"
+    dest = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "loki.png"
     assert dest.is_file()
     assert not stale.exists()
 
@@ -1334,10 +1335,10 @@ def test_install_exact_48_png_uses_48x48_dir(tmp_path, xdg_home, monkeypatch):
 
     lde.install_desktop_entry(root)
 
-    dest = xdg_home / "icons" / "hicolor" / "48x48" / "apps" / "hermes.png"
+    dest = xdg_home / "icons" / "hicolor" / "48x48" / "apps" / "loki.png"
     assert dest.is_file()
     assert not (
-        xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "hermes.png"
+        xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "loki.png"
     ).exists()
 
 
@@ -1360,9 +1361,9 @@ def test_install_resizes_decodable_png_to_panel_sizes(
 
     lde.install_desktop_entry(root)
 
-    dest_24 = xdg_home / "icons" / "hicolor" / "24x24" / "apps" / "hermes.png"
-    dest_256 = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "hermes.png"
-    stale = xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "hermes.png"
+    dest_24 = xdg_home / "icons" / "hicolor" / "24x24" / "apps" / "loki.png"
+    dest_256 = xdg_home / "icons" / "hicolor" / "256x256" / "apps" / "loki.png"
+    stale = xdg_home / "icons" / "hicolor" / "scalable" / "apps" / "loki.png"
     assert dest_24.is_file()
     assert dest_256.is_file()
     assert not stale.exists()
@@ -1449,11 +1450,11 @@ def test_capability_follows_wrapper_to_its_target(tmp_path):
     full_tree = _full_tree(tmp_path)
     bad_wrapper = _write_script(
         tmp_path / "shims" / "loki",
-        f'#!/usr/bin/env bash\nexec "{env_tree}/venv/bin/hermes" "$@"\n',
+        f'#!/usr/bin/env bash\nexec "{env_tree}/venv/bin/loki" "$@"\n',
     )
     good_wrapper = _write_script(
         tmp_path / "shims" / "hermes-good",
-        f'#!/usr/bin/env bash\nexec "{full_tree}/venv/bin/hermes" "$@"\n',
+        f'#!/usr/bin/env bash\nexec "{full_tree}/venv/bin/loki" "$@"\n',
     )
     assert lde._can_serve_desktop(str(bad_wrapper)) is False
     assert lde._can_serve_desktop(str(good_wrapper)) is True
@@ -1466,7 +1467,7 @@ def test_resolver_skips_incapable_primary_for_wrapper(tmp_path, xdg_home):
     checkout = _full_tree(tmp_path, "checkout")
     wrapper = _write_script(
         tmp_path / ".local" / "bin" / "loki",
-        f'#!/usr/bin/env bash\nexec "{checkout}/venv/bin/hermes" "$@"\n',
+        f'#!/usr/bin/env bash\nexec "{checkout}/venv/bin/loki" "$@"\n',
     )
     resolution = lde._resolve_hermes_bin_for_desktop_entry(
         resolve_fn=lambda: str(env_tree / "venv" / "bin" / "loki"),
@@ -1484,7 +1485,7 @@ def test_install_skips_write_when_exec_provably_cannot_serve_desktop(tmp_path, x
     monkeypatch.setattr(
         lde,
         "resolve_exec_command",
-        lambda project_root=None: f"{env_tree / 'venv' / 'bin' / 'hermes'} desktop",
+        lambda project_root=None: f"{env_tree / 'venv' / 'bin' / 'loki'} desktop",
     )
     monkeypatch.setattr(lde, "refresh_desktop_databases", lambda _dir: [])
 
@@ -1504,7 +1505,7 @@ def test_install_leaves_existing_entry_untouched_when_exec_incapable(tmp_path, x
     monkeypatch.setattr(
         lde,
         "resolve_exec_command",
-        lambda project_root=None: f"{env_tree / 'venv' / 'bin' / 'hermes'} desktop",
+        lambda project_root=None: f"{env_tree / 'venv' / 'bin' / 'loki'} desktop",
     )
     monkeypatch.setattr(lde, "refresh_desktop_databases", lambda _dir: [])
 
@@ -1529,7 +1530,7 @@ def test_install_through_wrapper_when_primary_is_incapable(tmp_path, xdg_home, m
     env_tree = _env_shaped_tree(tmp_path)
     wrapper = _write_script(
         tmp_path / ".local" / "bin" / "loki",
-        f'#!/usr/bin/env bash\nexec "{root}/venv/bin/hermes" "$@"\n',
+        f'#!/usr/bin/env bash\nexec "{root}/venv/bin/loki" "$@"\n',
     )
     monkeypatch.setattr(lde, "_launcher_entry_management_enabled", lambda: True)
     monkeypatch.setattr(
@@ -1549,11 +1550,12 @@ def test_install_through_wrapper_when_primary_is_incapable(tmp_path, xdg_home, m
 # build-then-launch default, whose source-hash freshness check reports
 # "stale" on any locally modified tree and pays a 60s+ rebuild per click.
 @pytest.mark.platforms("linux")
-def test_exec_appends_skip_build_when_packaged_app_exists(tmp_path, xdg_home, monkeypatch):
+@pytest.mark.parametrize("executable_name", ["loki", "Loki", "Loki Source"])
+def test_exec_appends_skip_build_when_packaged_app_exists(tmp_path, xdg_home, monkeypatch, executable_name):
     root = _make_project(tmp_path)
     unpacked = root / "apps" / "desktop" / "release" / "linux-unpacked"
     unpacked.mkdir(parents=True)
-    (unpacked / "loki").write_text("", encoding="utf-8")
+    (unpacked / executable_name).write_text("", encoding="utf-8")
     monkeypatch.setattr("hermes_cli.relaunch.resolve_hermes_bin", lambda: None)
     monkeypatch.setattr(lde, "refresh_desktop_databases", lambda _dir: [])
 

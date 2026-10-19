@@ -32,6 +32,8 @@ function markerStartedAt(home: string): number {
 function runPosix(installRoot: string, startedAt?: string) {
   const env: NodeJS.ProcessEnv = { ...process.env, LOKI_HOME: path.dirname(installRoot) }
 
+  // Rebind this fresh launcher instead of retaining CI's internal PM home.
+  delete env.__LOKI_ENV_BOUND
   delete env.HERMES_UPDATE_STARTED_AT
 
   if (startedAt === undefined) {

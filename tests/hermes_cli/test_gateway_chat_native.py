@@ -21,6 +21,7 @@ import pytest
 from hermes_cli.observability.shared_metrics_consent import OFFER_VERSION
 
 from tests.gateway.test_normal_runtime_boot import control
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 @pytest.mark.platforms("linux")
@@ -47,6 +48,7 @@ def test_native_classic_fresh_resume_and_oneshot(tmp_path, model_peer, request):
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home),
                PYTHONPATH=str(root), PYTHONUNBUFFERED="1",
                OPENAI_API_KEY="loopback-only", OPENAI_BASE_URL=model_url)
+    env = bind_fixture_child_env(env)
     # Instrument constructor calls without replacing runtime predicates or behavior.
     wrapper = tmp_path / "client.py"
     witness = tmp_path / "client-owner.json"
