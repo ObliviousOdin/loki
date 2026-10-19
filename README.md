@@ -1,49 +1,149 @@
-# Loki
+<p align="center">
+  <img src="assets/loki-banner.svg" alt="Loki: One agent. Every shape." width="100%">
+</p>
 
-Loki is a personal AI agent with tools, memory, skills, delegation, scheduling, messaging, a terminal UI, a dashboard and a desktop application.
+<p align="center">
+  <b>A personal AI agent that remembers you, learns new tricks, and works wherever you do.</b>
+</p>
 
-Loki uses the **0.1.0-alpha.1 preview** sequence. The [release page](https://github.com/ObliviousOdin/loki/releases) lists available artifacts and their measured scope; [delivery status](docs/loki/PREVIEW-STATUS.md) explains the qualification gates. [Upstream provenance](docs/loki/UPSTREAM.json) pins Hermes commit `18c525b669b6ea4ba62e6967d228af21d89aa9d3` from October 17, 2026: 1,376 commits after `v0.22.2`.
+<p align="center">
+  <a href="#status"><img src="https://img.shields.io/badge/status-0.1.0--alpha_preview-FFBD38?style=for-the-badge&labelColor=041C1C" alt="Status: 0.1.0-alpha preview"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-FFE6CB?style=for-the-badge&labelColor=041C1C" alt="License: MIT"></a>
+  <img src="https://img.shields.io/badge/python-3.11_%E2%80%93_3.14-2F8F84?style=for-the-badge&labelColor=041C1C&logo=python&logoColor=FFE6CB" alt="Python 3.11 to 3.14">
+  <a href="https://github.com/NousResearch/hermes-agent"><img src="https://img.shields.io/badge/fork_of-Hermes_Agent-FFE6CB?style=for-the-badge&labelColor=041C1C" alt="Fork of Hermes Agent"></a>
+</p>
 
-## Install the preview
+<p align="center">
+  <a href="#meet-loki">Meet Loki</a> ·
+  <a href="#what-loki-does">What Loki does</a> ·
+  <a href="#get-started">Get started</a> ·
+  <a href="#status">Status</a> ·
+  <a href="#built-on-hermes-agent">Built on Hermes</a>
+</p>
 
-The source is public at [ObliviousOdin/loki](https://github.com/ObliviousOdin/loki). Cloning it does not require a GitHub account.
+---
 
-The tagged installation below applies when `v0.1.0-alpha.1` appears on the release page. Before publication, developers can select `codex/loki-preview` in the clone and record `git rev-parse HEAD`; that branch is a development candidate.
+## Meet Loki
+
+Loki is one agent that takes whatever shape the job needs. Work with it in a terminal, open it as a desktop app, check on it from a web dashboard, or message it from your phone while it runs on a server. Point it at the model you prefer, and switch whenever you like.
+
+It doesn't start from zero each time. Loki keeps a memory of you and your projects, turns finished work into reusable skills, hands side tasks to subagents, and runs scheduled jobs while you're away.
+
+## What Loki does
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+**Remembers you**<br>
+Persistent memory and searchable session history, so context carries from one conversation to the next.
+
+</td>
+<td width="50%" valign="top">
+
+**Learns new tricks**<br>
+Turns solved problems into skills it can reuse, and sharpens them each time it runs them.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**Lives where you work**<br>
+A terminal UI, desktop app, web dashboard, and a messaging gateway for Telegram, Discord, Slack and more.
+
+</td>
+<td width="50%" valign="top">
+
+**Any model, no lock-in**<br>
+Bring an API key or run a local model. Change providers without changing code.
+
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
+
+**Delegates and schedules**<br>
+Splits big jobs across parallel subagents and runs recurring tasks on its own schedule.
+
+</td>
+<td width="50%" valign="top">
+
+**Runs anywhere, extends at the edges**<br>
+Local, Docker, SSH or cloud sandboxes. Add plugins, skills and MCP servers.
+
+</td>
+</tr>
+</table>
+
+## Get started
+
+> [!IMPORTANT]
+> **Loki 0.1.0-alpha.1 is in review and not yet released.** The `loki` command, its installers and Loki's own data folder arrive with [pull request 6](https://github.com/ObliviousOdin/loki/pull/6). Until it merges, `main` holds the inherited engine unchanged, and its command is still `hermes`.
+
+To try the preview from source on macOS or Linux:
 
 ```bash
-git clone https://github.com/ObliviousOdin/loki.git
+gh auth login              # needed while the repository is private
+gh repo clone ObliviousOdin/loki
 cd loki
-git checkout v0.1.0-alpha.1
+gh pr checkout 6
+gh auth setup-git
 bash scripts/install.sh --commit "$(git rev-parse HEAD)" --non-interactive
 ```
 
-On Windows, run `scripts\install.ps1 -Commit (git rev-parse HEAD) -NonInteractive` from that checkout. The [installation guide](docs/loki/INSTALL.md) covers authentication, data paths, unsigned artifacts, and configuration.
+On Windows, check out the same branch in PowerShell, then run:
 
-Start a new terminal, then:
-
-```bash
-loki --help
-loki --version
-loki setup
-loki
+```powershell
+.\scripts\install.ps1 -Commit (git rev-parse HEAD) -NonInteractive
 ```
 
-Loki stores its own configuration, sessions, logs, memory, skills, caches and managed tools under `~/.loki` on macOS/Linux or `%LOCALAPPDATA%\loki` on Windows. `LOKI_HOME` and `LOKI_RUNTIME_DIR` provide explicit overrides. The retained engine checkout leaf is `hermes-agent`; it lives inside Loki's directory and is not an existing Hermes installation.
+Open a new terminal and say hello:
 
-Existing agent state and Codex/Claude logins are not adopted automatically. API-key and local providers remain available. OAuth and hosted services require separately configured applications and credentials; upstream subscriptions, trials and signing accounts do not transfer to Loki.
+```bash
+loki setup    # choose a provider and model first
+loki          # start talking
+```
 
-## Preview scope
+**Your data stays separate.** Loki keeps its config, memory, skills and logs in `~/.loki` on macOS and Linux, or `%LOCALAPPDATA%\loki` on Windows. It doesn't adopt an existing Hermes setup or other apps' logins unless you opt in.
 
-The fork retains source capabilities, but that does not prove all integrations work. [Verification and parity](docs/loki/VERIFICATION.md) distinguishes measured behavior, inherited source, externally configured services and untested platforms. [Release notes](docs/loki/RELEASE-NOTES.md) identify limitations and stable-release requirements.
+## Status
 
-Loki updates from its own repository. Source previews follow `main` unless an explicit pin/channel is selected. Packaged preview automatic updates and upstream publication are disabled. A preview never installs an upstream Hermes release.
+Loki is an **alpha**. Here is what that means today:
 
-## Development and upstream updates
+- **Full engine, partial proof.** Loki keeps every capability of the engine it's built on, but having the code isn't the same as having tested it. Each integration is verified on its own before it's called ready.
+- **Bring your own credentials.** Model providers, messaging platforms and OAuth apps need your own keys or apps. Upstream subscriptions and trials don't carry over.
+- **Unsigned builds, manual updates.** Native builds aren't signed or notarized yet, and automatic updates stay off until they are.
 
-Use `source ./activate` (Windows: `. .\activate.ps1`) with an isolated `LOKI_HOME`. The public command is `loki`; internal Python modules such as `hermes_cli`, gateway protocols and plugin APIs retain their upstream names. Use `scripts/run_tests.sh` for Python tests and `python scripts/check` for the upstream lint gate. See [maintenance](docs/loki/MAINTENANCE.md) and the retained [developer guide](AGENTS.md).
+Follow progress in [pull request 6](https://github.com/ObliviousOdin/loki/pull/6).
 
-[Prioritized follow-ups](docs/loki/FOLLOWUPS.md) records the small candidate list.
+## Built on Hermes Agent
 
-## License and attribution
+Loki is an independent fork of [Hermes Agent](https://github.com/NousResearch/hermes-agent) by [Nous Research](https://nousresearch.com). It is not published or endorsed by Nous Research. Internal names such as `hermes_cli` keep their upstream spelling so the engine stays easy to update.
 
-Loki is an independent fork of [Hermes Agent by Nous Research](https://github.com/NousResearch/hermes-agent). It retains the upstream [MIT license](LICENSE), copyright notices and third-party notices. See [NOTICE](NOTICE). This independent fork is not published or endorsed by Nous Research. Historical upstream documentation and internal names remain reference material; Loki's installation and release instructions above take precedence.
+The original Hermes README, with its install guide, command reference, documentation links and translations, now lives in **[docs/hermes](docs/hermes/README.md)**.
+
+## Contributing
+
+Read the [development guide](AGENTS.md) first, then [CONTRIBUTING.md](CONTRIBUTING.md) for the test environment.
+
+```bash
+source ./activate        # provision and enter the development environment
+python scripts/check     # every blocking lint check CI runs
+scripts/run_tests.sh     # the test suite (never bare pytest)
+```
+
+## License
+
+MIT. See [LICENSE](LICENSE). Hermes Agent is © 2025 Nous Research.
+
+<br>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/loki-mark-white.svg">
+    <img src="assets/loki-mark-black.svg" alt="Loki mark" width="56">
+  </picture>
+  <br>
+  <sub>One agent. Every shape.</sub>
+</p>

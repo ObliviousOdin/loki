@@ -1,5 +1,8 @@
+> [!NOTE]
+> **Upstream reference.** This is the original [Hermes Agent](https://github.com/NousResearch/hermes-agent) README by Nous Research, kept for reference. Its install commands, links and the `hermes` command describe upstream Hermes, not Loki. For Loki, start at the [Loki README](../../README.md).
+
 <p align="center">
-  <img src="assets/banner.png" alt="Hermes Agent" width="100%">
+  <img src="../../assets/banner.png" alt="Hermes Agent" width="100%">
 </p>
 
 # Hermes Agent ☤
@@ -169,7 +172,7 @@ hermes claw migrate --overwrite  # 覆盖已有冲突
 欢迎贡献！请参阅 [贡献指南](https://hermes-agent.nousresearch.com/docs/developer-guide/contributing) 了解开发设置、代码风格和 PR 流程。
 
 PM 引导、Python 3.14 测试环境和规范验证命令见
-[开发环境配置](CONTRIBUTING.md#development-setup)。
+[开发环境配置](../../CONTRIBUTING.md#development-setup)。
 
 ---
 
@@ -185,6 +188,6 @@ PM 引导、Python 3.14 测试环境和规范验证命令见
 
 ## 许可证
 
-MIT — 详见 [LICENSE](LICENSE)。
+MIT — 详见 [LICENSE](../../LICENSE)。
 
 由 [Nous Research](https://nousresearch.com) 构建。
