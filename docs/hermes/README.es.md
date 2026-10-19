@@ -1,5 +1,8 @@
+> [!NOTE]
+> **Upstream reference.** This is the original [Hermes Agent](https://github.com/NousResearch/hermes-agent) README by Nous Research, kept for reference. Its install commands, links and the `hermes` command describe upstream Hermes, not Loki. For Loki, start at the [Loki README](../../README.md).
+
 <p align="center">
-  <img src="assets/banner.png" alt="Hermes Agent" width="100%">
+  <img src="../../assets/banner.png" alt="Hermes Agent" width="100%">
 </p>
 
 # Hermes Agent ☤
@@ -181,10 +184,10 @@ Consulta `hermes claw migrate --help` para todas las opciones, o usa la habilida
 
 ## Contribuir
 
-¡Las contribuciones son bienvenidas! Consulta la [Guía de Contribución](CONTRIBUTING.es.md) para la configuración del desarrollo, el estilo de código y el proceso de PR.
+¡Las contribuciones son bienvenidas! Consulta la [Guía de Contribución](../../CONTRIBUTING.es.md) para la configuración del desarrollo, el estilo de código y el proceso de PR.
 
 La configuración de PM, el entorno de pruebas con Python 3.14 y los comandos
-de verificación están en [Development Setup](CONTRIBUTING.md#development-setup).
+de verificación están en [Development Setup](../../CONTRIBUTING.md#development-setup).
 
 ---
 
@@ -200,6 +203,6 @@ de verificación están en [Development Setup](CONTRIBUTING.md#development-setup
 
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE).
+MIT — ver [LICENSE](../../LICENSE).
 
 Creado por [Nous Research](https://nousresearch.com).
