@@ -317,8 +317,9 @@ def _prepare_native(*, out: Path, ref: str, source: Path, cache: Path,
 
 def finish_native(prepared: Path, frontends: dict[str, Path]) -> int:
     """Consume verified job-local paths. No dependency acquisition or repair."""
-    from scripts.build.agent import assemble
+    from scripts.build.agent import assemble, plant_surfaces
     from scripts.build.inputs import AgentInputs
+    from scripts.bundles.bytecode import bake_frontend_bytecode
     from scripts.bundles.native_prepared import load_prepared, preparation_lock
 
     prepared = Path(prepared).absolute()
@@ -330,6 +331,14 @@ def finish_native(prepared: Path, frontends: dict[str, Path]) -> int:
         inputs = load_prepared(prepared)
         values = asdict(inputs)
         values["frontends"] = {name: Path(path).absolute() for name, path in frontends.items()}
+        final_inputs = AgentInputs.from_dict(values)
+        final_inputs.validate(out)
+        plant_surfaces(inputs.code, final_inputs.frontends)
+        baked = bake_frontend_bytecode(out, inputs.python, list(final_inputs.frontends))
+        print(f"✓ final frontend bytecode ({baked['modules']} modules)", flush=True)
+        # These final copies are already compiled; a second copy would discard
+        # their caches because ordinary product copying excludes __pycache__.
+        values["frontends"] = {}
         print("assembling verified payload", flush=True)
         assemble(AgentInputs.from_dict(values), out)
     print(f"✓ manifest ({out / 'manifest.json'})")

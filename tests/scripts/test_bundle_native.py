@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import marshal
 import os
 import shutil
 import subprocess
@@ -12,11 +13,99 @@ import threading
 from functools import partial
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from types import SimpleNamespace
+from types import CodeType, SimpleNamespace
 
 import pytest
 
 from scripts.bundles import native
+
+
+def _assert_final_frontend_caches(prepared, output, parent, source, python, monkeypatch):
+    from importlib.util import cache_from_source
+    from pm.store import tree_digest
+    from scripts.build import agent
+
+    product = parent / "late TUI product"
+    scripts = product / "dist/scripts"
+    scripts.mkdir(parents=True)
+    (product / "dist/entry.js").write_text("export const built = true;", encoding="utf-8")
+    (product / "package.json").write_text('{"type":"module"}', encoding="utf-8")
+    for name in ("clipboard_image.py", "gateway_bootstrap.py"):
+        shutil.copy2(source / "ui-tui/scripts" / name, scripts / name)
+    (scripts / "warm_probe.py").write_text("def outer():\n    def inner(): return 42\n    return inner()\n", encoding="utf-8")
+    before = {p.relative_to(product): p.read_bytes() for p in product.rglob("*") if p.is_file()}
+    tools_before, prepared_before = tree_digest(output / "tools"), prepared.read_bytes()
+    copied = output / "hermes-agent/hermes_cli/tui_dist/scripts"
+    caches = {}
+    write_metadata, run = agent.write_metadata, subprocess.run
+
+    def metadata_after_bake(project, repo):
+        assert not (output / "manifest.json").exists()
+        for name in before:
+            if name.suffix != ".py":
+                continue
+            path = copied / name.name
+            assert path.is_file()
+            cache = Path(cache_from_source(path))
+            assert cache.is_file(), "final copied frontend Python must be baked before manifest publication"
+            data = cache.read_bytes()
+            assert data[4:8] == b"\x01\x00\x00\x00"
+            pending = [marshal.loads(data[16:])]
+            while pending:
+                code = pending.pop()
+                assert code.co_filename == "/loki/" + path.relative_to(output).as_posix()
+                pending.extend(value for value in code.co_consts if isinstance(value, CodeType))
+            assert cache.stat().st_mode & 0o222 == 0
+            caches[name.name] = data
+        return write_metadata(project, repo)
+
+    def only_compiler(command, **kwargs):
+        assert command[:5] == [str(python.resolve()), "-B", "-I", "-m", "compileall"]
+        return run(command, **kwargs)
+
+    with monkeypatch.context() as patch:
+        def failed_compiler(*args, **kwargs):
+            raise subprocess.CalledProcessError(1, "fixture compiler refusal")
+        patch.setattr(subprocess, "run", failed_compiler)
+        with pytest.raises(subprocess.CalledProcessError):
+            native.finish_native(prepared, {"tui": product})
+    assert not (output / "manifest.json").exists()
+    with monkeypatch.context() as patch:
+        patch.setattr(agent, "write_metadata", metadata_after_bake)
+        patch.setattr(subprocess, "run", only_compiler)
+        assert native.finish_native(prepared, {"tui": product}) == 0
+    assert caches.keys() == {"clipboard_image.py", "gateway_bootstrap.py", "warm_probe.py"}
+    assert all(Path(cache_from_source(copied / name)).read_bytes() == data for name, data in caches.items())
+    assert before == {p.relative_to(product): p.read_bytes() for p in product.rglob("*") if p.is_file()}
+    assert tree_digest(output / "tools") == tools_before
+    assert prepared.read_bytes() == prepared_before
+    _assert_relocated_frontend_cache(output, python, parent)
+
+
+def _assert_relocated_frontend_cache(output, python, parent):
+    from importlib.util import cache_from_source
+    from pm.store import tree_digest
+
+    moved = parent / "installed frontend elsewhere"
+    relative_python = python.relative_to(output)
+    output.rename(moved)
+    try:
+        assert not output.exists()
+        script = moved / "hermes-agent/hermes_cli/tui_dist/scripts/warm_probe.py"
+        cache = Path(cache_from_source(script))
+        before = (cache.read_bytes(), cache.stat().st_mtime_ns, tree_digest(moved / "tools"))
+        stat = script.stat()
+        os.utime(script, (stat.st_atime, stat.st_mtime + 3600))
+        code = ("import sys; assert not sys.dont_write_bytecode and sys.pycache_prefix is None; "
+                f"sys.path.insert(0, {str(script.parent)!r}); import warm_probe; "
+                "assert warm_probe.outer() == 42; print(warm_probe.__file__)")
+        child = subprocess.run([str(moved / relative_python), "-I", "-c", code],
+                               cwd=parent, capture_output=True, text=True, timeout=30, check=False)
+        assert child.returncode == 0, child.stderr
+        assert Path(child.stdout.strip()) == script
+        assert (cache.read_bytes(), cache.stat().st_mtime_ns, tree_digest(moved / "tools")) == before
+    finally:
+        moved.rename(output)
 
 
 def _observe_preseal_normalization(output, monkeypatch):
@@ -295,6 +384,7 @@ def test_bundle_stages_git_tree_and_runs_native_children_before_manifest(tmp_pat
         launcher.rename(launcher.with_name("renamed-launcher"))
         (frontend / "index.html").write_text("store web", encoding="utf-8")
         assert native.finish_native(prepared, {"web": frontend}) == 0
+    _assert_final_frontend_caches(prepared, output, tmp_path, source, target_python, monkeypatch)
     assert (output / "hermes-agent/hermes_cli/web_dist/index.html").read_text() == "store web"
     assert calls[0]["all_extras"] is True
     assert calls[0]["cache"] == tmp_path / "cache"

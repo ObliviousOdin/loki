@@ -107,18 +107,7 @@ def _optimized_sources(root: Path) -> dict[int, list[Path]]:
     return result
 
 
-def bake_bytecode(root: Path, python: Path) -> dict:
-    """Compile every payload module with the staged interpreter and seal the
-    caches read-only. ``root`` is the payload root; ``python`` MUST be the
-    payload's own staged interpreter binary."""
-    root = Path(root).resolve()
-    python = Path(python).resolve()
-    if not python.is_file():
-        raise FileNotFoundError(f"staged interpreter is missing: {python}")
-    roots = _import_roots(root)
-    stdlib = _staged_stdlib(root, python)
-    if stdlib is not None:
-        roots.append(stdlib)
+def _bake_roots(root: Path, python: Path, roots: list[Path]) -> int:
     total = 0
     for source_root in roots:
         optimized = _optimized_sources(source_root)
@@ -152,5 +141,33 @@ def bake_bytecode(root: Path, python: Path) -> dict:
             for pyc in cache.iterdir():
                 if pyc.is_file():
                     pyc.chmod(0o444)
+    return total
+
+
+def bake_frontend_bytecode(root: Path, python: Path, names: list[str]) -> dict:
+    """Seal only frontend copies added after the dependency preparation bake."""
+    root, python = Path(root).resolve(), Path(python).resolve()
+    destinations = {"tui": "tui_dist", "web": "web_dist"}
+    roots = [root / "hermes-agent/hermes_cli" / destinations[name] for name in names]
+    roots = [path for path in roots if path.is_dir() and any(path.rglob("*.py"))]
+    if any(not path.resolve().is_relative_to(root)
+           for directory in roots for path in [directory, *directory.rglob("*.py")]):
+        raise ValueError("frontend bytecode root must belong to the payload")
+    return {"modules": _bake_roots(root, python, roots)}
+
+
+def bake_bytecode(root: Path, python: Path) -> dict:
+    """Compile every payload module with the staged interpreter and seal the
+    caches read-only. ``root`` is the payload root; ``python`` MUST be the
+    payload's own staged interpreter binary."""
+    root = Path(root).resolve()
+    python = Path(python).resolve()
+    if not python.is_file():
+        raise FileNotFoundError(f"staged interpreter is missing: {python}")
+    roots = _import_roots(root)
+    stdlib = _staged_stdlib(root, python)
+    if stdlib is not None:
+        roots.append(stdlib)
+    total = _bake_roots(root, python, roots)
     (root / MARKER).write_text("unchecked-hash\n", encoding="utf-8")
     return {"modules": total, "marker": str(root / MARKER)}
