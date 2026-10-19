@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 400" role="img" aria-labelledby="title desc">
   <title id="title">Loki</title>
-  <desc id="desc">The forest-green Loki mark and wordmark on warm ivory, with the tagline "One agent. Every shape." Sage, ochre, brick-red and slate-blue geometric accents surround a terminal, chat thread and desktop window.</desc>
+  <desc id="desc">The forest-green Loki mark and wordmark on white, with the tagline "One agent. Every shape." Sage, ochre, brick-red and slate-blue geometric accents surround a terminal, chat thread and desktop window.</desc>
   <defs>
     <clipPath id="card"><rect width="1280" height="400" rx="28"/></clipPath>
   </defs>
 
   <g clip-path="url(#card)">
-    <rect width="1280" height="400" fill="#f5f3ec"/>
+    <rect width="1280" height="400" fill="#ffffff"/>
     <circle cx="1136" cy="104" r="70" fill="#d6a74b"/>
     <path d="M858 282h72v72h-72z" fill="#cedcc8"/>
     <path d="M1144 304h54v54h-54z" fill="#bf6252"/>
@@ -15,7 +15,7 @@
     <!-- Every shape: terminal, chat, window -->
     <g fill="none" stroke="#304b42" stroke-width="2" stroke-linejoin="round">
       <g>
-        <rect x="944" y="62" width="244" height="150" rx="6" fill="#f5f3ec" fill-opacity="0.8"/>
+        <rect x="944" y="62" width="244" height="150" rx="6" fill="#ffffff"/>
         <path d="M944 92H1188"/>
         <circle cx="964" cy="77" r="4"/>
         <circle cx="980" cy="77" r="4"/>
@@ -23,7 +23,7 @@
         <path d="M968 124h120M968 148h168M968 172h96"/>
       </g>
       <g stroke="#667f91">
-        <path d="M1032 190h168a12 12 0 0 1 12 12v84a12 12 0 0 1-12 12h-116l-28 26v-26h-24a12 12 0 0 1-12-12v-84a12 12 0 0 1 12-12z" fill="#f5f3ec"/>
+        <path d="M1032 190h168a12 12 0 0 1 12 12v84a12 12 0 0 1-12 12h-116l-28 26v-26h-24a12 12 0 0 1-12-12v-84a12 12 0 0 1 12-12z" fill="#ffffff"/>
         <path d="M1052 226h128M1052 254h88"/>
       </g>
       <g stroke="#3f7562">
@@ -44,7 +44,6 @@
       <path d="M308 18L334 0V100H308Z"/>
     </g>
 
-    <text x="381" y="92" fill="#3f7562" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'Liberation Mono', monospace" font-size="15" font-weight="600" letter-spacing="4">PERSONAL AI AGENT</text>
     <text x="379" y="298" fill="#304b42" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" font-size="38" font-weight="600" letter-spacing="-0.5">One agent. <tspan fill="#3f7562">Every shape.</tspan></text>
   </g>
 </svg>
