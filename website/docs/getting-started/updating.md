@@ -18,6 +18,28 @@ loki update --check
 
 The source updater belongs to `ObliviousOdin/loki`; its preview default follows `main`. An explicit `loki update` can therefore move away from a release pin. Review the proposed source and preserve configuration, sessions and unfinished source work before applying it. An update check resolves source information; it is not proof that an update was installed. Use the selected release's [owned installation instructions](https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md), not upstream Hermes scripts or update channels.
 
+### Passive update notices
+
+`updates.check` defaults to `true`. A pinned or noninteractive installation can disable passive CLI version/banner notices and their update-check network requests:
+
+```bash
+loki config set updates.check false
+```
+
+This also suppresses cached passive notices. Explicit `loki update --check` and `loki update` remain available; the setting does not control the desktop application's updater or enable packaged automatic updates. Disabling notices does not change your selected source or pin it to a release.
+
+### Checkout parked on a feature branch
+
+`updates.parked_branch_strategy` defaults to `switch`. When a clean source checkout is parked on another branch, the updater switches to its configured update target; committed work remains on the original branch. A fully merged parked branch also follows this switch path.
+
+If you deliberately maintain unmerged patches on a custom branch, opt in to merging the selected `origin/<target>` into that branch instead of switching away:
+
+```bash
+loki config set updates.parked_branch_strategy update_in_place
+```
+
+`loki update --switch-branch` overrides that in-place strategy for one run. A dirty or unverifiable parked checkout still blocks the automatic branch move and reports the code update skipped; preserve unfinished work before proceeding. These settings do not bypass Loki source-identity admission, qualify a development candidate or execute an update by themselves. The preview pin and review requirements above still apply.
+
 ### Bundled desktop updates
 
 No native app is published in the alpha.1 source release. Packaged automatic updates are disabled until Loki has its own authenticated feed and appropriately signed, qualified artifacts. Do not register an upstream App Installer, Store or macOS updater feed for Loki. A source-built desktop and a packaged app have different update owners; no signing, Store acceptance or downloaded-app update qualification is implied by retained engine support.
