@@ -216,11 +216,68 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  container:
+    name: Loki container (linux/amd64)
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pm
+        with:
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+      - name: Stamp and build the exact local image
+        env:
+          LOKI_IMAGE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          test "$(uname -m)" = x86_64
+          command -v script
+          test "$(git rev-parse HEAD)" = "$LOKI_IMAGE_SHA"
+          python scripts/write_install_stamp.py --output install-stamp.json \
+            --distribution docker --update-mechanism external --source ci --commit "$LOKI_IMAGE_SHA"
+          python scripts/ci/check_profile_archive_boundary.py
+          docker build --platform linux/amd64 --progress plain \
+            --tag "loki-ci:$LOKI_IMAGE_SHA" .
+      - name: Exercise the real image with the upstream Docker suite
+        env:
+          HERMES_TEST_IMAGE: loki-ci:${{ github.event.pull_request.head.sha || github.sha }}
+        run: scripts/run_tests.sh tests/docker/ -j 2 --file-timeout 600 --fail-on-skip
+      - name: Record the tested image identity
+        env:
+          LOKI_IMAGE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/loki-container-evidence"
+          docker run --rm --network none "loki-ci:$LOKI_IMAGE_SHA" --version \
+            > "$RUNNER_TEMP/loki-container-evidence/loki-version.txt"
+          python - <<'PY'
+          import os, pathlib, tomllib
+          project = tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']
+          output = (pathlib.Path(os.environ['RUNNER_TEMP']) / 'loki-container-evidence/loki-version.txt').read_text()
+          assert f"Loki v{project['version']}" in output, output
+          assert os.environ['LOKI_IMAGE_SHA'][:8] in output, output
+          PY
+          docker image inspect "loki-ci:$LOKI_IMAGE_SHA" \
+            > "$RUNNER_TEMP/loki-container-evidence/image-inspect.json"
+          cp install-stamp.json "$RUNNER_TEMP/loki-container-evidence/install-stamp.json"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-container-linux-amd64
+          path: ${{ runner.temp }}/loki-container-evidence/
+          if-no-files-found: error
+          retention-days: 7
+      - uses: ./.github/actions/check-clean-worktree
+
   verification:
     name: Loki verification
     if: always() && github.repository == 'ObliviousOdin/loki'
     runs-on: ubuntu-latest
-    needs: [quality, python, workspace, desktop_ui, desktop_electron, desktop_package, native]
+    needs: [quality, python, workspace, desktop_ui, desktop_electron, desktop_package, native, container]
     timeout-minutes: 5
     steps:
       - name: Require successful evidence from every Loki job
