@@ -53,7 +53,7 @@ Only native artifacts actually listed in the release are available. An unsigned/
 
 Choose the macOS arm64 asset explicitly labeled `UNSIGNED`, verify its SHA-256 against the supplied manifest, then extract the ZIP and copy `Loki.app` into an Applications directory. The preview currently targets a ZIP artifact; no final DMG installation is qualified. The first launch may require your explicit approval in macOS for this unnotarized application; verify its origin and checksum before granting that trust.
 
-The app creates its own `loki` launcher in `~/.local/bin`. Add that directory to your shell PATH if necessary, then run `loki --version` and `loki --help`. Application metadata reports `0.1.0-alpha.1`. Both the bundled and source Python CLI report the equivalent `0.1.0a1` and their source commit. Check the commit against the artifact's metadata. Configure a dedicated provider in Loki before starting a real conversation.
+The app creates its own `loki` launcher in `~/.local/bin`. Add that directory to your shell PATH if necessary, then run `loki --version` and `loki --help`. Compare the application's version, the equivalent Python CLI version and its source commit against the selected release's metadata. Configure a dedicated provider in Loki before starting a real conversation.
 
 Earlier native evidence covers an actual ZIP installation and app startup on macOS arm64. Those candidates are superseded. Each distributed native artifact requires fresh exact-commit build and installation receipts, plus verification after downloading its published bytes. Consult the release's attached evidence for its measured scope. Native Windows/Linux packages, signing and notarization require separate qualification.
 
