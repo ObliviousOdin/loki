@@ -6,33 +6,51 @@ import subprocess
 import sys
 
 from tests.installation_launcher_fixture import publish_fixture_launcher
-from tests.scripts.desktop_update.windows_handoff_support import HOLD_CLI, MARKER, _marker_diagnostics
-from tests.waiting import wait_until
+from tests.scripts.desktop_update.windows_handoff_support import HOLD_CLI, MARKER, _HelpGate, _marker_diagnostics
 
 
 def test_help_probe_waits_for_controller_release_before_the_update(tmp_path: Path) -> None:
     launcher = publish_fixture_launcher(tmp_path / 'checkout', HOLD_CLI)
-    ready, release = tmp_path / 'help.ready', tmp_path / 'help.release'
+    ready = tmp_path / 'help.ready'
     update = tmp_path / 'update.release'
-    env = {**os.environ, 'HANDOFF_HELP_READY': str(ready),
-           'HANDOFF_HELP_RELEASE': str(release), 'HANDOFF_HOLD': str(update)}
-    proc = subprocess.Popen([str(launcher), 'update', '--help'], env=env,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
-    try:
-        wait_until(lambda: ready.exists() or proc.poll() is not None,
-                   what='the real launcher help probe to acknowledge its gate')
-        assert ready.exists() and proc.poll() is None, 'help ran past the controller gate'
-        assert int(ready.read_text()) > 0
-        assert not Path(str(update) + '.pid').exists()
-        release.touch()
-        out, _ = proc.communicate(timeout=10)
-        assert proc.returncode == 0 and out.strip() == '--keep-stash', out
-        assert not Path(str(update) + '.pid').exists()
-    finally:
-        release.touch()
-        if proc.poll() is None:
-            proc.kill()
-        proc.wait(timeout=10)
+    with _HelpGate(ready) as gate:
+        env = {**os.environ, **gate.env, 'HANDOFF_HOLD': str(update)}
+        proc = subprocess.Popen([str(launcher), 'update', '--help'], env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        try:
+            pid = gate.wait_ready(timeout=10)
+            assert pid == int(ready.read_text()) and proc.poll() is None, 'help ran past the controller gate'
+            assert not Path(str(update) + '.pid').exists()
+            gate.release()
+            out, _ = proc.communicate(timeout=10)
+            assert proc.returncode == 0 and out.strip() == '--keep-stash', out
+            assert not Path(str(update) + '.pid').exists()
+        finally:
+            gate.close()
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait(timeout=10)
+
+
+def test_controller_disconnect_cancels_help_before_the_update(tmp_path: Path) -> None:
+    launcher = publish_fixture_launcher(tmp_path / 'checkout', HOLD_CLI)
+    update = tmp_path / 'update.release'
+    with _HelpGate(tmp_path / 'help.ready') as gate:
+        env = {**os.environ, **gate.env, 'HANDOFF_HOLD': str(update)}
+        proc = subprocess.Popen([str(launcher), 'update', '--help'], env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        try:
+            gate.wait_ready(timeout=10)
+            assert proc.poll() is None and not Path(str(update) + '.pid').exists()
+            gate.close()
+            out, _ = proc.communicate(timeout=10)
+            assert proc.returncode != 0 and not out.strip(), out
+            assert not Path(str(update) + '.pid').exists()
+        finally:
+            gate.close()
+            if proc.poll() is None:
+                proc.kill()
+            proc.wait(timeout=10)
 
 
 def test_uncontrolled_help_probe_keeps_its_original_behavior(tmp_path: Path) -> None:

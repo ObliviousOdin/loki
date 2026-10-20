@@ -5,6 +5,7 @@ import os
 import json
 from pathlib import Path
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -20,20 +21,21 @@ MARKER = '.hermes-update-in-progress'
 POWERSHELL = os.path.join(os.environ.get('SystemRoot', r'C:\Windows'),
                           'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
 HOLD_CLI = """
-import os, sys, time
+import os, socket, sys, time
 from pathlib import Path
 def main():
     if '--version' in sys.argv:
         print('Install directory: ' + str(Path(__file__).resolve().parents[1])); return 0
     if '--help' in sys.argv:
         if os.environ.get('HANDOFF_HELP_READY'):
-            ready = Path(os.environ['HANDOFF_HELP_READY'])
-            pending = ready.with_suffix('.pending')
-            pending.write_text(str(os.getpid()), encoding='utf-8')
-            pending.replace(ready)
-            release = Path(os.environ['HANDOFF_HELP_RELEASE'])
-            while not release.exists():
-                time.sleep(0.05)
+            with socket.create_connection(('127.0.0.1', int(os.environ['HANDOFF_HELP_PORT'])), timeout=60) as release:
+                ready = Path(os.environ['HANDOFF_HELP_READY'])
+                pending = ready.with_suffix('.pending')
+                pending.write_text(str(os.getpid()), encoding='utf-8')
+                pending.replace(ready)
+                release.sendall(b'R')
+                if release.recv(1) != b'1':
+                    return 1
         print('--keep-stash'); return 0
     if sys.argv[1:2] == ['update']:   # the update's first act: say so, then wait to be released
         hold = Path(os.environ['HANDOFF_HOLD'])
@@ -47,6 +49,51 @@ def main():
 if __name__ == '__main__':
     sys.exit(main())
 """
+
+
+class _HelpGate:
+    """Pause the real help process until its controller explicitly releases it."""
+
+    def __init__(self, ready: Path) -> None:
+        self.ready = ready
+        self._listener = socket.create_server(('127.0.0.1', 0), backlog=1)
+        self._connection: socket.socket | None = None
+        self.released = False
+
+    @property
+    def env(self) -> dict[str, str]:
+        return {'HANDOFF_HELP_READY': str(self.ready),
+                'HANDOFF_HELP_PORT': str(self._listener.getsockname()[1])}
+
+    def wait_ready(self, timeout: float) -> int:
+        deadline = time.monotonic() + timeout
+        self._listener.settimeout(timeout)
+        self._connection, _ = self._listener.accept()
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise TimeoutError('help probe did not acknowledge its gate')
+        self._connection.settimeout(remaining)
+        assert self._connection.recv(1) == b'R', 'help probe closed before acknowledging its gate'
+        pid = int(self.ready.read_text(encoding='utf-8'))
+        assert pid > 0
+        return pid
+
+    def release(self) -> None:
+        assert self._connection is not None, 'help probe has not acknowledged its gate'
+        self._connection.sendall(b'1')
+        self.released = True
+        self.close()
+
+    def close(self) -> None:
+        if self._connection is not None:
+            self._connection.close()
+        self._listener.close()
+
+    def __enter__(self) -> _HelpGate:
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self.close()
 
 
 def _ps(command: str, timeout: int = 60) -> str:
