@@ -259,6 +259,12 @@ def _admission_outcome(authority, admission_id, fallback=None):
     saved = admission_result(authority.db, admission_id)
     reply = (fallback or {}).get('reply', '')
     if saved is not None:
+        # Settlement can commit between these reads. Terminal outcomes are immutable;
+        # re-read a pre-settlement snapshot before classifying its committed result.
+        if row['status'] != 'terminal':
+            row = get_session_admission(authority.db, admission_id=admission_id)
+            if row is None or row['status'] != 'terminal':
+                raise RuntimeStoreError('storage_unavailable')
         reply = saved['result'].get('final_response', '')
         status = 'settled' if row['outcome'] == 'completed' else 'failed'
         # A successful bare silence marker is a delivery decision (same rule as the gateway and
