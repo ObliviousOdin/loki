@@ -43,13 +43,20 @@
     "nanoid": "3.3.18",
     "js-yaml": "4.3.2",
     "dompurify": "3.4.17",
-    "mermaid": "11.16.1",
+    "mermaid": {
+      ".": "12.2.0",
+      "katex": "0.18.10"
+    },
     "image-size": "npm:@nous-research/image-size@2.0.3",
     "tar": "7.5.22",
     "browserslist": "4.28.7",
     "baseline-browser-mapping": "2.11.0",
     "colord": "2.9.4",
-    "svgo": "3.3.5"
+    "svgo": "3.3.5",
+    "@docusaurus/core": {
+      "tinypool": "2.1.2"
+    },
+    "postcss-selector-parser@^6": "7.1.6"
   },
   "browserslist": {
     "production": [
@@ -64,7 +71,7 @@
     ]
   },
   "engines": {
-    "node": ">=20.0",
+    "node": ">=22.12.0",
     "npm": ">=11.17.0"
   },
   "allowScripts": {
