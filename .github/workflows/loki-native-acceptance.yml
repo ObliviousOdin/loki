@@ -1,0 +1,63 @@
+name: Loki published native preview acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Exact merged source commit bound to the published native preview
+        required: true
+        type: string
+      release_id:
+        description: Existing published prerelease ID
+        required: true
+        type: string
+      native_manifest_sha256:
+        description: Independently accepted NATIVE-PREVIEW.json SHA-256 from draft staging
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-published-native-${{ inputs.commit }}-${{ inputs.release_id }}
+  cancel-in-progress: false
+
+jobs:
+  macos:
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/main'
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          cache: 'false'
+          cache-python: 'false'
+          cache-node: 'false'
+          save-tools-cache: 'false'
+          save-python-cache: 'false'
+          save-node-cache: 'false'
+      - name: Install only the existing loopback smoke driver's dependencies
+        run: npm ci --workspace tests-js --include-workspace-root
+      - name: Download anonymous immutable release assets and verify the fresh installation
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+          RELEASE_ID: ${{ inputs.release_id }}
+          NATIVE_MANIFEST_SHA256: ${{ inputs.native_manifest_sha256 }}
+        run: |
+          python scripts/loki/native_public_acceptance.py --commit "$LOKI_COMMIT" \
+            --release-id "$RELEASE_ID" --native-manifest-sha256 "$NATIVE_MANIFEST_SHA256" \
+            --output "$RUNNER_TEMP/loki-published-native"
+      - name: Retain only the small public acceptance receipt
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-published-native-acceptance
+          path: ${{ runner.temp }}/loki-published-native/PUBLIC-NATIVE-ACCEPTANCE.json
+          if-no-files-found: error
+          retention-days: 1

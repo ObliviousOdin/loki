@@ -20,7 +20,7 @@ from scripts.loki.native_preview_scan import inspect_members, inspect_bytecode
 COMMIT = "a" * 40
 
 
-def test_draft_admission_and_native_assets_refuse_wrong_identity_or_overwrite(tmp_path):
+def test_draft_admission_and_native_assets_refuse_wrong_identity_or_overwrite(tmp_path, monkeypatch):
     release = {"id": 7, "draft": True, "prerelease": True, "tag_name": "v0.1.0-alpha.9",
                "url": f"https://api.github.com/repos/{preview.REPOSITORY}/releases/7", "assets": []}
     tag = {"type": "commit", "sha": COMMIT}
@@ -48,8 +48,8 @@ def test_draft_admission_and_native_assets_refuse_wrong_identity_or_overwrite(tm
     release["assets"].append({"name": asset.name})
     with pytest.raises(ValueError, match="overwrite"):
         preview.validate_assets(release, companions, [asset])
-    with asset.open("wb") as stream:
-        stream.truncate(preview.MAX_ASSET)
+    monkeypatch.setattr(preview, "MAX_ASSET", 64)
+    asset.write_bytes(b"x" * 64)
     with pytest.raises(ValueError, match="under 2 GiB"):
         preview.validate_assets({**release, "assets": release["assets"][:-1]}, companions, [asset])
 

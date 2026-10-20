@@ -225,13 +225,36 @@ def module_origins(payload: Path, env: dict[str, str], output: Path) -> None:
         raise ValueError("Installed imports escaped the packaged payload")
 
 
-def notices(source: Path, resources: Path) -> dict:
-    pairs = {"Hermes-LICENSE.txt": "LICENSE", "Loki-NOTICE.txt": "NOTICE",
+SOURCE_NOTICES = {"Hermes-LICENSE.txt": "LICENSE", "Loki-NOTICE.txt": "NOTICE",
              "hermes-bots-LICENSE.txt": "apps/desktop/src/plugins/hermes-bots/LICENSE",
              "pilk/LICENSE": "notices/pilk-0.2.4/LICENSE", "pilk/SILK-NOTICES.txt": "notices/pilk-0.2.4/SILK-NOTICES.txt"}
-    for target, original in pairs.items():
+
+
+def source_notices(source: Path, resources: Path) -> None:
+    for target, original in SOURCE_NOTICES.items():
         if (resources / "licenses" / target).read_bytes() != (source / original).read_bytes():
             raise ValueError("Packaged license/notice differs from admitted source")
+
+
+def notice_inventory(resources: Path) -> dict[str, str]:
+    root = resources / "licenses"
+    paths = list(root.rglob("*"))
+    if root.is_symlink() or any(path.is_symlink() for path in paths):
+        raise ValueError("Packaged notice symlinks refused")
+    return {path.relative_to(root).as_posix(): digest(path) for path in paths if path.is_file()}
+
+
+def published_notices(source: Path, resources: Path, expected: dict[str, str]) -> dict:
+    source_notices(source, resources)
+    required = {*SOURCE_NOTICES, "electron/LICENSE", "electron/LICENSES.chromium.html", "npm/react/LICENSE"}
+    observed = notice_inventory(resources)
+    if not required <= expected.keys() or observed != expected:
+        raise ValueError("Published packaged notice set or bytes differ from the staged proof")
+    return observed
+
+
+def notices(source: Path, resources: Path) -> dict:
+    source_notices(source, resources)
     prepared = json.loads((source / ".build/desktop-job/packager/prepared.json").read_bytes())
     vendor = Path(prepared["electron"])
     entry = next(row for row in prepared["files"] if Path(row["path"]) == vendor)
@@ -249,10 +272,10 @@ def notices(source: Path, resources: Path) -> dict:
     for path in npm.rglob("*"):
         if path.is_file() and path.read_bytes() != (source / "node_modules" / path.relative_to(npm)).read_bytes():
             raise ValueError("Packaged npm notice differs from installed supplier")
-    return {name: digest(resources / "licenses" / name) for name in [*pairs, "electron/LICENSE", "electron/LICENSES.chromium.html"]}
+    return notice_inventory(resources)
 
 
-def installed_identity(app: Path, *, source: Path, commit: str, version: str) -> dict:
+def installed_identity(app: Path, *, source: Path, commit: str, version: str, expected_notices: dict | None = None) -> dict:
     resources = app / "Contents/Resources"
     plist = plistlib.loads((app / "Contents/Info.plist").read_bytes())
     stamp = json.loads((resources / "install-stamp.json").read_bytes())
@@ -273,7 +296,7 @@ def installed_identity(app: Path, *, source: Path, commit: str, version: str) ->
     trust = checked(["/usr/bin/codesign", "-d", "--verbose=4", str(app)], stderr=subprocess.STDOUT)
     if "Signature=adhoc" not in trust or re.search(r"^TeamIdentifier=(?!not set$).+", trust, re.MULTILINE):
         raise ValueError("Only the intended unsigned ad-hoc preview is supported")
-    return notices(source, resources)
+    return notices(source, resources) if expected_notices is None else published_notices(source, resources, expected_notices)
 
 
 def retire_build_copies(source: Path, output: Path, *, commit: str, version: str) -> None:
@@ -292,6 +315,45 @@ def retire_build_copies(source: Path, output: Path, *, commit: str, version: str
     shutil.rmtree(payload)
 
 
+def exercise_installed(app: Path, *, source: Path, commit: str, output: Path, node: Path) -> None:
+    payload = app / "Contents/Resources/agent-payload"
+    launcher = payload / "bin/loki"
+    env = product_environment(output / "cli-home")
+    module_origins(payload, env, output)
+    cli_version = tomllib.loads((source / "pyproject.toml").read_text(encoding="utf-8-sig"))["project"]["version"]
+    for index, command in enumerate((["--version"], ["--help"], ["tools", "list"], ["pm", "doctor"])):
+        text = checked([str(launcher), *command], env=env, cwd=env["HOME"], timeout=240)
+        (output / f"cli-{index}.log").write_text(text, encoding="utf-8")
+        if index == 0 and ("Loki" not in text or cli_version not in text or commit[:8] not in text):
+            raise ValueError("Installed CLI source identity mismatch")
+    (output / "mock-smoke").mkdir()
+    checked([str(node), str(source / "tests/install/e2e-assets/desktop-smoke.ts"),
+             "--exe", str(app / "Contents/MacOS/Loki"), "--root", str(payload), "--origin", "bundled",
+             "--home", str(output / "mock-home"), "--user-data", str(output / "mock-user-data"),
+             "--out", str(output / "mock-smoke"), "--phase", "installed", "--expect-commit", commit],
+            env={**env, "PATH": str(node.parent) + os.pathsep + env["PATH"]}, cwd=env["HOME"], timeout=600)
+
+
+def accept_archive(archive: Path, *, source: Path, commit: str, version: str,
+                   output: Path, node: Path, expected_notices: dict | None = None) -> dict:
+    import zipfile
+    original_hash = digest(archive)
+    with zipfile.ZipFile(archive) as zipped:
+        required = sum(item.file_size for item in zipped.infolist()) + 1024 ** 3
+    if shutil.disk_usage(output).free < required:
+        raise ValueError("Insufficient capacity for a fresh ZIP extraction")
+    installed = output / "installed"
+    installed.mkdir()
+    checked(["/usr/bin/ditto", "-x", "-k", str(archive), str(installed)])
+    app = installed / "Loki.app"
+    notice_hashes = installed_identity(app, source=source, commit=commit, version=version, expected_notices=expected_notices)
+    exercise_installed(app, source=source, commit=commit, output=output, node=node)
+    checked(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)])
+    if digest(archive) != original_hash:
+        raise ValueError("Immutable native ZIP changed")
+    return notice_hashes
+
+
 def verify(args) -> None:
     from scripts.loki.native_preview_scan import scan
     version = source_identity(args.source, args.commit)
@@ -303,40 +365,13 @@ def verify(args) -> None:
     original_hash = digest(archive)
     scan_result = scan(archive, commit=args.commit, build_roots=[args.source, args.source / ".cache", args.source / ".build"], scratch=args.output)
     retire_build_copies(args.source, args.output, commit=args.commit, version=version)
-    import zipfile
-    with zipfile.ZipFile(archive) as zipped:
-        required = sum(item.file_size for item in zipped.infolist()) + 1024 ** 3
-    if shutil.disk_usage(args.output).free < required:
-        raise ValueError("Insufficient capacity for a fresh ZIP extraction")
-    installed = args.output / "installed"
-    installed.mkdir()
-    checked(["/usr/bin/ditto", "-x", "-k", str(archive), str(installed)])
-    app = installed / "Loki.app"
-    resources = app / "Contents/Resources"
-    notice_hashes = installed_identity(app, source=args.source, commit=args.commit, version=version)
-    binary = app / "Contents/MacOS/Loki"
-    payload = resources / "agent-payload"
-    launcher = payload / "bin/loki"
-    env = product_environment(args.output / "cli-home")
-    module_origins(payload, env, args.output)
-    cli_version = tomllib.loads((args.source / "pyproject.toml").read_text(encoding="utf-8-sig"))["project"]["version"]
-    for index, command in enumerate((["--version"], ["--help"], ["tools", "list"], ["pm", "doctor"])):
-        text = checked([str(launcher), *command], env=env, cwd=env["HOME"], timeout=240)
-        (args.output / f"cli-{index}.log").write_text(text, encoding="utf-8")
-        if index == 0 and ("Loki" not in text or cli_version not in text or args.commit[:8] not in text):
-            raise ValueError("Installed CLI source identity mismatch")
-    smoke = args.source / "tests/install/e2e-assets/desktop-smoke.ts"
-    (args.output / "mock-smoke").mkdir()
     from scripts.bundles.desktop_prepare import fingerprint
     prepared = json.loads((args.source / ".build/desktop-job/prepared.json").read_bytes())
     node = Path(prepared["node"])
     if not node.resolve().is_relative_to(args.source.resolve()) or fingerprint(node) != prepared["digests"][str(node)]:
         raise ValueError("Admitted Node changed")
-    checked([str(node), str(smoke), "--exe", str(binary), "--root", str(payload), "--origin", "bundled",
-             "--home", str(args.output / "mock-home"), "--user-data", str(args.output / "mock-user-data"),
-             "--out", str(args.output / "mock-smoke"), "--phase", "installed", "--expect-commit", args.commit],
-            env={**env, "PATH": str(node.parent) + os.pathsep + env["PATH"]}, cwd=env["HOME"], timeout=600)
-    checked(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(app)])
+    notice_hashes = accept_archive(archive, source=args.source, commit=args.commit, version=version,
+                                  output=args.output, node=node)
     source_identity(args.source, args.commit)
     if digest(archive) != original_hash:
         raise ValueError("Immutable native ZIP changed")

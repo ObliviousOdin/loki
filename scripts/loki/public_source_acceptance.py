@@ -60,7 +60,7 @@ class PublicRedirects(HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch(url: str, destination: Path) -> None:
+def fetch(url: str, destination: Path, *, max_bytes: int = 8 * 1024 * 1024) -> None:
     validate_url(url)
     opener = build_opener(ProxyHandler({}), PublicRedirects())
     request = Request(url, headers={"User-Agent": "Loki-public-source-acceptance"})
@@ -69,8 +69,8 @@ def fetch(url: str, destination: Path) -> None:
         size = 0
         while block := response.read(64 * 1024):
             size += len(block)
-            if size > 8 * 1024 * 1024:
-                raise ValueError("Acceptance metadata or installer exceeds the bounded download size")
+            if size > max_bytes:
+                raise ValueError("Acceptance download exceeds the bounded size")
             target.write(block)
 
 
