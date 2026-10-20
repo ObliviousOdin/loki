@@ -37,6 +37,7 @@ jobs:
           save-python-cache: 'false'
           save-node-cache: 'false'
       - name: Record actual Windows and source identity
+        id: identity
         shell: bash
         env:
           LOKI_INVESTIGATION_COMMIT: ${{ github.sha }}
@@ -65,3 +66,11 @@ jobs:
               raise SystemExit("Expected one bounded native observation receipt")
           print("WINDOWS_JOB_PROBE=" + json.dumps(json.loads(receipts[0].read_text(encoding="utf-8-sig")), sort_keys=True))
           PY
+      - name: Verify native handoff log sharing and completion timestamps
+        if: always() && steps.identity.outcome == 'success'
+        shell: bash
+        run: |
+          scripts/run_tests.sh \
+            tests/scripts/desktop_update/test_handoff_fixture_log_sharing.py \
+            tests/scripts/desktop_update/test_desktop_update_windows_commit_outcome.py \
+            -j 1 --file-timeout 600 --file-retries 0
