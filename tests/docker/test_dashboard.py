@@ -23,10 +23,12 @@ def test_dashboard_not_running_by_default(
 ) -> None:
     """Without HERMES_DASHBOARD, no dashboard process should be running."""
     start_container(built_image, container_name, cmd="sleep 60")
-    r = docker_exec(container_name, "pgrep", "-f", "hermes dashboard")
-    # pgrep exits non-zero when no match found
-    assert r.returncode != 0, (
-        "Dashboard should not be running without HERMES_DASHBOARD"
+    down, _ = poll_container(
+        container_name,
+        'test "$(/command/s6-svstat -o up /run/service/dashboard)" = false',
+    )
+    assert down, (
+        "Dashboard should not be running without LOKI_DASHBOARD"
     )
 
 
@@ -148,9 +150,9 @@ def test_dashboard_oauth_gate_engages_on_non_loopback_bind(
     """
     start_container(
         built_image, container_name,
-        "HERMES_DASHBOARD=1",
-        "HERMES_DASHBOARD_HOST=0.0.0.0",
-        "HERMES_DASHBOARD_OAUTH_CLIENT_ID=agent:test-instance",
+        "LOKI_DASHBOARD=1",
+        "LOKI_DASHBOARD_HOST=0.0.0.0",
+        "LOKI_DASHBOARD_OAUTH_CLIENT_ID=agent:test-instance",
         cmd="sleep 120",
     )
 
@@ -207,9 +209,9 @@ def test_dashboard_insecure_env_var_no_longer_bypasses_gate(
     """
     start_container(
         built_image, container_name,
-        "HERMES_DASHBOARD=1",
-        "HERMES_DASHBOARD_HOST=0.0.0.0",
-        "HERMES_DASHBOARD_INSECURE=1",
+        "LOKI_DASHBOARD=1",
+        "LOKI_DASHBOARD_HOST=0.0.0.0",
+        "LOKI_DASHBOARD_INSECURE=1",
         cmd="sleep 120",
     )
     # Fail-closed: the dashboard process must NOT successfully serve. Probe

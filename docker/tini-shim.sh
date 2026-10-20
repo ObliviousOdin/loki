@@ -39,6 +39,18 @@ set -e
 INIT_TARGET="${HERMES_TINI_SHIM_TARGET:-/init}"
 WRAPPER="${HERMES_TINI_SHIM_WRAPPER:-/opt/hermes/docker/main-wrapper.sh}"
 
+# Resolve the installed symlink so every legacy route uses the same fresh
+# environment boundary before /init captures its child environment.
+handoff() {
+    exec python3 -I -S -B -c '
+import runpy
+import sys
+from pathlib import Path
+bridge = Path(sys.argv[1]).resolve().with_name("entrypoint-env.py")
+runpy.run_path(str(bridge))["bind_and_exec"](sys.argv[2:])
+' "$0" "$@"
+}
+
 while [ "$#" -gt 0 ]; do
     case "$1" in
         --)
@@ -73,17 +85,17 @@ done
 # No program left (entrypoint was just `tini -g --`) → same as the
 # image's default ENTRYPOINT + empty CMD.
 if [ "$#" -eq 0 ]; then
-    exec "$INIT_TARGET" "$WRAPPER"
+    handoff "$INIT_TARGET" "$WRAPPER"
 fi
 
 # Caller already supplied the wrapper or /init — don't double-wrap.
 case "$1" in
     /init|"$INIT_TARGET")
-        exec "$@"
+        handoff "$@"
         ;;
     "$WRAPPER"|*/main-wrapper.sh)
-        exec "$INIT_TARGET" "$@"
+        handoff "$INIT_TARGET" "$@"
         ;;
 esac
 
-exec "$INIT_TARGET" "$WRAPPER" "$@"
+handoff "$INIT_TARGET" "$WRAPPER" "$@"

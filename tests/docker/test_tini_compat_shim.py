@@ -9,7 +9,7 @@ import subprocess
 
 
 def test_legacy_tini_entrypoint_boots(built_image: str) -> None:
-    """``--entrypoint /usr/bin/tini <image> -g -- --help`` must run hermes.
+    """``--entrypoint /usr/bin/tini <image> -g -- --help`` must run Loki.
 
     Regression for #34192 / #66679: orchestration templates (e.g.
     Hostinger's 'Hermes WebUI' catalog, NAS compose projects that keep
@@ -34,3 +34,22 @@ def test_legacy_tini_entrypoint_boots(built_image: str) -> None:
         f"stdout={r.stdout[-2000:]!r} stderr={r.stderr[-2000:]!r}"
     )
     assert "Traceback" not in r.stderr
+
+
+def test_legacy_tini_binds_public_overrides_before_bootstrap(built_image: str) -> None:
+    result = subprocess.run(
+        [
+            "docker", "run", "--rm", "--network", "none",
+            "-e", "LOKI_HOME=/opt/data/loki-legacy-startup",
+            "-e", "LOKI_UID=23456", "-e", "LOKI_GID=23457",
+            "-e", "HERMES_HOME=/tmp/foreign-hermes",
+            "-e", "HERMES_DASHBOARD=1", "-e", "__LOKI_ENV_BOUND=1",
+            "--entrypoint", "/usr/bin/tini", built_image, "-g", "--", "sh", "-c",
+            'test "$HERMES_HOME" = "$LOKI_HOME" && '
+            'test "$(id -u)" = 23456 && test "$(id -g)" = 23457 && '
+            'test -z "${HERMES_DASHBOARD:-}" && '
+            'test -f "$LOKI_HOME/config.yaml" && test ! -e /tmp/foreign-hermes',
+        ],
+        capture_output=True, text=True, timeout=120, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr

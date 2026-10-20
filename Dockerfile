@@ -169,7 +169,8 @@ RUN set -eu; \
 # tini CLI surface, then exec's /init + main-wrapper — see
 # docker/tini-shim.sh. Safe to drop once the affected catalogs are
 # updated.
-COPY --chmod=0755 docker/tini-shim.sh /usr/bin/tini
+COPY --chmod=0755 docker/tini-shim.sh /opt/hermes/docker/tini-shim.sh
+RUN ln -s /opt/hermes/docker/tini-shim.sh /usr/bin/tini
 
 # Non-root user for runtime; UID can be overridden via HERMES_UID at runtime
 RUN useradd -u 10000 -m -d /opt/data hermes

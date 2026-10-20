@@ -11,6 +11,7 @@ the repo's Dockerfile once per session.
 """
 from __future__ import annotations
 
+import json
 import os
 import shutil
 import subprocess
@@ -137,6 +138,29 @@ def docker_exec_sh(
     return docker_exec(
         container, "sh", "-c", command, user=user, timeout=timeout,
     )
+
+
+def gateway_runtime_pids(container: str) -> list[int]:
+    """Find actual gateways through the runtime's canonical argv matcher."""
+    probe = """
+import json
+import shlex
+import psutil
+from gateway.status import looks_like_gateway_command_line
+
+pids = []
+for process in psutil.process_iter(['pid', 'cmdline']):
+    try:
+        argv = process.info['cmdline'] or []
+        if looks_like_gateway_command_line(shlex.join(argv)):
+            pids.append(process.info['pid'])
+    except (psutil.NoSuchProcess, psutil.AccessDenied):
+        continue
+print(json.dumps(pids))
+"""
+    result = docker_exec(container, "python", "-c", probe)
+    assert result.returncode == 0, result.stderr
+    return json.loads(result.stdout)
 
 
 def wait_for_container_ready(

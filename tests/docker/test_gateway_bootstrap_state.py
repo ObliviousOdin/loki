@@ -40,7 +40,7 @@ def test_seeds_running_state_on_blank_volume(
     seed gateway_state.json with a valid running state."""
     _start_container(
         built_image, container_name,
-        "HERMES_GATEWAY_BOOTSTRAP_STATE=running",
+        "LOKI_GATEWAY_BOOTSTRAP_STATE=running",
     )
 
     r = docker_exec_sh(
@@ -89,7 +89,7 @@ def test_non_running_value_ignored(
         name = f"{container_name}-{bogus}"
         _start_container(
             built_image, name,
-            f"HERMES_GATEWAY_BOOTSTRAP_STATE={bogus}",
+            f"LOKI_GATEWAY_BOOTSTRAP_STATE={bogus}",
         )
         r = docker_exec_sh(
             name,
@@ -170,7 +170,7 @@ def test_does_not_seed_gateway_state_through_symlink(
 
         _boot_with_bind_mount(
             built_image, container_name, host_data,
-            "HERMES_GATEWAY_BOOTSTRAP_STATE=running",
+            "LOKI_GATEWAY_BOOTSTRAP_STATE=running",
         )
 
         # The symlink itself must still exist (not replaced by a file)

@@ -25,6 +25,7 @@ import time
 
 from tests.docker.conftest import (
     docker_exec_sh,
+    gateway_runtime_pids,
     start_container,
     wait_for_docker_logs,
 )
@@ -58,7 +59,7 @@ def _wait_for_gateway_or_exit(
     CMD process (not supervised by s6).  Under CI load the gateway can
     take well over 6s to finish Python imports and reach the gateway
     entrypoint — a fixed ``time.sleep(6)`` races.  Polling for
-    ``pgrep -f 'hermes.*gateway'`` (the gateway is running) or
+    the canonical gateway process matcher (the gateway is running) or
     ``docker inspect`` returning ``exited`` is both faster on quick
     machines and flake-free on slow ones.
     """
@@ -75,10 +76,7 @@ def _wait_for_gateway_or_exit(
         if status == "running":
             # Check if the gateway process is actually running in the
             # foreground (the no-supervise path).  If it is, we're done.
-            pgrep = docker_exec_sh(
-                container, "pgrep -f 'hermes.*gateway' >/dev/null 2>&1",
-            )
-            if pgrep.returncode == 0:
+            if gateway_runtime_pids(container):
                 return "running"
         time.sleep(0.5)
     return status
@@ -208,11 +206,10 @@ def test_supervised_gateway_does_not_recurse(
     # respawn fresh `gateway run` processes on every cycle, leaving
     # multiple Python-process descendants under the gateway-default
     # supervise tree.
-    r = docker_exec_sh(container_name, "ps -eo pid,cmd | grep -v grep | grep -E 'python.*hermes.*gateway run' | wc -l")
-    assert r.returncode == 0
-    n = int(r.stdout.strip() or 0)
+    pids = gateway_runtime_pids(container_name)
+    n = len(pids)
     assert n <= 1, (
-        f"expected at most one supervised python `hermes gateway run` "
+        f"expected at most one supervised `loki gateway run` "
         f"process (the legitimately-supervised gateway); found {n}. "
         f"Recursion guard may have failed. "
         f"ps:\n{docker_exec_sh(container_name, 'ps -eo pid,ppid,cmd').stdout}"
@@ -251,7 +248,7 @@ def test_dashboard_supervised_when_env_set(
     """
     start_container(
         built_image, container_name,
-        "HERMES_DASHBOARD=1",
+        "LOKI_DASHBOARD=1",
         cmd="gateway run",
     )
 
