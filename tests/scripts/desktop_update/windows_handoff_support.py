@@ -40,6 +40,9 @@ def main():
         Path(str(hold) + '.pid').write_text(str(os.getpid()), encoding='utf-8')
         while not hold.exists():
             time.sleep(0.05)
+        output_bytes = int(os.environ.get('HANDOFF_OUTPUT_BYTES', '0'))
+        if output_bytes:
+            print('x' * output_bytes, flush=True)
     return 0
 if __name__ == '__main__':
     sys.exit(main())

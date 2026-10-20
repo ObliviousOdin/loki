@@ -4,6 +4,7 @@ delegate before it runs a single instruction.
 """
 from __future__ import annotations
 
+from contextlib import ExitStack
 import json
 from pathlib import Path
 import subprocess
@@ -62,8 +63,19 @@ def test_a7_claim_is_decided_inside_the_marker_lock(tmp_path: Path, sleeper: sub
     assert marker.read_bytes() == live
 
 
+def _finish_claimants(home: Path, claimants: list[subprocess.Popen], outputs: list[Path]) -> None:
+    timed_out = []
+    for claimant, output in zip(claimants, outputs):
+        try:
+            claimant.wait(timeout=120)
+        except subprocess.TimeoutExpired:
+            timed_out.append(_marker_diagnostics(home, claimant, output))
+    assert not timed_out, json.dumps({'claimants_did_not_finish': timed_out}, ensure_ascii=True)
+
+
 @pytest.mark.platforms('windows')
-def test_a7_concurrent_claimants_over_a_dead_marker_yield_one_owner(tmp_path: Path) -> None:
+@pytest.mark.parametrize('output_bytes', [0, 256 * 1024], ids=['ordinary', 'stdout-pressure'])
+def test_a7_concurrent_claimants_over_a_dead_marker_yield_one_owner(tmp_path: Path, output_bytes: int) -> None:
     install = tmp_path / 'checkout'
     publish_fixture_launcher(install, HOLD_CLI)
     home = tmp_path / 'home'; home.mkdir()
@@ -71,31 +83,42 @@ def test_a7_concurrent_claimants_over_a_dead_marker_yield_one_owner(tmp_path: Pa
     marker.write_bytes(f'{_dead_pid()}\n{int(time.time())}\nct:5.000\n'.encode())
     hold = tmp_path / 'release-update'
     lock = _HeldLock(home)   # line every claimant up behind the lock, then let them race
-    claimants = [_script(home, install=install, HANDOFF_HOLD=str(hold)) for _ in range(4)]
-    try:
-        time.sleep(6)
-        lock.release()
-        deadline = time.monotonic() + 120
-        while not Path(str(hold) + '.pid').exists():
-            assert time.monotonic() < deadline, 'no claimant reached the update'
-            time.sleep(0.05)
-        while sum(c.poll() is not None for c in claimants) < 3:
-            assert time.monotonic() < deadline, [c.poll() for c in claimants]
-            time.sleep(0.1)
-        refused = [c for c in claimants if c.poll() == 2]
-        running = [c for c in claimants if c.poll() is None]
-        assert len(running) == 1 and len(refused) == 3, [c.returncode for c in claimants]
-        assert marker.read_bytes().decode().split('\n')[0] == _custodian(home, running[0].pid)
-    finally:
-        hold.touch()
-        for c in claimants:
-            if c.poll() is None:
-                try:
-                    c.wait(timeout=120)
-                except subprocess.TimeoutExpired:
-                    subprocess.run(['taskkill', '/T', '/F', '/PID', str(c.pid)], capture_output=True, check=False)
+    outputs = [tmp_path / f'claimant-{index}.stdout.log' for index in range(4)]
+    claimants = []
+    with ExitStack() as streams:
+        try:
+            for output in outputs:
+                # No reader runs while we wait for the competing owners. A pipe
+                # here can block the real script before it exits or cleans up.
+                stream = streams.enter_context(output.open('w', encoding='utf-8'))
+                claimants.append(_script(home, install=install, output=stream,
+                                         HANDOFF_HOLD=str(hold), HANDOFF_OUTPUT_BYTES=str(output_bytes)))
+                streams.callback(_stop_handoff, claimants[-1])
+            time.sleep(6)
+            lock.release()
+            deadline = time.monotonic() + 120
+            while not Path(str(hold) + '.pid').exists():
+                assert time.monotonic() < deadline, 'no claimant reached the update'
+                time.sleep(0.05)
+            while sum(c.poll() is not None for c in claimants) < 3:
+                assert time.monotonic() < deadline, [c.poll() for c in claimants]
+                time.sleep(0.1)
+            refused = [c for c in claimants if c.poll() == 2]
+            running = [c for c in claimants if c.poll() is None]
+            assert len(running) == 1 and len(refused) == 3, [c.returncode for c in claimants]
+            assert marker.read_bytes().decode().split('\n')[0] == _custodian(home, running[0].pid)
+        except BaseException as error:
+            snapshots = [_marker_diagnostics(home, child, output) for child, output in zip(claimants, outputs)]
+            error.add_note(json.dumps({'claimants': snapshots}, ensure_ascii=True))
+            raise
+        finally:
+            lock.release()
+            hold.touch()
+            _finish_claimants(home, claimants, outputs)
     assert running[0].returncode == 0
     assert not marker.exists()
+    if output_bytes:
+        assert any(output.stat().st_size >= output_bytes for output in outputs)
 
 
 # -- the update child is the delegate before it runs anything ------------------
