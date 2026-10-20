@@ -1,68 +1,40 @@
 ---
 sidebar_position: 2.5
-title: "Platform Support"
-description: "Which operating systems, distribution methods, and features Hermes Agent supports."
+title: "Loki Platform Scope"
+description: "What the Loki source preview has actually tested, and which platforms and distribution paths remain unqualified."
 ---
 
-# Platform Support
+# Loki Platform Scope
 
-Hermes Agent maintains support for many platforms and distribution methods, but we can't support every possible install method.
-
----
+Inherited source support, CI execution, public installation and native application qualification are separate. Choose a version from [Loki releases](https://github.com/ObliviousOdin/loki/releases) and inspect that release's evidence. The known published [0.1.0-alpha.1](https://github.com/ObliviousOdin/loki/releases/tag/v0.1.0-alpha.1) is an unsigned source preview, with **no published native app**. The table below describes only that exact source, `12690b426de4610916f91fb42f008391df550f27`.
 
 ## Tier 1
 
-We strive to never break installations and updates for these. Issues & regressions in Tier 1 are our first priority and take precedence over other platforms.
+These are the primary source-validation targets, not a stable-support or native-package guarantee:
 
-| OS / Architecture                                                             | Installation methods                                                                                                           | Notes                                                                                                                                                     |
-| ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **macOS** (Apple Silicon)                                                     | [Hermes Desktop](https://hermes-agent.nousresearch.com/), [`install.sh`](./installation.md) |
-| [**Windows 10 / 11**](../user-guide/windows-native.md) (x86_64, aarch64) | [`install.ps1`](./installation.md), [MSIX desktop](../user-guide/windows-native.md) | The MSIX package requires Windows 11 22H2 or later. Optional dependencies have [architecture limits](../user-guide/windows-native.md). |
-| **Linux / [WSL2](../user-guide/windows-wsl-quickstart.md)** (x86_64, aarch64) | [`install.sh`](./installation.md)                                                           | We test on the latest Ubuntu and WSL2. If your distro has glibc, systemd, and follows the Filesystem Hierarchy Standard, it's likely to work pretty well. |
-| [**Docker Container**](../user-guide/docker.md) (x86_64, aarch64) | [`docker pull`](../user-guide/docker.md)                                                                           | Docker installs do not support `hermes update`. Updating is done by running a new image.                                                                  |
+| Platform | Alpha.1 evidence | Remaining boundary |
+| --- | --- | --- |
+| Linux | Full Python suite and controlled lean source-install scenarios in CI | Ordinary public-default installation, browser/computer-use and downloaded native app acceptance remain unqualified |
+| macOS | Applicable source tests; controlled lean installs; additional public-network lean install and CLI/TUI startup on arm64 | No signed/notarized native app or downloaded-app acceptance; Intel source/native scope is not established by arm64 results |
+| Windows | Applicable native-host source tests and controlled lean source-install scenarios | Ordinary public-default installation and native package/Store/signing acceptance remain unqualified |
+| WSL2 | Retained Linux source path | No separate WSL2 user-install qualification claimed |
 
----
+See the [published verification report](https://github.com/ObliviousOdin/loki/releases/download/v0.1.0-alpha.1/LOKI-VERIFICATION.json), [additional macOS source report](https://github.com/ObliviousOdin/loki/releases/download/v0.1.0-alpha.1/LOKI-MACOS-SOURCE-VERIFICATION.json) and [delivery status](https://github.com/ObliviousOdin/loki/blob/main/docs/loki/PREVIEW-STATUS.md) for counts, skips, retries and exact scope. A later development CI pass does not retroactively qualify alpha.1 or a future artifact.
+
+Use the [owned source installation instructions](./installation.md#linux--macos--wsl2) for Linux/macOS/WSL2 or [Windows](./installation.md#windows-native). Lean installs explicitly exclude browser and computer-use setup. Real conversations, messaging delivery, OAuth and hosted services require their own credentials and acceptance.
 
 ## Tier 2
 
-These platforms are maintained in-tree only as a best effort.
-Releases may break them, and we can't promise we'll fix them promptly when they break.
+The inherited Nix, Termux, Docker and other architecture-specific source paths remain available for development and separate qualification. Their reference pages may name upstream packages, registries, signed repositories or application feeds. Those destinations are not owned Loki distribution channels. Do not install an upstream package or reuse its update feed to obtain Loki.
 
-PRs will be accepted to fix issues with them, but they will take precedence below fixing issues with Tier 1 platforms.
-
-| OS / Architecture              | Installation methods                                                 | Notes                                                                        |
-| ------------------------------ | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| **Nix** (macOS, Linux, NixOS) | [Nix flake and modules](./nix-setup.md) | Nix owns runtime installation and updates. |
-| **Android / [Termux](./termux.md)** (aarch64) | [Signed APT repository](./termux.md), then `pkg install hermes-agent` | Prerelease package with Python, Node, and TUI. Not built by default: only releases cut with `--with termux` (and `windows` and `macos-arm64`) update the APT channel. Run the gateway in a Termux session; Android can terminate background processes. |
+No Loki Termux APT repository, Homebrew package, PyPI wheel, Store listing, public container image or authenticated packaged update feed is established by the alpha.1 source release. Local builds and fixture tests do not publish or qualify those destinations. Nix and Android require separate platform evidence; source compatibility alone is insufficient.
 
 ### Build targets and support priority
 
-Stable releases build the macOS desktop bundle for Apple Silicon (`arm64`) only.
-The Intel macOS (`x64`) bundle and the Termux APT package are **not built by
-default**: a release includes them only when it is cut with
-`release.py release --with macos-intel` or `--with termux`. A release
-without macOS Intel replaces the one shared macOS stable update feed with an
-arm64-only feed, so Intel Macs installed from a desktop bundle get no update
-until a release is cut with `--with macos-intel`. A release without Termux
-leaves the Termux APT channel on its previous release.
-The `Hermes-Setup.dmg` bootstrap installer is built for Apple Silicon only, so
-on an Intel Mac it reports "not supported on this Mac". Intel Macs can install
-the [CLI](./installation.md#linux--macos--wsl2) and run
-`hermes desktop`, or use a `darwin-x64` bundle from a release that included it.
-Linux desktop packaging is disabled in the release workflow, although local
-AppImage builds and native Linux PM bundle checks exist.
+The repository retains desktop and other build machinery. A target appearing in source or CI is not an available download. Only assets actually listed on a Loki release are published. Native build, signing/notarization, installation after download and update acceptance are separate gates, described in [production readiness](https://github.com/ObliviousOdin/loki/blob/main/docs/loki/PRODUCTION-READINESS.md).
 
 ## Unsupported
 
-These platforms and distribution methods are **not** supported.
-We suggest that you migrate to a supported distribution method or platform.
-They may be broken right now, they may break more in the future.
-PRs to fix them will _not_ be accepted, and any code that keeps compatibility with them may be removed at any point.
+Generic `pip install`, `uv tool install` and unowned package repositories are not Loki installation instructions. The retained distribution guard prevents an incomplete generic Python wheel from omitting runtime resources. Follow the pinned [source installer](./installation.md) instead.
 
-- Android / Termux on non-aarch64 devices (aarch64 is [supported](./termux.md) via our APT package)
-- installs via the AUR (we might upstream patches if it helps out &lt;3)
-- 32-bit x86 macOS. Intel x86_64 desktop bundles are built only for releases cut with `--with macos-intel`.
-- installs via `pypi` (e.g. `uv tool install hermes-agent`, `pip install hermes-agent`, etc.)
-- installs via `brew` (`brew install hermes-agent`)
-
-If you are using an unsupported distribution method, please read the [the installation guide](./installation.md) to learn how to switch to a supported one.
+No additional OS, architecture, distribution or external service is qualified by an upstream support tier. Internal `hermes` module and schema names remain compatible; the public command is `loki`, with its own home and update source.

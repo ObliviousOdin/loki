@@ -97,6 +97,11 @@ const config: Config = {
   ],
 
   themeConfig: {
+    announcementBar: {
+      id: 'loki-preview-boundaries',
+      content: 'Loki source preview: use <a href="/loki/getting-started/installation">Loki installation instructions</a>. Advanced engine references retain internal Hermes names; use the public command loki and a separate Loki home. Upstream installers, update feeds and shared credentials are not Loki defaults. External services need your configuration; inherited desktop guidance is not Loki native qualification.',
+      isCloseable: false,
+    },
     image: 'img/hermes-agent-banner.png',
     // Hosted search requires an owned, qualified Loki index before enabling it.
     colorMode: {

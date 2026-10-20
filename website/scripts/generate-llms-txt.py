@@ -52,6 +52,15 @@ def site_urls(config: Path) -> tuple[str, str]:
 
 ASSET_BASE, SITE_BASE = site_urls(WEBSITE / "docusaurus.config.ts")
 
+REFERENCE_NOTICE = (
+    "Inherited engine references may retain internal Hermes names and unqualified service examples. "
+    "Use the public command loki, a separate Loki home and dedicated credentials. Follow "
+    "https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md and the selected release's "
+    "notes at https://github.com/ObliviousOdin/loki/releases for installation, state and updates. "
+    "Upstream installers, update feeds and shared credentials are not Loki defaults. "
+    "Inherited source capability does not qualify native packages or external services."
+)
+
 # The product story: which pages lead, and in what order. Everything not named
 # here is still indexed — ABSORB decides where it lands — so this list is safe
 # to leave alone as the docs grow, and worth editing only to promote a page.
@@ -319,6 +328,8 @@ def emit_llms_index() -> str:
         "Install and preview scope: https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md"
     )
     lines.append("")
+    lines.append(REFERENCE_NOTICE)
+    lines.append("")
     lines.append("Repo: https://github.com/ObliviousOdin/loki")
     lines.append("")
 
@@ -353,6 +364,7 @@ def emit_llms_full() -> str:
             "Started, Using Loki, Features, Messaging, Integrations, Guides, "
             "Developer Guide, Reference, then everything else.\n"
         ),
+        REFERENCE_NOTICE + "\n",
         f"Canonical site: {SITE_BASE}\n",
         f"Short index: {ASSET_BASE}/llms.txt\n",
         "\n---\n\n",
