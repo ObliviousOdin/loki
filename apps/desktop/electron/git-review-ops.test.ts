@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import simpleGit from 'simple-git'
+import { GitPluginError } from 'simple-git'
 import { afterEach, test, vi } from 'vitest'
 
 import {
@@ -13,8 +13,7 @@ import {
   resolveRenamePath,
   REVIEW_FILE_CAP,
   reviewCreatePr,
-  reviewList,
-  SIMPLE_GIT_UNSAFE_BINARY_WARN
+  reviewList
 } from './git-review-ops'
 import type * as NoConsoleGit from './no-console-git'
 
@@ -57,6 +56,36 @@ test('gitFor accepts an internally resolved git binary path containing spaces', 
   assert.doesNotThrow(() => gitFor(process.cwd(), 'C:\\Program Files\\Git\\cmd\\git.exe'))
 })
 
+test('gitFor refuses an explicitly supplied unsafe Visual editor', async () => {
+  const dir = makeRepo()
+
+  await assert.rejects(async () => {
+    await gitFor(dir, 'git')
+      .env({
+        PATH: process.env.PATH || '',
+        SystemRoot: process.env.SystemRoot || '',
+        TERM: 'xterm',
+        VISUAL: 'loki-editor-that-must-not-run'
+      })
+      .raw(['var', 'GIT_EDITOR'])
+  }, GitPluginError)
+})
+
+test('gitFor refuses executable trailer configuration before Git reads it', async () => {
+  const dir = makeRepo()
+
+  await assert.rejects(
+    gitFor(dir, 'git').raw([
+      '-c',
+      'trailer.audit.cmd=loki-helper-that-must-not-run',
+      'config',
+      '--get',
+      'trailer.audit.cmd'
+    ]),
+    GitPluginError
+  )
+})
+
 test('gitFor accepts internally resolved git paths with restricted non-space characters', () => {
   // simple-git's whitelist is `/^([a-z]:)?([a-z0-9/.\_~-]+)$/i`, so parentheses
   // (`Program Files (x86)`), `+`, and accented profile dirs (`C:\Users\João\...`)
@@ -97,11 +126,43 @@ test('gitFor accepts a Windows no-console host tuple with restricted characters'
   }
 })
 
-test('gitFor suppresses only the known custom-binary warning and restores console.warn', () => {
+test('gitFor keeps the no-console host usable without adopting guarded ambient Git configuration', async () => {
+  const dir = makeRepo()
+  const hostDir = fs.mkdtempSync(path.join(os.tmpdir(), 'loki-git-host-'))
+  const python = process.env.HERMES_PYTHON
+
+  assert.ok(python, 'the Git host contract requires the prepared test interpreter')
+  tempDirs.push(hostDir)
+  const { NO_CONSOLE_GIT_SCRIPT } = await import('./no-console-git')
+  const scriptPath = path.join(hostDir, 'host.py')
+
+  fs.writeFileSync(scriptPath, NO_CONSOLE_GIT_SCRIPT)
+  vi.resetModules()
+  vi.doMock('./no-console-git', async importOriginal => {
+    const actual = await importOriginal<typeof NoConsoleGit>()
+
+    return { ...actual, windowsGitHost: () => ({ isWindows: true, pythonBin: python, scriptPath }) }
+  })
+  vi.stubEnv('EDITOR', 'loki-editor-that-must-not-run')
+  vi.stubEnv('VISUAL', 'loki-editor-that-must-not-run')
+  vi.stubEnv('GIT_CONFIG_COUNT', '1')
+  vi.stubEnv('GIT_CONFIG_KEY_0', 'user.name')
+  vi.stubEnv('GIT_CONFIG_VALUE_0', 'ambient identity must not win')
+
+  try {
+    const { gitFor: gitForWithHost } = await import('./git-review-ops')
+    const name = await gitForWithHost(dir, 'git').raw(['config', '--get', 'user.name'])
+
+    assert.equal(name.trim(), 'Hermes Test')
+  } finally {
+    vi.unstubAllEnvs()
+    vi.doUnmock('./no-console-git')
+    vi.resetModules()
+  }
+})
+
+test('gitFor accepts trusted custom binaries without replacing console.warn or hiding other warnings', () => {
   const spacedBin = String.raw`C:\Program Files\Git\cmd\git.exe`
-  // `windowsGitHost()` resolves nothing in this process (no configured roots, no
-  // HERMES_DESKTOP_PYTHON), so `gitBin` itself is what simple-git validates — the
-  // spaced `Program Files` path, which warns once per factory call.
   const warnings: unknown[][] = []
   const originalWarn = console.warn
 
@@ -118,16 +179,12 @@ test('gitFor suppresses only the known custom-binary warning and restores consol
 
     assert.equal(console.warn, recordingWarn)
 
-    // The escape hatch used directly still warns: the message gitFor filters is a
-    // live emission of the installed simple-git, so the filter cannot go stale
-    // silently (an upgrade that rewords it fails this test, not production).
-    simpleGit({ baseDir: process.cwd(), binary: spacedBin, unsafe: { allowUnsafeCustomBinary: true } })
     console.warn('unrelated warning')
   } finally {
     console.warn = originalWarn
   }
 
-  assert.deepEqual(warnings, [[SIMPLE_GIT_UNSAFE_BINARY_WARN], ['unrelated warning']])
+  assert.deepEqual(warnings, [['unrelated warning']])
 })
 
 test('resolveRenamePath: simple rename resolves to the new path', () => {
