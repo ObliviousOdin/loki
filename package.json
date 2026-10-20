@@ -77,6 +77,11 @@
     "sanitize-html@2.18.0": {
       "htmlparser2": "$htmlparser2",
       "postcss": "8.5.27"
+    },
+    "vite": {
+      ".": "8.2.4",
+      "rolldown": "1.2.4",
+      "postcss": "8.5.27"
     }
   },
   "engines": {
