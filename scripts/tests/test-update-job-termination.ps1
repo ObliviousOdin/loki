@@ -179,7 +179,7 @@ try {
     $parts = @('-NoProfile','-NonInteractive','-File',$childScript,
         '-Role','root','-Script',$childScript,'-Work',$Work,'-RootReady',$rootName,
         '-ChildReady',$childName,'-Release',$releaseName,'-ControllerPid',[string]$PID,
-        '-ControllerBirthTicks',[string]$controllerBirth,'-HistoryMode',[string][int]$CompletedChild,
+        '-ControllerBirthTicks',[string]$controllerBirth,'-HistoryMode',$(if($CompletedChild){'1'}else{'0'}),
         '-HistoryReady',$historyReadyName,'-HistoryRelease',$historyReleaseName)
     $arguments = ($parts | ForEach-Object { '"{0}"' -f $_ }) -join ' '
     $started = [HermesUpdateJob]::StartAssigned($powershell,$arguments)
