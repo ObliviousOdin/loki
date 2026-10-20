@@ -31,4 +31,10 @@ Every one of the 81 non-green files was replayed with the prepared pinned tool P
 
 Inherited cases include canonical `/var/tmp` versus `/private/var/tmp` snapshot paths, native macOS process-command inspection, and host/tool portability assumptions. Loki's real SQLite browse deadline regression also reproduced against the pinned source; Loki fixes the unguarded transaction-start error while retaining the original deadline and rollback assertions. Baseline failures do not excuse Loki CI failures or qualify an untested platform. Initial JS checks required the pinned Python/tool PATH and a canonical temp directory; corrected reruns retain their original logs.
 
+## Historical fork diagnostics
+
+Before the final release candidate, the first complete fork Python diagnostic recorded 6,431 files, 63,747 passed, 158 failed and 1,840 skipped, with ten icon-fixture DNS setup errors and one optional Fal SDK collection error separately recorded. Focused fixes do not turn that historical run green.
+
+An earlier macOS Electron diagnostic recorded 384 files, 373 passed, two failed and nine skipped; 3,618 tests passed, two failed and 36 skipped. Both failed assertions also reproduced at the pinned upstream source: a Linux HUD cross-target warning and a remote installer-wrapper assertion after exec. These historical observations are superseded as current release status by the exact-source CI linked in [preview delivery status](PREVIEW-STATUS.md); they are retained as diagnostics, not a successful baseline or evidence for later changes.
+
 Do not infer provider availability, cross-platform acceptance, signing, or publication from this document. The release notes and attached receipts record the final measured result.

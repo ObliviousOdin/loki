@@ -2,6 +2,8 @@
 
 # Contributing to Loki
 
+`main` is the single integration branch. Use short-lived branches and protected pull requests; see [branch maintenance](docs/loki/MAINTENANCE.md#branch-and-release-policy) and [production readiness](docs/loki/PRODUCTION-READINESS.md). A passing development branch does not qualify a stable release.
+
 Thank you for contributing to Loki! This guide covers everything you need: setting up your dev environment, understanding the architecture, deciding what to build, and getting your PR merged.
 
 ---
