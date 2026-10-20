@@ -101,6 +101,42 @@ jobs:
           npm run build --workspace apps/desktop
       - uses: ./.github/actions/check-clean-worktree
 
+  website:
+    name: Loki documentation website
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '[]'
+          cache-suffix: loki
+          node-cache-dependency-path: website/package-lock.json
+      - name: Install the locked website and isolated diagram linter
+        run: |
+          npm ci --prefix website
+          python -m scripts.ci.python_packages ascii-guard==2.3.0 ruamel.yaml==0.18.16
+      - name: Check generated skill docs and cross-page links
+        run: |
+          python3 website/scripts/extract-skills.py
+          python3 website/scripts/generate-skill-docs.py
+          git add -N website/docs website/sidebars.ts
+          git diff --exit-code --stat -- website/docs website/sidebars.ts website/i18n
+          python3 website/scripts/check_doc_links.py
+      - name: Typecheck and lint documentation diagrams
+        run: |
+          npm run typecheck --prefix website
+          npm run lint:diagrams --prefix website
+      - name: Build the complete default English website
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: npm run build:fast --prefix website
+      - uses: ./.github/actions/check-clean-worktree
+
   desktop_ui:
     name: Loki desktop UI (${{ matrix.slice }}/4)
     if: github.repository == 'ObliviousOdin/loki'
@@ -277,7 +313,7 @@ jobs:
     name: Loki verification
     if: always() && github.repository == 'ObliviousOdin/loki'
     runs-on: ubuntu-latest
-    needs: [quality, python, workspace, desktop_ui, desktop_electron, desktop_package, native, container]
+    needs: [quality, python, workspace, website, desktop_ui, desktop_electron, desktop_package, native, container]
     timeout-minutes: 5
     steps:
       - name: Require successful evidence from every Loki job
