@@ -48,6 +48,10 @@ No native app is published in the alpha.1 source release. Packaged automatic upd
 
 The inherited source updater coordinates source custody, PM dependency preparation and installation-owned process handoff. It checks the selected source's Loki product identity before accepting it. Preserve data and inspect the actual plan, receipt and diagnostics for your installation. Replacing source files is not a database rollback, and scoped fixture tests are not evidence of a successful live update on every platform.
 
+For a source-built Desktop on Windows, a stalled update must finish cancelling its update processes before an automatic retry is allowed. If Windows cannot provide enough information to verify completion, Loki refuses the retry and does not reopen Desktop. This can require manual recovery even if the processes have already stopped. Follow the displayed recovery instructions: wait for update activity to finish, or restart Windows, then reopen Loki. An already-applied update can be reported with a manual follow-up.
+
+Services intentionally detached by a successful handoff are allowed to keep running. These safeguards describe the source-built Desktop; packaged automatic updates remain disabled for the preview.
+
 For an intentionally admitted source update, inspect the available options with `loki update --help`, and validate afterward with:
 
 ```bash
