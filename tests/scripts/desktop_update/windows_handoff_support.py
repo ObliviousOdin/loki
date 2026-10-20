@@ -200,6 +200,18 @@ def _op(home: Path, *args: str) -> tuple[int, str, str]:
     return proc.returncode, proc.stdout, proc.stderr
 
 
+def _log_contains(home: Path, needle: str) -> bool:
+    """One readiness observation; the caller owns the deadline for a busy log."""
+    path = home / 'logs/desktop-update-handoff.log'
+    if not path.exists():
+        return False
+    try:
+        return needle in path.read_text(encoding='utf-8-sig')
+    except PermissionError:
+        # Windows Add-Content can briefly deny readers during its append.
+        return False
+
+
 def _log(home: Path) -> str:
     """The hand-off log so far. windows.ps1 appends with Add-Content, which holds the file without
     read sharing for the length of each write: a read landing in that window is a sharing
