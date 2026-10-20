@@ -85,6 +85,8 @@ test('actual build globbing retains brace alternatives and nested discovery',asy
 test('actual glob watcher discovers later content and retains change and unlink events',async t=>{
   const root=await mkdtemp(join(tmpdir(),'braces watcher with spaces-'));
   const docs=join(root,'docs');await mkdir(docs);
+  const changeFile=join(docs,'change.md'),unlinkFile=join(docs,'unlink.mdx');
+  await Promise.all([writeFile(changeFile,'before'),writeFile(unlinkFile,'before')]);
   const watcher=consumer('chokidar').watch(join(docs,'**/*.{md,mdx}'),{ignoreInitial:true});
   t.after(async()=>{await watcher.close();await rm(root,{recursive:true,force:true});});
   const waitFor=(event,path)=>new Promise((resolveEvent,reject)=>{
@@ -98,6 +100,8 @@ test('actual glob watcher discovers later content and retains change and unlink 
   const directory=join(docs,'nested','notes{literal}');await mkdir(directory,{recursive:true});
   const file=join(directory,'new.mdx');
   const added=waitFor('add',file);await writeFile(file,'first');await added;
-  const changed=waitFor('change',file);await appendFile(file,' second');await changed;
-  const removed=waitFor('unlink',file);await unlink(file);await removed;
+  // Chokidar coalesces rapid changes to one path; each operation has its own
+  // ready file so this checks discovery and events rather than burst timing.
+  const changed=waitFor('change',changeFile);await appendFile(changeFile,' after');await changed;
+  const removed=waitFor('unlink',unlinkFile);await unlink(unlinkFile);await removed;
 });
