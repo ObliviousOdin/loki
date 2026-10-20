@@ -1,0 +1,67 @@
+name: Loki Windows process investigation
+
+on:
+  push:
+    branches: [codex/windows-investigation-c0]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-windows-investigation-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  native_observation:
+    name: Windows process completion observation
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/codex/windows-investigation-c0'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '["all", "telegram"]'
+          test-environment: 'true'
+          cache-suffix: loki
+          packages: ripgrep
+          archive-inputs: 'false'
+          cache: 'false'
+          cache-python: 'false'
+          cache-node: 'false'
+          save-tools-cache: 'false'
+          save-python-cache: 'false'
+          save-node-cache: 'false'
+      - name: Record actual Windows and source identity
+        shell: bash
+        env:
+          LOKI_INVESTIGATION_COMMIT: ${{ github.sha }}
+        run: |
+          test "$RUNNER_OS" = Windows
+          test "$(git rev-parse HEAD)" = "$LOKI_INVESTIGATION_COMMIT"
+          python -c 'import platform, sys; assert sys.platform == "win32"; print(platform.platform(), platform.machine())'
+      - name: Observe actual job cancellation and original process handles
+        shell: bash
+        run: |
+          scripts/run_tests.sh tests/scripts/desktop_update/test_update_job_termination.py \
+            -j 1 --file-timeout 180 --file-retries 0 -- \
+            --basetemp "$RUNNER_TEMP/loki-process-observation" -rP
+      - name: Retain bounded process observations in the job log
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "loki-process-observation"
+          receipts = list(root.glob("test_job_cancellation_*/job probe with spaces/receipt.json"))
+          if len(receipts) != 1 or receipts[0].stat().st_size > 65536:
+              raise SystemExit("Expected one bounded native observation receipt")
+          print("WINDOWS_JOB_PROBE=" + json.dumps(json.loads(receipts[0].read_text(encoding="utf-8-sig")), sort_keys=True))
+          PY
