@@ -357,7 +357,7 @@ def execute(args, root: Path, receipt: dict) -> None:
     try:
         with runner_user_path(env, root, receipt) if os.name == "nt" else nullcontext():
             if os.name == "nt":
-                command = powershell(env, "")[:-2] + ["-ExecutionPolicy", "Bypass", "-File", str(root / installer),
+                command = powershell(env, "")[:-2] + ["-File", str(root / installer),
                     "-Commit", args.commit, "-NonInteractive", "-SkipBrowser", "-SkipComputerUse"]
             else:
                 command = ["/bin/bash", str(root / installer), "--commit", args.commit,
