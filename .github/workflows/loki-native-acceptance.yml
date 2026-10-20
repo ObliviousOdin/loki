@@ -44,7 +44,9 @@ jobs:
           save-python-cache: 'false'
           save-node-cache: 'false'
       - name: Install only the existing loopback smoke driver's dependencies
-        run: npm ci --workspace tests-js --include-workspace-root
+        run: |
+          node vendor/htmlparser2/archive.mjs --check
+          npm ci --workspace tests-js --include-workspace-root
       - name: Download anonymous immutable release assets and verify the fresh installation
         env:
           LOKI_COMMIT: ${{ inputs.commit }}

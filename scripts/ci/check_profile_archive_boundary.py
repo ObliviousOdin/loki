@@ -16,11 +16,13 @@ import os
 from pathlib import Path
 
 _PROFILE_ARCHIVE_SUFFIXES = (".tar.gz", ".tgz")
-# Only this reviewed source artifact is admitted; a profile at the same path
+# Only these reviewed source artifacts are admitted; a profile at the same path
 # must still fail. Regeneration requires a new version and a reviewed digest.
 _REVIEWED_SOURCE_ARCHIVES = {
     "vendor/braces/braces-3.0.3-loki.2.tgz":
         "fa863313fd527bceb3810f7fb07d0852c67fb80458d4b9404dd374ade693ccbc",
+    "vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz":
+        "ddbe8b87a6f6decd49e599bdcd1ecf907db1f660664fa20c224732733e95943a",
 }
 
 

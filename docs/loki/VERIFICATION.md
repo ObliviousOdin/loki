@@ -23,6 +23,17 @@ Wake-word support retains the upstream `hey_hermes` model and its matching phras
 
 The full machine-readable and human-readable receipts are retained in the preview's evidence assets when produced. Results must be updated from actual commands before release. CI's final `Loki verification` requires every active Loki job to succeed; skipped inherited workflows are never counted as evidence.
 
+## Unpublished alpha.2 verification
+
+[PR #9](https://github.com/ObliviousOdin/loki/pull/9) contains the following corrections. These are development-candidate results, not additions to alpha.1's measured release scope.
+
+- **Mailbox settlement:** a two-connection real-SQLite regression reproduces settlement between the admission and result reads. Re-reading the terminal admission fixes the incorrect receipt classification while retaining failure, interruption and silence behavior. The historical failed runs did not capture enough receipt state to establish that this race caused each failure.
+- **Process and lifecycle fixtures:** Windows handoff tests acknowledge the actual paused help process before creating the updater and capture concurrent claimant output in files. Portable controller tests prove explicit release and cancellation. HTTP drain fixtures bind the actual queued task; DOM teardown waits for unmount callbacks. Earlier behavior has meaningful failing regressions, followed by targeted passing cohorts. Native Windows assertions remain required on Windows; macOS skips do not qualify them.
+- **Containers and website:** public command/environment binding and generated s6 execution have focused behavior regressions. The owned website traversal fork has upstream-output comparisons plus actual glob-discovery and watcher contracts. The real Linux Docker suite and complete default English website job remain required at the final source; focused checks do not replace them.
+- **Delivery tooling:** source/native staging and published-download verifier fixtures pass exact-source, checksum, notice and refusal contracts. Native upload defaults off, targets only an explicitly selected owned draft, and never publishes or overwrites assets. Published native acceptance uses anonymous downloads and an independently accepted staging-proof hash. These checks have not executed an alpha.2 native build, upload, downloaded installation or real provider conversation.
+
+The combined [diagnostic run](https://github.com/ObliviousOdin/loki/actions/runs/39492463958) failed website and container identity stamp checks. Corrections require a fresh final-head run with zero automatic file retries. Alpha.2 remains unpublished; security dispositions, ordinary published installation on every claimed host, real integrations, native trust/update behavior and signing still require their own evidence.
+
 ## Pristine baseline findings
 
 On macOS arm64, upstream environment setup and all 12 `scripts/check` checks passed before customization. The pristine canonical Python run finished with 6,379 files: 62,973 tests passed, 192 failed and 1,755 were skipped. Another 13 files exited nonzero after passing assertions, and 16 reported collection/no-tests errors. This was not a green upstream baseline.

@@ -85,7 +85,10 @@ jobs:
           packages: ripgrep
       - name: Install native test dependencies
         run: sudo apt-get update && sudo apt-get install -y zsh xvfb libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
-      - run: npm ci
+      - name: Verify and install the locked root dependencies
+        run: |
+          node vendor/htmlparser2/archive.mjs --check
+          npm ci
       - name: Run every workspace check
         # Each unit starts its own workers; avoid multiplying those pools.
         run: >-
@@ -161,7 +164,10 @@ jobs:
           test-environment: 'true'
           cache-suffix: loki
           packages: ripgrep
-      - run: npm ci
+      - name: Verify and install the locked root dependencies
+        run: |
+          node vendor/htmlparser2/archive.mjs --check
+          npm ci
       - name: Run the complete assigned UI shard
         run: npm run test:ui --workspace apps/desktop -- --shard '${{ matrix.slice }}/4' --maxWorkers 2
       - uses: ./.github/actions/check-clean-worktree
@@ -183,7 +189,10 @@ jobs:
           cache-suffix: loki
           packages: ripgrep
       - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
-      - run: npm ci
+      - name: Verify and install the locked root dependencies
+        run: |
+          node vendor/htmlparser2/archive.mjs --check
+          npm ci
       - name: Run every Electron suite on Linux
         run: xvfb-run -a npm run test:desktop:platforms --workspace apps/desktop -- --maxWorkers 2
       - uses: ./.github/actions/check-clean-worktree
@@ -205,7 +214,10 @@ jobs:
           cache-suffix: loki
           packages: ripgrep
       - run: sudo apt-get update && sudo apt-get install -y xvfb libgtk-3-0 libnotify4 libnss3 libxss1 libxtst6 xdg-utils libatspi2.0-0 libdrm2 libgbm1 libasound2t64
-      - run: npm ci
+      - name: Verify and install the locked root dependencies
+        run: |
+          node vendor/htmlparser2/archive.mjs --check
+          npm ci
       - name: Run the complete upstream packaged desktop validation
         run: xvfb-run -a npm run test:desktop:all --workspace apps/desktop
       - uses: ./.github/actions/check-clean-worktree
@@ -279,8 +291,10 @@ jobs:
           test "$(uname -m)" = x86_64
           command -v script
           test "$(git rev-parse HEAD)" = "$LOKI_IMAGE_SHA"
+          image_version="$(python -c 'import pathlib, tomllib; print(tomllib.loads(pathlib.Path("pyproject.toml").read_text())["project"]["version"])')"
           python scripts/write_install_stamp.py --output install-stamp.json \
-            --distribution docker --update-mechanism external --source ci --commit "$LOKI_IMAGE_SHA"
+            --distribution docker --update-mechanism external --source ci --commit "$LOKI_IMAGE_SHA" \
+            --base-version "$image_version" --distance 0
           python scripts/ci/check_profile_archive_boundary.py
           docker build --platform linux/amd64 --progress plain \
             --tag "loki-ci:$LOKI_IMAGE_SHA" .

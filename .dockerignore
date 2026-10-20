@@ -128,3 +128,7 @@ plans/
 /*.png.bak
 *.tar.gz
 *.tgz
+**/*.tar.gz
+**/*.tgz
+# The root install requires this reviewed private source dependency.
+!vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz

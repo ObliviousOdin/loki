@@ -21,10 +21,16 @@ The controlled installers used local source and explicit temporary paths, with b
 
 ## Open acceptance requirements
 
-The PR-head run reported an intermittent paused-mailbox receipt test failure; the merged-source Windows run reported an intermittent update-marker test failure. Both passed the runner's existing retry. Neither has an established cause or fix; both remain stable-release requirements. Successful retries must remain visible in release evidence.
+At alpha.1, the PR-head run reported an intermittent paused-mailbox receipt test failure; the merged-source Windows run reported an intermittent update-marker test failure. Both passed the runner's existing retry. Those historical receipts remain unchanged. Later deterministic mailbox and Windows fixture corrections do not establish the exact cause of every earlier failure; successful retries must remain visible in release evidence.
 
 A real provider conversation/resume and messaging delivery require dedicated credentials and acceptance. OAuth, hosted services, browser/computer-use and wake-word behavior retain their own external configuration and verification requirements. Existing agent state or external logins are not adopted automatically.
 
 Packaged native applications, signing/notarization, quarantined-download acceptance and native installation/update flows remain unqualified. No Developer ID, Windows signing, Store acceptance or authenticated packaged update feed is claimed. Packaged automatic updates remain disabled. Select a provider and model with `loki setup` before starting the TUI; a blank model can report `storage_unavailable`.
+
+## Unpublished alpha.2 candidate
+
+[PR #9](https://github.com/ObliviousOdin/loki/pull/9) adds dependency and mailbox corrections, deterministic handoff/lifecycle fixtures, real Docker and website CI gates, and manual source/native delivery checks. Targeted regressions include meaningful failures against the earlier behavior followed by passing corrections. The combined [diagnostic CI run](https://github.com/ObliviousOdin/loki/actions/runs/39492463958) exposed website and container identity stamp failures; it is not final-head qualification. A fresh required run after corrections is pending.
+
+Alpha.2 is not published. The native staging and anonymous-download workflows have source/fixture evidence only; no alpha.2 native build, upload, downloaded installation or provider conversation is claimed. Alpha.1's measured results do not transfer to this candidate. See [verification](VERIFICATION.md#unpublished-alpha2-verification) for the implemented corrections and remaining gates.
 
 The [verification guide](VERIFICATION.md) retains historical baseline diagnostics. [Production readiness](PRODUCTION-READINESS.md) defines stable promotion; [installation](INSTALL.md), [release notes](RELEASE-NOTES.md) and [maintenance](MAINTENANCE.md) explain the supported preview path. Source availability and passing scoped checks do not establish full functional parity.

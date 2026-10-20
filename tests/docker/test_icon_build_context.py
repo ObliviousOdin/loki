@@ -1,4 +1,4 @@
-"""The real Docker context filter must ship icon inputs without runtime state."""
+"""The real Docker context ships reviewed build inputs without runtime state."""
 from pathlib import Path
 import shutil
 import subprocess
@@ -17,7 +17,14 @@ def test_filtered_build_context_preserves_icon_sources_and_excludes_state(tmp_pa
     for name in art:
         shutil.copyfile(root / 'assets' / name, context / 'assets' / name)
     shutil.copytree(root / 'assets/backgrounds', context / 'assets/backgrounds')
-    for name in ('.env', 'data/fixture-state.json', 'assets/private-fixture.txt'):
+    dependency = Path('vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz')
+    shutil.copytree(root / dependency.parent, context / dependency.parent)
+    for name in ('package.json', 'package-lock.json'):
+        shutil.copyfile(root / name, context / name)
+    excluded = ('.env', 'data/fixture-state.json', 'assets/private-fixture.txt',
+                'vendor/htmlparser2/profile.tgz', 'vendor/htmlparser2/profile.tar.gz',
+                'other-source.tar.gz')
+    for name in excluded:
         path = context / name
         path.parent.mkdir(exist_ok=True)
         path.write_text('synthetic excluded state', encoding='utf-8')
@@ -35,5 +42,10 @@ def test_filtered_build_context_preserves_icon_sources_and_excludes_state(tmp_pa
     for source in (root / 'assets/backgrounds').iterdir():
         if source.is_file():
             assert (output / 'context/assets/backgrounds' / source.name).read_bytes() == source.read_bytes()
-    for name in ('.env', 'data/fixture-state.json', 'assets/private-fixture.txt'):
+    assert (output / 'context' / dependency).read_bytes() == (root / dependency).read_bytes()
+    verify = subprocess.run([
+        'node', str(output / 'context/vendor/htmlparser2/archive.mjs'), '--check',
+    ], capture_output=True, text=True, timeout=30, check=False)
+    assert verify.returncode == 0, verify.stdout + verify.stderr
+    for name in excluded:
         assert not (output / 'context' / name).exists()

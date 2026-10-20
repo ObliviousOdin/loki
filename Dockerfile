@@ -307,9 +307,11 @@ COPY web/package.json web/
 COPY ui-tui/package.json ui-tui/
 COPY ui-tui/packages/hermes-ink/ ui-tui/packages/hermes-ink/
 COPY apps/shared/ apps/shared/
+COPY vendor/htmlparser2/ vendor/htmlparser2/
 COPY scripts/build/node-deps.mjs scripts/build/node-deps.mjs
 ENV npm_config_install_links=false
-RUN node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui --workspace web
+RUN node vendor/htmlparser2/archive.mjs --check && \
+    node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui --workspace web
 
 COPY pyproject.toml uv.lock ./
 COPY web/ web/
