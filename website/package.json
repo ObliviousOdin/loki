@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "prestart": "node scripts/prebuild.mjs",
+    "prestart": "node ../vendor/braces/archive.mjs --check-installed && node scripts/prebuild.mjs",
     "start": "docusaurus start",
-    "prebuild": "node scripts/prebuild.mjs",
+    "prebuild": "node ../vendor/braces/archive.mjs --check-installed && node scripts/prebuild.mjs",
     "build": "docusaurus build",
     "build:fast": "docusaurus build --locale en",
     "swizzle": "docusaurus swizzle",
@@ -34,7 +34,8 @@
     "@docusaurus/module-type-aliases": "3.10.2",
     "@docusaurus/tsconfig": "3.10.2",
     "@docusaurus/types": "3.10.2",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "braces": "file:../vendor/braces/braces-3.0.3-loki.2.tgz"
   },
   "overrides": {
     "serialize-javascript": "7.0.7",
@@ -56,7 +57,13 @@
     "@docusaurus/core": {
       "tinypool": "2.1.2"
     },
-    "postcss-selector-parser@^6": "7.1.6"
+    "postcss-selector-parser@^6": "7.1.6",
+    "chokidar@3.6.0": {
+      "braces": "$braces"
+    },
+    "micromatch@4.0.8": {
+      "braces": "$braces"
+    }
   },
   "browserslist": {
     "production": [
