@@ -39,3 +39,10 @@ compares every installed package file. A warm cache alone is insufficient.
 Run the canonical sanitizer contracts, the parser context tests, the actual
 sanitizer consumer checks and the complete root CI after installation. Scanner
 responses do not qualify this owned mitigation or prove GitHub alert closure.
+
+The inherited `Tokenizer.parse` dispatch is byte-for-byte upstream apart from a
+reviewed `health: allow CC` comment. Its complexity is 28; preserving that
+state-machine hot path keeps supplier source fidelity. The allowance applies
+only to that existing method and does not exclude vendor files from checks.
+Private revision .3 adds this comment and regenerated maps; runtime tokens
+and public declarations are unchanged from .2.

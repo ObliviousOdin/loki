@@ -899,6 +899,7 @@ export default class Tokenizer {
      *
      * States that are more likely to be hit are higher up, as a performance improvement.
      */
+    // health: allow CC -- preserve unchanged upstream 12.0.0 state dispatch (CC 28) for source fidelity
     private parse() {
         while (this.shouldContinue()) {
             const c = this.buffer.charCodeAt(this.index - this.offset);

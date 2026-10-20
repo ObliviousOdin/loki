@@ -14,6 +14,11 @@ const patchedGuard='if (c === CharCodes.OpeningSquareBracket && (this.xmlMode ||
 
 function restoreTokenizer(name,bytes) {
   let text=bytes.toString('utf8');
+  if(['src/Tokenizer.ts','dist/Tokenizer.js'].includes(name)) {
+    const allowance='    // health: allow CC -- preserve unchanged upstream 12.0.0 state dispatch (CC 28) for source fidelity\n';
+    assert.equal(text.split(allowance).length,2,'Unexpected supplier dispatch allowance: '+name);
+    text=text.replace(allowance,'');
+  }
   const changes=name==='src/Tokenizer.ts'?[
     ['    private readonly recognizeCDATA: boolean;\n',''],
     ['            recognizeCDATA = xmlMode,\n',''],

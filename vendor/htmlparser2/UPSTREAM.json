@@ -123,13 +123,13 @@
       "node": ">=20.19.0"
     }
   },
-  "patch": "Preserve explicit recognizeCDATA via tokenizer option plumbing; otherwise gate CDATA to XML or the existing foreign-content callback.",
+  "patch": "Preserve explicit recognizeCDATA via tokenizer option plumbing; otherwise gate CDATA to XML or the existing foreign-content callback. Preserve the unchanged upstream parse dispatch with one reviewed CC allowance comment.",
   "compiled_with": "TypeScript 6.0.3, ES2022/NodeNext, isolatedModules, declarations and source maps; baseline Tokenizer JavaScript and declarations reproduced byte-for-byte.",
   "patch_file_sha256": {
-    "src/Tokenizer.ts": "ab7303f871ad428e0a3aac4269d55569541f6acce0d7412f2c7377ce4353e6d6",
-    "dist/Tokenizer.js": "5c31601ff68fcf6b54e2c11c7e69328a28067fb2bcdca96da54520ec6fc0de6c",
-    "dist/Tokenizer.js.map": "bfe88d069fef1dabcd3570ff804a1d16affc269e77d30e46b5a4f04bf3c34937",
+    "src/Tokenizer.ts": "ade16111018ecfce621d52435c1c5d63f855fbf91eddf66e134c8c36563d77ac",
+    "dist/Tokenizer.js": "cdcd37190eac5cc042899001f4c2d3845deafff786cbd8cc968e5c7a2c09e4f0",
+    "dist/Tokenizer.js.map": "222fffc1e5707ff45485f43aa4a4dc60a1b8043d75033e7f1e16ba483ce87cf4",
     "dist/Tokenizer.d.ts": "27084d88ebcea73534ffbf1720b17a7dc4dff68d04284675053cb9e003c625ce",
-    "dist/Tokenizer.d.ts.map": "c15b6b001bce6bbdb12b9c9a0b77a65748d5d141dbfa5269fc229424995bd27b"
+    "dist/Tokenizer.d.ts.map": "e686d69931d071d407e1062c6525d94ed2a0253c991cafc761aaed21212bc840"
   }
 }
