@@ -4,6 +4,7 @@ delegate before it runs a single instruction.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -24,6 +25,8 @@ from tests.scripts.desktop_update.windows_handoff_support import (
     _op,
     _HeldLock,
     _custodian,
+    _marker_diagnostics,
+    _stop_handoff,
 )
 
 
@@ -124,15 +127,24 @@ def test_script_killed_before_publishing_the_delegate_runs_no_update(tmp_path: P
     marker = home / MARKER
     finder = tmp_path / 'find_child.ps1'
     finder.write_text(FIND_UPDATE_CHILD, encoding='utf-8')
-    script = _script(home, install=install, HANDOFF_HOLD=str(hold))
+    ready, release = tmp_path / 'help.ready', tmp_path / 'help.release'
+    output = tmp_path / 'handoff.stdout.log'
+    with output.open('w', encoding='utf-8') as stream:
+        script = _script(home, install=install, output=stream, HANDOFF_HOLD=str(hold),
+                         HANDOFF_HELP_READY=str(ready), HANDOFF_HELP_RELEASE=str(release))
     lock = None
     try:
         deadline = time.monotonic() + 60
         while not (marker.exists() and _custodian(home, script.pid)
-                   and marker.read_bytes().split(b'\n')[0] == _custodian(home, script.pid).encode()):
-            assert time.monotonic() < deadline and script.poll() is None, 'script never claimed'
+                   and marker.read_bytes().split(b'\n')[0] == _custodian(home, script.pid).encode()
+                   and ready.exists()):
+            assert time.monotonic() < deadline and script.poll() is None, 'custodian/help boundary never became ready'
             time.sleep(0.02)
-        lock = _HeldLock(home)   # after the claim, before the delegate publication
+        # The real help probe acknowledges it is paused before updater creation.
+        # Observing a custodian alone left a race with delegate publication.
+        lock = _HeldLock(home)
+        assert not ran.exists() and not any(line.startswith(b'delegate:') for line in marker.read_bytes().splitlines())
+        release.touch()
         child = subprocess.run([POWERSHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(finder),
                                 '-Parent', str(script.pid), '-Seconds', '60'],
                                capture_output=True, text=True, timeout=90, check=False)
@@ -146,13 +158,21 @@ def test_script_killed_before_publishing_the_delegate_runs_no_update(tmp_path: P
         lines = marker.read_bytes().decode().split('\n')
         assert lines[0] == _custodian(home, script.pid), lines
         assert not any(line.startswith('delegate:') for line in lines), lines
+    except BaseException as error:
+        snapshot = _marker_diagnostics(home, script, output)
+        snapshot['help_ready'] = ready.exists()
+        snapshot['help_released'] = release.exists()
+        snapshot['update_entered'] = ran.exists()
+        text = json.dumps(snapshot, ensure_ascii=True, indent=2)
+        (tmp_path / 'marker-failure.json').write_text(text, encoding='utf-8')
+        error.add_note(text)
+        raise
     finally:
         if lock:
             lock.release()
+        release.touch()
         hold.touch()
-        if script.poll() is None:
-            subprocess.run(['taskkill', '/T', '/F', '/PID', str(script.pid)], capture_output=True, check=False)
-            script.wait()
+        _stop_handoff(script)
     deadline = time.monotonic() + 60   # the custodian releases the marker once the lock is free
     while (verdict := _op(home, '-MarkerOp', 'reclaim')[1]).startswith('live '):
         assert time.monotonic() < deadline

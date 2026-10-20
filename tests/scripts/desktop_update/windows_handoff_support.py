@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 import os
+import json
 from pathlib import Path
 import re
 import subprocess
 import sys
 import time
+from typing import TextIO
 
 import pytest
 
@@ -24,6 +26,14 @@ def main():
     if '--version' in sys.argv:
         print('Install directory: ' + str(Path(__file__).resolve().parents[1])); return 0
     if '--help' in sys.argv:
+        if os.environ.get('HANDOFF_HELP_READY'):
+            ready = Path(os.environ['HANDOFF_HELP_READY'])
+            pending = ready.with_suffix('.pending')
+            pending.write_text(str(os.getpid()), encoding='utf-8')
+            pending.replace(ready)
+            release = Path(os.environ['HANDOFF_HELP_RELEASE'])
+            while not release.exists():
+                time.sleep(0.05)
         print('--keep-stash'); return 0
     if sys.argv[1:2] == ['update']:   # the update's first act: say so, then wait to be released
         hold = Path(os.environ['HANDOFF_HOLD'])
@@ -62,11 +72,64 @@ def _env(home: Path, **extra: str) -> dict[str, str]:
     return {**os.environ, 'LOKI_HOME': str(home), 'LOKI_RUNTIME_DIR': str(home / 'empty-store'), **extra}
 
 
-def _script(home: Path, *args: str, install: Path | None = None, **env: str) -> subprocess.Popen:
+def _script(home: Path, *args: str, install: Path | None = None,
+            output: TextIO | None = None, **env: str) -> subprocess.Popen:
     return subprocess.Popen(
         [POWERSHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
          '-InstallRoot', str(install or home / 'hermes-agent'), '-NoUi', *args],
-        cwd=home, env=_env(home, **env), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        cwd=home, env=_env(home, **env), stdout=output if output is not None else subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True)
+
+
+def _diagnostic_tail(path: Path, home: Path) -> dict:
+    try:
+        with path.open('rb') as stream:
+            size = stream.seek(0, os.SEEK_END)
+            stream.seek(max(0, size - 16384))
+            text = stream.read().decode('utf-8-sig', errors='replace')
+    except OSError as error:
+        return {'read_error': type(error).__name__}
+    for root, label in ((home.parent, '<fixture>'), (ROOT, '<source>'),
+                        (Path(sys.prefix), '<python>'), (Path(sys.base_prefix), '<base-python>')):
+        text = text.replace(str(root), label)
+    return {'bytes': size, 'tail': text}
+
+
+def _marker_diagnostics(home: Path, proc: subprocess.Popen, output: Path) -> dict:
+    """Only this live handoff's direct children; never inventory unrelated processes."""
+    state = {'script_pid': proc.pid, 'script_exit': proc.poll(),
+             'files': {name: _diagnostic_tail(home / name, home) for name in (
+                 MARKER, '.hermes-update-result.json', 'logs/desktop-update-handoff.log')},
+             'output': _diagnostic_tail(output, home)}
+    if state['script_exit'] is None:
+        command = (f"$ErrorActionPreference='Stop';$owner=Get-Process -Id {proc.pid};"
+                   f"@(Get-CimInstance Win32_Process -Filter 'ParentProcessId={proc.pid}' | "
+                   "Where-Object { $_.CreationDate -ge $owner.StartTime } | "
+                   "Select-Object ProcessId,ParentProcessId,Name,CreationDate) | ConvertTo-Json -Compress")
+        try:
+            children = subprocess.run([POWERSHELL, '-NoProfile', '-NonInteractive', '-Command', command],
+                                      capture_output=True, text=True, timeout=5, check=False)
+            state['children'] = {'query_exit': children.returncode,
+                                 'rows': json.loads(children.stdout) if children.stdout.strip() else []}
+        except (subprocess.TimeoutExpired, OSError, ValueError) as error:
+            state['children'] = {'query_error': type(error).__name__}
+    return state
+
+
+def _stop_handoff(proc: subprocess.Popen) -> None:
+    """Bound failure cleanup even if taskkill or an inherited output handle stalls."""
+    if proc.poll() is not None:
+        return
+    try:
+        subprocess.run(['taskkill', '/T', '/F', '/PID', str(proc.pid)],
+                       capture_output=True, timeout=10, check=False)
+    except (OSError, subprocess.TimeoutExpired):
+        proc.kill()
+    try:
+        proc.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait(timeout=10)
 
 
 def _finish(proc: subprocess.Popen, timeout: int = 120) -> tuple[int, str]:
