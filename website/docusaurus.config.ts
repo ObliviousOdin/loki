@@ -48,7 +48,7 @@ const config: Config = {
       '@docusaurus/plugin-client-redirects',
       {
         // Static-host redirects for renamed doc pages (GitHub Pages can't
-        // do server-side redirects). Paths are relative to baseUrl (/docs/).
+        // do server-side redirects). Paths are relative to baseUrl (/loki/).
         redirects: [
           {
             // Renamed in #44470 (Automation Blueprints terminology rebrand)
@@ -81,7 +81,7 @@ const config: Config = {
       'classic',
       {
         docs: {
-          routeBasePath: '/',  // Docs at the root of /docs/
+          routeBasePath: '/',  // Docs at the configured site's root.
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/ObliviousOdin/loki/edit/main/website/',
           // Relative `.md` links (readable on GitHub, #114428) must also resolve
@@ -98,20 +98,7 @@ const config: Config = {
 
   themeConfig: {
     image: 'img/hermes-agent-banner.png',
-    // Algolia DocSearch (replaces @easyops-cn/docusaurus-search-local).
-    // The local plugin shipped a ~16 MB client-side lunr index that every
-    // visitor downloaded and hydrated before their first result; DocSearch
-    // answers from Algolia's servers with no client index at all. These are
-    // public search-only credentials — safe to commit (the admin key is not
-    // in the repo). Index is populated by the Algolia Crawler configured at
-    // crawler.algolia.com; contextualSearch scopes results to the active
-    // locale via the docusaurus_tag/lang facets the crawler records carry.
-    algolia: {
-      appId: '2JLBVEYZN5',
-      apiKey: '9629ec26628d1a126535fd5ef408990d',
-      indexName: 'hermes docs',
-      contextualSearch: true,
-    },
+    // Hosted search requires an owned, qualified Loki index before enabling it.
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: true,
@@ -147,8 +134,8 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://obliviousodin.github.io/',
-          label: 'Download',
+          href: 'https://github.com/ObliviousOdin/loki/releases',
+          label: 'Releases',
           position: 'left',
         },
         {
@@ -156,7 +143,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://obliviousodin.github.io',
+          href: 'https://github.com/ObliviousOdin/loki',
           label: 'Home',
           position: 'right',
         },
@@ -167,7 +154,7 @@ const config: Config = {
         },
         {
           href: 'https://discord.gg/NousResearch',
-          label: 'Discord',
+          label: 'Upstream community',
           position: 'right',
         },
       ],
@@ -187,7 +174,7 @@ const config: Config = {
         {
           title: 'Community',
           items: [
-            { label: 'Discord', href: 'https://discord.gg/NousResearch' },
+            { label: 'Upstream community', href: 'https://discord.gg/NousResearch' },
             { label: 'GitHub Issues', href: 'https://github.com/ObliviousOdin/loki/issues' },
             { label: 'Skills Hub', href: 'https://agentskills.io' },
           ],
@@ -195,7 +182,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'Desktop Download', href: 'https://obliviousodin.github.io/' },
+            { label: 'Preview releases', href: 'https://github.com/ObliviousOdin/loki/releases' },
             { label: 'GitHub', href: 'https://github.com/ObliviousOdin/loki' },
             { label: 'Nous Research', href: 'https://nousresearch.com' },
           ],

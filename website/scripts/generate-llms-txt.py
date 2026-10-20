@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate llms.txt and llms-full.txt for the Hermes docs site.
+"""Generate llms.txt and llms-full.txt for the Loki docs site.
 
 Outputs:
   website/static/llms.txt        — index of the docs, one link per page, grouped by
@@ -14,19 +14,15 @@ gets indexed, under the section its path belongs to. That distinction is the
 reason this file was rewritten — when the section list also decided membership,
 it silently drifted to 53% coverage, and Bot Mode, the desktop app, computer
 use, web search, and 22 messaging platforms were absent from the index every
-LLM reads to learn what Hermes does.
+LLM reads to learn what Loki does.
 
-Both publish at:
-  https://hermes-agent.nousresearch.com/docs/llms.txt
-  https://hermes-agent.nousresearch.com/docs/llms-full.txt
-
-The `/docs/` prefix is not a mistake — Docusaurus serves `website/static/`
-at the `docs/` base path. Clients and IDE plugins that probe the classic
-`/llms.txt` root will miss these. Document the canonical URLs in the docs
-index and in the repo README.
+Canonical URLs follow the literal url, baseUrl and docs routeBasePath in
+docusaurus.config.ts. Docusaurus serves the files from static/ at baseUrl;
+the docs route prefix applies only to the indexed documentation links.
 
 Called from `website/scripts/prebuild.mjs` on every `npm run start` /
-`npm run build` so the output stays in sync with the docs tree.
+`npm run build`, and directly before the English CI build. This script uses
+only local files and the Python standard library; it never fetches a catalog.
 """
 
 from __future__ import annotations
@@ -39,7 +35,22 @@ WEBSITE = SCRIPT_DIR.parent
 DOCS = WEBSITE / "docs"
 STATIC = WEBSITE / "static"
 
-SITE_BASE = "https://hermes-agent.nousresearch.com/docs"
+
+def site_urls(config: Path) -> tuple[str, str]:
+    """Read the static Docusaurus URL literals without executing its plugins."""
+    text = config.read_text(encoding="utf-8")
+    values = {}
+    for key in ("url", "baseUrl", "routeBasePath"):
+        match = re.search(rf"^\s*{key}:\s*(['\"])(.*?)\1\s*,", text, re.MULTILINE)
+        if match is None:
+            raise ValueError(f"Expected a literal {key} in {config.name}")
+        values[key] = match[2]
+    site = values["url"].rstrip("/") + "/" + values["baseUrl"].strip("/")
+    docs = site.rstrip("/") + "/" + values["routeBasePath"].strip("/")
+    return site.rstrip("/"), docs.rstrip("/")
+
+
+ASSET_BASE, SITE_BASE = site_urls(WEBSITE / "docusaurus.config.ts")
 
 # The product story: which pages lead, and in what order. Everything not named
 # here is still indexed — ABSORB decides where it lands — so this list is safe
@@ -54,7 +65,7 @@ SECTIONS: list[tuple[str, list[tuple[str, str, str | None]]]] = [
         ("getting-started/updating", "Updating", None),
         ("getting-started/nix-setup", "Nix Setup", None),
     ]),
-    ("Using Hermes", [
+    ("Using Loki", [
         ("user-guide/cli", "CLI", None),
         ("user-guide/tui", "TUI (Ink terminal UI)", None),
         ("user-guide/configuration", "Configuration", None),
@@ -180,7 +191,7 @@ ABSORB: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("Getting Started", ("getting-started",)),
     ("Messaging Platforms", ("user-guide/messaging",)),
     ("Core Features", ("user-guide/features",)),
-    ("Using Hermes", ("user-guide",)),
+    ("Using Loki", ("user-guide",)),
     ("Integrations", ("integrations",)),
     ("Guides & Tutorials", ("guides",)),
     ("Developer Guide", ("developer-guide",)),
@@ -292,10 +303,10 @@ def emit_llms_index() -> str:
             absorbed.setdefault(section_for(slug), []).append(slug)
 
     lines: list[str] = []
-    lines.append("# Hermes Agent")
+    lines.append("# Loki")
     lines.append("")
     lines.append(
-        "> The self-improving AI agent built by Nous Research. A terminal-native "
+        "> Loki is an independent Hermes fork with preserved upstream attribution. A terminal-native "
         "autonomous coding and task agent with persistent memory, agent-created skills, "
         "and a messaging gateway that lives on 21+ messaging platforms — 19 native to "
         "the gateway plus IRC and Microsoft Teams via plugins (Telegram, Discord, Slack, "
@@ -305,12 +316,10 @@ def emit_llms_index() -> str:
     )
     lines.append("")
     lines.append(
-        "Install: `curl -fsSL https://raw.githubusercontent.com/NousResearch/"
-        "hermes-agent/main/scripts/install.sh | bash`  "
-        "(Linux, macOS, WSL2)"
+        "Install and preview scope: https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md"
     )
     lines.append("")
-    lines.append("Repo: https://github.com/NousResearch/hermes-agent")
+    lines.append("Repo: https://github.com/ObliviousOdin/loki")
     lines.append("")
 
     for section, items in SECTIONS:
@@ -337,15 +346,15 @@ def emit_llms_full() -> str:
     """Concatenate every doc under website/docs/ into a single markdown file."""
     seen: set[Path] = set()
     chunks: list[str] = [
-        "# Hermes Agent — Full Documentation\n",
+        "# Loki — Full Documentation\n",
         (
-            "This file is the entire Hermes Agent documentation concatenated for LLM "
+            "This file is the Loki documentation concatenated for LLM "
             "context ingestion. Section order reflects docs-site navigation: Getting "
-            "Started, Using Hermes, Features, Messaging, Integrations, Guides, "
+            "Started, Using Loki, Features, Messaging, Integrations, Guides, "
             "Developer Guide, Reference, then everything else.\n"
         ),
-        "Canonical site: https://hermes-agent.nousresearch.com/docs\n",
-        "Short index: https://hermes-agent.nousresearch.com/docs/llms.txt\n",
+        f"Canonical site: {SITE_BASE}\n",
+        f"Short index: {ASSET_BASE}/llms.txt\n",
         "\n---\n\n",
     ]
 

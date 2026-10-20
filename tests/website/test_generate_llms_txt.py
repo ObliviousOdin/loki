@@ -113,3 +113,33 @@ def test_per_skill_catalog_pages_stay_out(gen):
     """~195 generated skill pages would bury the product docs in the index."""
     assert not [slug for slug in gen.iter_docs() if slug.startswith(gen.SKILL_CATALOG)]
     assert "reference/skills-catalog" in gen.iter_docs(), "the summary page must remain"
+
+
+def test_generated_entrypoints_identify_loki_and_owned_installation(gen):
+    index = gen.emit_llms_index()
+    full = gen.emit_llms_full()
+    assert index.startswith("# Loki\n")
+    assert "Repo: https://github.com/ObliviousOdin/loki\n" in index
+    assert "https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md" in index
+    assert "raw.githubusercontent.com/NousResearch/hermes-agent" not in index
+    assert full.startswith("# Loki — Full Documentation\n")
+
+
+def test_configured_docs_routes_keep_static_entrypoints_at_the_site_base(gen, tmp_path, monkeypatch):
+    config = tmp_path / "docusaurus.config.ts"
+    for route, expected_docs in (("/", "https://docs.example.invalid/loki"),
+                                 ("docs", "https://docs.example.invalid/loki/docs")):
+        text = ("url: 'https://docs.example.invalid',\nbaseUrl: '/loki/',\n"
+                f"routeBasePath: '{route}',\n")
+        config.write_text(text, encoding="utf-8")
+        assets, docs = gen.site_urls(config)
+        monkeypatch.setattr(gen, "ASSET_BASE", assets)
+        monkeypatch.setattr(gen, "SITE_BASE", docs)
+        index = gen.emit_llms_index()
+        full = gen.emit_llms_full()
+        assert f"]({expected_docs}/getting-started/installation)" in index
+        assert f"Canonical site: {expected_docs}\n" in full
+        assert "Short index: https://docs.example.invalid/loki/llms.txt\n" in full
+    config.write_text(text.replace("baseUrl: '/loki/'", "baseUrl: computedBase()"), encoding="utf-8")
+    with pytest.raises(ValueError, match="literal baseUrl"):
+        gen.site_urls(config)

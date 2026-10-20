@@ -134,6 +134,11 @@ jobs:
           git add -N website/docs website/sidebars.ts
           git diff --exit-code --stat -- website/docs website/sidebars.ts website/i18n
           python3 website/scripts/check_doc_links.py
+      - name: Generate the local-only LLM documentation entrypoints
+        run: |
+          python3 website/scripts/generate-llms-txt.py
+          test -s website/static/llms.txt
+          test -s website/static/llms-full.txt
       - name: Typecheck and lint documentation diagrams
         run: |
           npm run typecheck --prefix website
