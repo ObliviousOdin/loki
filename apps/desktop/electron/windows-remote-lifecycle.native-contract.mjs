@@ -55,7 +55,7 @@ function execute(command, args, env, input = '', cwd) {
   })
 }
 
-async function fixture(nativeInputEncoding = '') {
+async function fixture(nativeInputEncoding = '', runtimeJsonPolicy = '') {
   const root = await fs.mkdtemp(path.join(await fs.realpath(os.tmpdir()), 'loki-remote-'))
   const home = path.join(root, 'home with spaces')
   const local = path.join(home, 'AppData', 'Local')
@@ -76,9 +76,9 @@ async function fixture(nativeInputEncoding = '') {
   const ssh = {
     async exec(command, options = {}) {
       const encoded = command.match(/-EncodedCommand\s+(\S+)$/)?.[1]
-      const policy = nativeInputEncoding === 'ASCII'
+      const policy = runtimeJsonPolicy + (nativeInputEncoding === 'ASCII'
         ? '$OutputEncoding=[Text.Encoding]::ASCII;'
-        : nativeInputEncoding === 'UTF8' ? '$OutputEncoding=[Text.UTF8Encoding]::new($false);' : ''
+        : nativeInputEncoding === 'UTF8' ? '$OutputEncoding=[Text.UTF8Encoding]::new($false);' : '')
       const configured = encoded && policy ? Buffer.from(policy + Buffer.from(encoded, 'base64').toString('utf16le'), 'utf16le').toString('base64') : encoded
 
       return configured
@@ -166,19 +166,76 @@ test('remote probe uses the Loki command on PATH', { skip }, async () => {
   }
 })
 
-test('remote runtime uses the published launcher bootstrap instead of adjacent Python', { skip }, async () => {
-  const f = await fixture()
+// Exercise metadata carried by old ConvertFrom-Json arrays with a real shell.
+// This policy reproduces that serialization boundary on PS7 without faking the OS.
+const legacyArrayJsonPolicy = [
+  'Update-TypeData -TypeName System.Array -MemberType ScriptProperty -MemberName Count -Value {$this.Length} -Force',
+  'function ConvertFrom-Json {[CmdletBinding()]param([Parameter(ValueFromPipeline=$true)][string]$InputObject)process{,([psobject](Microsoft.PowerShell.Utility\\ConvertFrom-Json -InputObject $InputObject))}}',
+  ''
+].join(';')
 
-  try {
-    const installed = await launcher(path.join(f.state, 'bin'), f)
-    const selected = await lifecycle.probeWindowsRemote(f.ssh)
-    const runtime = await lifecycle.resolveWindowsRemoteRuntime(f.ssh, selected)
+for (const [label, policy] of [['default', ''], ['legacy array metadata', legacyArrayJsonPolicy]]) {
+  test(`remote runtime uses the published launcher bootstrap instead of adjacent Python (${label})`, { skip }, async t => {
+    const f = await fixture('', policy)
+    let wire
 
-    assert.equal(runtime.hermesPath, installed)
-    assert.equal(path.isAbsolute(runtime.python), true)
-    assert.notEqual(path.dirname(runtime.python), path.dirname(installed))
-  } finally {
-    await f.close()
+    try {
+      const installed = await launcher(path.join(f.state, 'bin'), f)
+      const ssh = { async exec(command, options) {
+        const output = await f.ssh.exec(command, options)
+
+        if (output.includes('"moduleCommand"')) {
+          wire = JSON.parse(lifecycle.stripPowerShellNoise(output).at(-1))
+        }
+
+        return output
+      } }
+      const selected = await lifecycle.probeWindowsRemote(ssh)
+      const runtime = await lifecycle.resolveWindowsRemoteRuntime(ssh, selected)
+
+      assert.equal(runtime.hermesPath, installed)
+      assert.equal(path.isAbsolute(runtime.python), true)
+      assert.notEqual(path.dirname(runtime.python), path.dirname(installed))
+      assert.equal(Array.isArray(wire.moduleCommand), true)
+      assert.equal(wire.moduleCommand[0], runtime.python)
+      assert.deepEqual(wire.moduleCommand.slice(1, 3), ['-I', '-c'])
+      assert.equal(wire.moduleCommand.every(part => typeof part === 'string' && !part.includes('\0')), true)
+      assert.match(wire.moduleCommand[3], /hermes_cli\.windows_ssh_runtime/)
+    } finally {
+      const command = wire?.moduleCommand
+
+      t.diagnostic(JSON.stringify({
+        wireObserved: Boolean(wire),
+        commandIsArray: Array.isArray(command),
+        commandCount: Array.isArray(command) ? command.length : typeof command?.Count === 'number' ? command.Count : null,
+        argumentTypes: Array.isArray(command) ? command.map(part => typeof part) : null,
+        firstMatchesPython: Array.isArray(command) && command[0] === wire.python
+      }))
+      await f.close()
+    }
+  })
+}
+
+test('remote runtime rejects malformed launcher commands before string normalization', { skip }, async () => {
+  const malformed = [{ python: 'invalid' }, ['only-one'], ['python', 42], ['python', '\0']]
+
+  for (const command of malformed) {
+    const policy = [
+      'function ConvertFrom-Json {[CmdletBinding()]param([Parameter(ValueFromPipeline=$true)][string]$InputObject)process{',
+      `if($InputObject.TrimStart().StartsWith('[')){Microsoft.PowerShell.Utility\\ConvertFrom-Json -InputObject ${lifecycle.psLiteral(JSON.stringify(command))}}`,
+      'else{Microsoft.PowerShell.Utility\\ConvertFrom-Json -InputObject $InputObject}',
+      '}};'
+    ].join('\r\n')
+    const f = await fixture('', policy)
+
+    try {
+      await launcher(path.join(f.state, 'bin'), f)
+      const selected = await lifecycle.probeWindowsRemote(f.ssh)
+
+      await assert.rejects(lifecycle.resolveWindowsRemoteRuntime(f.ssh, selected), /Invalid Loki runtime (command|argument)/)
+    } finally {
+      await f.close()
+    }
   }
 })
 

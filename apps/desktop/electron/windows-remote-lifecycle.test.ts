@@ -382,6 +382,17 @@ test('Windows runtime query never executes a launcher behind a held or uncertain
   }
 })
 
+test('Windows runtime query refuses object-shaped command wrappers from the wire', async () => {
+  const python = 'C:\\tools\\python.exe'
+  const wrapped = { value: [python, '-I', '-c', 'pass'], Count: 4 }
+
+  await assert.rejects(resolveWindowsRemoteRuntime(sshWith(async (command, options) =>
+    scriptFromInvocation(command, options).includes('--print-runtime-command')
+      ? JSON.stringify({ python, moduleCommand: wrapped })
+      : 'CLEAR'
+  ), { hermesPath: 'C:\\loki\\bin\\loki.exe', hermesHome: 'C:\\loki' }), /did not report a valid runtime command/)
+})
+
 const CLEAN_PROBE_RESULT = JSON.stringify({
   os: 'Windows',
   arch: 'AMD64',

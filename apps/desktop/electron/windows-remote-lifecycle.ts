@@ -114,11 +114,13 @@ async function resolveWindowsRemoteRuntime(ssh, runtime) {
     '$command=ConvertFrom-Json -InputObject ($lines -join "`n")',
     'if($command -isnot [Array] -or $command.Count -lt 2){throw "Invalid Loki runtime command."}',
     'foreach($part in $command){if($part -isnot [string] -or $part.Contains([string][char]0)){throw "Invalid Loki runtime argument."}}',
-    '$python=$command[0]',
+    // PS5.1 can serialize the parsed array's ETS metadata as {value,Count}.
+    '$normalizedCommand=[string[]]@($command|ForEach-Object{$_})',
+    '$python=$normalizedCommand[0]',
     'if(-not [IO.Path]::IsPathRooted($python) -or -not (Test-Path -LiteralPath $python -PathType Leaf)){throw "Loki runtime Python was not found."}',
     '$current=[IO.Path]::GetFullPath($python)',
     'while($current){$item=Get-Item -LiteralPath $current -Force -ErrorAction Stop;if(($item.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0){throw "Loki runtime Python contains a link or reparse point."};$parent=[IO.Path]::GetDirectoryName($current);if($parent -eq $current){break};$current=$parent}',
-    '[ordered]@{python=$python;moduleCommand=$command}|ConvertTo-Json -Compress'
+    '[ordered]@{python=$python;moduleCommand=$normalizedCommand}|ConvertTo-Json -Compress'
   ].join('\r\n')
 
   const lines = stripPowerShellNoise(await ssh.exec(powerShellStdinCommand(), { stdinData: `${encodedPowerShell(script)}\r\n` }))
