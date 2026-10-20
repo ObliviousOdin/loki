@@ -1,0 +1,62 @@
+name: Loki published source acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Published alpha tag to accept
+        required: true
+        default: v0.1.0-alpha.2
+        type: string
+      commit:
+        description: Exact merged main commit peeled by the release tag
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-source-acceptance-${{ inputs.commit }}
+  cancel-in-progress: false
+
+jobs:
+  public_source:
+    name: Published default source (${{ matrix.os }})
+    if: github.repository == 'ObliviousOdin/loki' && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      # Run the trusted main controller, independently admitting the requested
+      # release/tag/source before any downloaded installer executes.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: python
+          cache: 'false'
+          cache-python: 'false'
+          cache-node: 'false'
+      - name: Accept the published installer with default user paths
+        env:
+          ACCEPT_TAG: ${{ inputs.tag }}
+          ACCEPT_COMMIT: ${{ inputs.commit }}
+        shell: bash
+        run: >-
+          python scripts/loki/public_source_acceptance.py
+          --execute --tag "$ACCEPT_TAG" --commit "$ACCEPT_COMMIT"
+          --out "$RUNNER_TEMP/loki-public-source-acceptance"
+      - name: Retain only the scoped public receipt
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-published-source-${{ runner.os }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/loki-public-source-acceptance/PUBLIC-SUMMARY.json
+          if-no-files-found: warn
+          retention-days: 7
