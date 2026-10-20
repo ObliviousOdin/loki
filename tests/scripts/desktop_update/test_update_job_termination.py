@@ -14,7 +14,8 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.platforms("windows")
-def test_job_cancellation_settles_original_process_handles(tmp_path: Path) -> None:
+@pytest.mark.parametrize("completed_child", [False, True])
+def test_job_cancellation_settles_original_process_handles(tmp_path: Path, completed_child: bool) -> None:
     system = Path(os.environ.get("SystemRoot", r"C:\Windows"))
     powershell = system / "System32/WindowsPowerShell/v1.0/powershell.exe"
     assert powershell.is_file(), "The native Windows PowerShell contract requires its host interpreter"
@@ -34,7 +35,8 @@ def test_job_cancellation_settles_original_process_handles(tmp_path: Path) -> No
     result = subprocess.run(
         [str(powershell), "-NoProfile", "-NonInteractive",
          "-File", str(ROOT / "scripts/tests/test-update-job-termination.ps1"),
-         "-RepoRoot", str(ROOT), "-Work", str(work)],
+         "-RepoRoot", str(ROOT), "-Work", str(work),
+         *(["-CompletedChild"] if completed_child else [])],
         cwd=ROOT, env=env, text=True, encoding="utf-8", errors="replace",
         capture_output=True, timeout=90, check=False,
     )
@@ -47,7 +49,13 @@ def test_job_cancellation_settles_original_process_handles(tmp_path: Path) -> No
     assert result.returncode == 0, json.dumps(report, sort_keys=True)
     assert report["status"] == "passed", report
     assert report["helper_returned_safe"] is True, report
+    assert report["retired_job_refusals"] == 4, report
     assert not report["cleanup_errors"], report
     assert {"root", "child"} <= {row["role"] for row in report["observations"]}
     assert {row["pid"] for row in report["observations"]} == set(report["before"]["members"])
     assert all(row["wait_state"] == 0 and row["has_exited"] for row in report["observations"]), report
+    if completed_child:
+        assert report["history"]["before_wait_state"] == 258, report
+        assert report["history"]["after_wait_state"] == 0, report
+        assert report["history"]["completed_before_cancellation"] is True, report
+        assert report["before"]["total"] > len(report["before"]["members"]), report

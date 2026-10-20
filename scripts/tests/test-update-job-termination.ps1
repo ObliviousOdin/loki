@@ -1,5 +1,6 @@
 param([Parameter(Mandatory=$true)][string]$RepoRoot,
-      [Parameter(Mandatory=$true)][string]$Work)
+      [Parameter(Mandatory=$true)][string]$Work,
+      [switch]$CompletedChild)
 $ErrorActionPreference = 'Stop'
 
 . (Join-Path $RepoRoot 'scripts/desktop-update/update-job.ps1')
@@ -18,6 +19,7 @@ public static class LokiJobExitProbe {
     [DllImport("kernel32.dll", SetLastError=true)] private static extern bool TerminateProcess(IntPtr handle, uint code);
     [DllImport("kernel32.dll", SetLastError=true)] private static extern bool QueryInformationJobObject(IntPtr job, int kind, IntPtr buffer, uint size, IntPtr returned);
     public static bool Member(IntPtr process, IntPtr job) {
+        if (job == IntPtr.Zero) throw new InvalidOperationException("An exact owned job is required");
         bool member;
         if (!IsProcessInJob(process, job, out member)) throw new Win32Exception();
         return member;
@@ -31,6 +33,7 @@ public static class LokiJobExitProbe {
         if (Signal(process) != 0 && !TerminateProcess(process, 124) && Signal(process) != 0) throw new Win32Exception();
     }
     public static int[] Members(IntPtr job) {
+        if (job == IntPtr.Zero) throw new InvalidOperationException("An exact owned job is required");
         for (int capacity=16; capacity<=65536; capacity*=2) {
             int size=8+IntPtr.Size*capacity;
             IntPtr buffer=Marshal.AllocHGlobal(size);
@@ -49,14 +52,17 @@ public static class LokiJobExitProbe {
         }
         throw new InvalidOperationException("Job membership exceeded the diagnostic bound");
     }
-    public static uint Active(IntPtr job) {
+    private static Accounting ReadAccounting(IntPtr job) {
+        if (job == IntPtr.Zero) throw new InvalidOperationException("An exact owned job is required");
         int size=Marshal.SizeOf(typeof(Accounting));
         IntPtr buffer=Marshal.AllocHGlobal(size);
         try {
             if (!QueryInformationJobObject(job,1,buffer,(uint)size,IntPtr.Zero)) throw new Win32Exception();
-            return ((Accounting)Marshal.PtrToStructure(buffer,typeof(Accounting))).Active;
+            return (Accounting)Marshal.PtrToStructure(buffer,typeof(Accounting));
         } finally { Marshal.FreeHGlobal(buffer); }
     }
+    public static uint Active(IntPtr job) { return ReadAccounting(job).Active; }
+    public static uint Total(IntPtr job) { return ReadAccounting(job).Total; }
 }
 '@
 
@@ -66,15 +72,21 @@ $token = [Guid]::NewGuid().ToString('N')
 $rootName = 'Local\loki-job-root-' + $token
 $childName = 'Local\loki-job-child-' + $token
 $releaseName = 'Local\loki-job-release-' + $token
+$historyReadyName = 'Local\loki-job-history-ready-' + $token
+$historyReleaseName = 'Local\loki-job-history-release-' + $token
 $rootReady = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $rootName)
 $childReady = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $childName)
 $release = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $releaseName)
+$historyReady = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $historyReadyName)
+$historyRelease = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $historyReleaseName)
 $childScript = Join-Path $Work 'owned-child.ps1'
 $rootReceipt = Join-Path $Work 'root.json'
 $childReceipt = Join-Path $Work 'child.json'
+$historyReceipt = Join-Path $Work 'history.json'
 $source = @'
 param([string]$Role, [string]$Script, [string]$Work, [string]$RootReady, [string]$ChildReady, [string]$Release,
-      [int]$ControllerPid, [long]$ControllerBirthTicks)
+      [int]$ControllerPid, [long]$ControllerBirthTicks,
+      [int]$HistoryMode, [string]$HistoryReady, [string]$HistoryRelease)
 $ErrorActionPreference='Stop'
 $controller=[Diagnostics.Process]::GetProcessById($ControllerPid)
 [void]$controller.Handle
@@ -82,23 +94,28 @@ if($controller.StartTime.ToUniversalTime().Ticks -ne $ControllerBirthTicks) { th
 $ownerWait=[Threading.ManualResetEvent]::new($false)
 $ownerWait.SafeWaitHandle=[Microsoft.Win32.SafeHandles.SafeWaitHandle]::new($controller.Handle,$false)
 if($ownerWait.WaitOne(0)) { throw 'Controller already exited' }
-$releaseEvent=[Threading.EventWaitHandle]::OpenExisting($Release)
-$readyName=if($Role -eq 'root'){$RootReady}else{$ChildReady}
+$releaseEvent=[Threading.EventWaitHandle]::OpenExisting($(if($Role -eq 'history'){$HistoryRelease}else{$Release}))
+$readyName=if($Role -eq 'root'){$RootReady}elseif($Role -eq 'history'){$HistoryReady}else{$ChildReady}
 $readyEvent=[Threading.EventWaitHandle]::OpenExisting($readyName)
 $self=[Diagnostics.Process]::GetCurrentProcess()
-try {
-    if($Role -eq 'root') {
+function Start-OwnedChild([string]$ChildRole) {
         $psi=New-Object Diagnostics.ProcessStartInfo
         $psi.FileName=Join-Path $PSHOME 'powershell.exe'
         $parts=@('-NoProfile','-NonInteractive','-File',$Script,
-            '-Role','child','-Script',$Script,'-Work',$Work,'-RootReady',$RootReady,
+            '-Role',$ChildRole,'-Script',$Script,'-Work',$Work,'-RootReady',$RootReady,
             '-ChildReady',$ChildReady,'-Release',$Release,'-ControllerPid',[string]$ControllerPid,
-            '-ControllerBirthTicks',[string]$ControllerBirthTicks)
+            '-ControllerBirthTicks',[string]$ControllerBirthTicks,'-HistoryMode',[string]$HistoryMode,
+            '-HistoryReady',$HistoryReady,'-HistoryRelease',$HistoryRelease)
         $psi.Arguments=($parts|ForEach-Object{'"{0}"' -f $_}) -join ' '
         $psi.UseShellExecute=$false
         $psi.CreateNoWindow=$true
         $descendant=[Diagnostics.Process]::Start($psi)
         $descendant.Dispose()
+}
+try {
+    if($Role -eq 'root') {
+        if($HistoryMode) { Start-OwnedChild 'history' }
+        Start-OwnedChild 'child'
     }
     $identity=@{pid=$PID;birth_ticks=$self.StartTime.ToUniversalTime().Ticks;role=$Role}
     [IO.File]::WriteAllText((Join-Path $Work ($Role+'.json')),($identity|ConvertTo-Json -Compress))
@@ -116,7 +133,7 @@ try {
 $tracked = @{}
 $births = @{}
 $started = $null
-$report = [ordered]@{status='incomplete';engine=$PSVersionTable.PSVersion.ToString();observations=@();cleanup_errors=@()}
+$report = [ordered]@{mode=$(if($CompletedChild){'history'}else{'static'});status='incomplete';engine=$PSVersionTable.PSVersion.ToString();observations=@();cleanup_errors=@()}
 
 function Pin-JobMembers([IntPtr]$Job) {
     foreach ($memberId in [LokiJobExitProbe]::Members($Job)) {
@@ -131,13 +148,39 @@ function Pin-JobMembers([IntPtr]$Job) {
     }
 }
 
+function Assert-RetiredJobRefused([scriptblock]$Query) {
+    try {
+        & $Query | Out-Null
+        throw 'A retired job query unexpectedly succeeded'
+    } catch {
+        if ($_.Exception.InnerException -isnot [InvalidOperationException] -or
+                $_.Exception.InnerException.Message -ne 'An exact owned job is required') { throw }
+    }
+}
+
 try {
     $powershell = Join-Path $PSHOME 'powershell.exe'
-    $controllerBirth = [Diagnostics.Process]::GetCurrentProcess().StartTime.ToUniversalTime().Ticks
+    $controller = [Diagnostics.Process]::GetCurrentProcess()
+    try {
+        [void]$controller.Handle
+        $controllerBirth = $controller.StartTime.ToUniversalTime().Ticks
+        $queries = @(
+            { [LokiJobExitProbe]::Members([IntPtr]::Zero) },
+            { [LokiJobExitProbe]::Member($controller.Handle,[IntPtr]::Zero) },
+            { [LokiJobExitProbe]::Active([IntPtr]::Zero) },
+            { [LokiJobExitProbe]::Total([IntPtr]::Zero) }
+        )
+        $report.retired_job_refusals = 0
+        foreach ($query in $queries) {
+            Assert-RetiredJobRefused $query
+            $report.retired_job_refusals++
+        }
+    } finally { $controller.Dispose() }
     $parts = @('-NoProfile','-NonInteractive','-File',$childScript,
         '-Role','root','-Script',$childScript,'-Work',$Work,'-RootReady',$rootName,
         '-ChildReady',$childName,'-Release',$releaseName,'-ControllerPid',[string]$PID,
-        '-ControllerBirthTicks',[string]$controllerBirth)
+        '-ControllerBirthTicks',[string]$controllerBirth,'-HistoryMode',[string][int]$CompletedChild,
+        '-HistoryReady',$historyReadyName,'-HistoryRelease',$historyReleaseName)
     $arguments = ($parts | ForEach-Object { '"{0}"' -f $_ }) -join ' '
     $started = [HermesUpdateJob]::StartAssigned($powershell,$arguments)
     [void]$started.Process.Handle
@@ -145,26 +188,51 @@ try {
     $births[$started.Process.Id] = $started.Process.StartTime.ToUniversalTime().Ticks
     [HermesUpdateJob]::Resume($started)
     $readyClock = [Diagnostics.Stopwatch]::StartNew()
-    foreach ($ready in @($rootReady,$childReady)) {
+    $readiness = @($rootReady,$childReady)
+    if ($CompletedChild) { $readiness += $historyReady }
+    foreach ($ready in $readiness) {
         $remaining = [Math]::Max(0,30000-[int]$readyClock.ElapsedMilliseconds)
         if (-not $ready.WaitOne($remaining)) { throw 'Owned processes did not publish readiness' }
     }
     $identities = @((Get-Content -LiteralPath $rootReceipt -Raw | ConvertFrom-Json),
                     (Get-Content -LiteralPath $childReceipt -Raw | ConvertFrom-Json))
+    $allIdentities = $identities
+    if ($CompletedChild) { $allIdentities += (Get-Content -LiteralPath $historyReceipt -Raw | ConvertFrom-Json) }
     Pin-JobMembers $started.Job
-    foreach ($identity in $identities) {
+    foreach ($identity in $allIdentities) {
         $member = $tracked[[int]$identity.pid]
         if (-not $member -or $member.StartTime.ToUniversalTime().Ticks -ne [long]$identity.birth_ticks) { throw 'Original owned process identity was not pinned' }
         if ([LokiJobExitProbe]::Signal($member.Handle) -ne 258) { throw 'Owned process exited before cancellation' }
     }
-    # Both owned roles are now birth-fenced on the release event. No fixture
+    if ($CompletedChild) {
+        $historyIdentity = $allIdentities | Where-Object { $_.role -eq 'history' }
+        $historyHandle = $tracked[[int]$historyIdentity.pid].Handle
+        $historyBefore = [LokiJobExitProbe]::Signal($historyHandle)
+        if ($historyBefore -ne 258) { throw 'Historical child exited before its release' }
+        [void]$historyRelease.Set()
+        if ([LokiJobExitProbe]::Signal($historyHandle) -eq 258) {
+            $historyWait = [Threading.ManualResetEvent]::new($false)
+            try {
+                $historyWait.SafeWaitHandle = [Microsoft.Win32.SafeHandles.SafeWaitHandle]::new($historyHandle,$false)
+                if (-not $historyWait.WaitOne(10000)) { throw 'Historical child did not complete before cancellation' }
+            } finally { $historyWait.Dispose() }
+        }
+        $historyAfter = [LokiJobExitProbe]::Signal($historyHandle)
+        if ($historyAfter -ne 0) { throw 'Historical child is not signaled' }
+        $report.history = @{pid=$historyIdentity.pid;birth_ticks=$historyIdentity.birth_ticks;
+            before_wait_state=$historyBefore;after_wait_state=$historyAfter;completed_before_cancellation=$true}
+        foreach ($identity in $identities) {
+            if ([LokiJobExitProbe]::Signal($tracked[[int]$identity.pid].Handle) -ne 258) { throw 'Current owned role exited while history completed' }
+        }
+    }
+    # Both live roles are now birth-fenced on the release event. No fixture
     # process can create a later descendant while cancellation is observed.
     $before = @([LokiJobExitProbe]::Members($started.Job))
     foreach ($memberId in $before) {
         if (-not $tracked.ContainsKey($memberId)) { throw 'Job membership changed after pinning' }
-        if ([LokiJobExitProbe]::Signal($tracked[$memberId].Handle) -ne 258) { throw 'Pinned job member exited before cancellation' }
+        if (-not $CompletedChild -and [LokiJobExitProbe]::Signal($tracked[$memberId].Handle) -ne 258) { throw 'Pinned job member exited before cancellation' }
     }
-    $report.before = @{identities=$identities;members=$before;active=[LokiJobExitProbe]::Active($started.Job)}
+    $report.before = @{identities=$identities;members=$before;active=[LokiJobExitProbe]::Active($started.Job);total=[LokiJobExitProbe]::Total($started.Job)}
     $clock = [Diagnostics.Stopwatch]::StartNew()
     $safe = [HermesUpdateJob]::TerminateAndWait($started.Job,124,10000)
     $clock.Stop()
@@ -191,7 +259,8 @@ try {
     $report.error = $_.Exception.Message
 } finally {
     [void]$release.Set()
-    if ($started) {
+    [void]$historyRelease.Set()
+    if ($started -and $started.Job -ne [IntPtr]::Zero) {
         try { Pin-JobMembers $started.Job } catch { $report.cleanup_errors += $_.Exception.Message }
     }
     foreach ($member in @($tracked.Values)) {
@@ -201,12 +270,14 @@ try {
         } catch { $report.cleanup_errors += $_.Exception.Message }
     }
     if ($started) {
-        $started.StandardOutput.Dispose()
-        $started.StandardError.Dispose()
-        [HermesUpdateJob]::Close($started.Job)
+        foreach ($reader in @($started.StandardOutput,$started.StandardError)) {
+            try { $reader.Dispose() } catch { $report.cleanup_errors += $_.Exception.Message }
+        }
+        try { [HermesUpdateJob]::Close($started.Job) } catch { $report.cleanup_errors += $_.Exception.Message }
     }
     foreach ($member in @($tracked.Values)) { $member.Dispose() }
     $rootReady.Dispose(); $childReady.Dispose(); $release.Dispose()
+    $historyReady.Dispose(); $historyRelease.Dispose()
 }
 if ($report.cleanup_errors.Count) { $report.status='failed' }
 [IO.File]::WriteAllText((Join-Path $Work 'receipt.json'),($report | ConvertTo-Json -Depth 8))

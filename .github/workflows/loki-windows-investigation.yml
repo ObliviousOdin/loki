@@ -50,7 +50,7 @@ jobs:
         run: |
           scripts/run_tests.sh tests/scripts/desktop_update/test_update_job_termination.py \
             -j 1 --file-timeout 180 --file-retries 0 -- \
-            --basetemp "$RUNNER_TEMP/loki-process-observation" -rP
+            --junitxml "$RUNNER_TEMP/loki-process-observation.xml" -o junit_logging=all -rP
       - name: Retain bounded process observations in the job log
         if: always()
         shell: bash
@@ -59,18 +59,29 @@ jobs:
           import json
           import os
           from pathlib import Path
+          import xml.etree.ElementTree as ET
 
-          root = Path(os.environ["RUNNER_TEMP"]) / "loki-process-observation"
-          receipts = list(root.glob("test_job_cancellation_*/job probe with spaces/receipt.json"))
-          if len(receipts) != 1 or receipts[0].stat().st_size > 65536:
-              raise SystemExit("Expected one bounded native observation receipt")
-          print("WINDOWS_JOB_PROBE=" + json.dumps(json.loads(receipts[0].read_text(encoding="utf-8-sig")), sort_keys=True))
+          report = Path(os.environ["RUNNER_TEMP"]) / "loki-process-observation.xml"
+          if not report.is_file() or report.stat().st_size > 1048576:
+              raise SystemExit("Expected a bounded native test report")
+          cases = list(ET.parse(report).iter("testcase"))
+          if len(cases) != 2:
+              raise SystemExit("Expected both native process lifetime cases")
+          for case in cases:
+              observations = [line for node in case.iter("system-out")
+                              for line in (node.text or "").splitlines()
+                              if line.startswith("WINDOWS_JOB_PROBE=")]
+              if len(observations) != 1 or len(observations[0]) > 65536:
+                  raise SystemExit("Expected one bounded observation per native case")
+              print("WINDOWS_JOB_PROBE_TEST=" + case.attrib["name"])
+              print("WINDOWS_JOB_PROBE=" + json.dumps(json.loads(observations[0].split("=", 1)[1]), sort_keys=True))
           PY
-      - name: Verify native handoff log sharing and completion timestamps
+      - name: Verify native handoff completion, sharing and pipe drain
         if: always() && steps.identity.outcome == 'success'
         shell: bash
         run: |
           scripts/run_tests.sh \
             tests/scripts/desktop_update/test_handoff_fixture_log_sharing.py \
             tests/scripts/desktop_update/test_desktop_update_windows_commit_outcome.py \
+            tests/scripts/desktop_update/test_desktop_update_windows_pipe_drain.py \
             -j 1 --file-timeout 600 --file-retries 0
