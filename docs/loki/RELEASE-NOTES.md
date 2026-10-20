@@ -1,3 +1,15 @@
+# Loki 0.1.0-alpha.2 development candidate
+
+This candidate uses Python `0.1.0a2` and JavaScript/tag `0.1.0-alpha.2`. It is not a published release or stable qualification. The published alpha.1 and its immutable software assets remain available below. The upstream baseline remains `18c525b669b6ea4ba62e6967d228af21d89aa9d3`; history, attribution and source companions are preserved.
+
+The candidate patches Python HTTP/OAuth dependencies, Electron and renderer dependencies, and the independent documentation website graph. The website carries a private, source-preserving braces fork with iterative traversal and reproducible archive checks because the affected upstream version has no published fix. Its maintained source, MIT license, provenance and behavior tests are in `vendor/braces`; an owned mitigation does not itself close advisory metadata.
+
+Runtime fixes cover mailbox receipt settlement, container command/identity handoff and a shell installer banner. Test fixes address the actual HTTP task mock, Radix teardown and Windows process-output fixtures without weakening their product assertions. Required CI adds the real Linux container suite and a clean documentation build, and disables automatic Python file retries in every lane. Earlier failed and retried runs remain historical evidence.
+
+Targeted tests and source reviews have passed for individual changes, including the full desktop UI run. The combined candidate still requires its protected CI run before merge. Public-network installation on Linux, macOS and Windows will be measured against a published exact commit by the manual source-acceptance workflow. Native distribution, dedicated provider conversation/resume, credential-owner dispositions and signing/update qualification remain separate stable-release gates. See [production readiness](PRODUCTION-READINESS.md) and the eventual release's exact-commit reports for evidence; do not inherit alpha.1 results for this candidate.
+
+---
+
 # Loki 0.1.0-alpha.1
 
 [Published unsigned source preview](https://github.com/ObliviousOdin/loki/releases/tag/v0.1.0-alpha.1), built from `12690b426de4610916f91fb42f008391df550f27`. Python reports the equivalent `0.1.0a1`; JavaScript and the release tag use `0.1.0-alpha.1`. Packaged native applications are not included.

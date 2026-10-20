@@ -1,6 +1,6 @@
 [package]
 name = "loki-bootstrap"
-version = "0.1.0-alpha.1"
+version = "0.1.0-alpha.2"
 description = "Loki unsigned preview setup"
 authors = ["Nous Research <info@nousresearch.com>"]
 edition = "2021"

@@ -106,6 +106,8 @@ def _git(repo, *args):
 
 
 def test_source_preview_contains_exact_recipes_and_required_native_companions(tmp_path, source_fixture, monkeypatch):
+    from loki_identity import VERSION
+
     source, lock, license_bytes, notice = source_fixture
     repo = tmp_path / "repository"
     repo.mkdir()
@@ -114,7 +116,7 @@ def test_source_preview_contains_exact_recipes_and_required_native_companions(tm
          "commit", "--allow-empty", "-qm", "fixture baseline")
     baseline = _git(repo, "rev-parse", "HEAD")
     files = {
-        "pyproject.toml": b'[project]\nname="obliviousodin-loki-agent"\nversion="0.1.0a1"\n',
+        "pyproject.toml": f'[project]\nname="obliviousodin-loki-agent"\nversion="{VERSION}"\n'.encode(),
         "uv.lock": lock,
         "docs/loki/UPSTREAM.json": json.dumps({"commit": baseline}).encode(),
         "notices/pilk-0.2.4/LICENSE": license_bytes,

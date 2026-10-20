@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.loki.source_assets import stage_pilk_source
-VERSION = "0.1.0-alpha.1"
+VERSION = "0.1.0-alpha.2"
 BASELINE = "18c525b669b6ea4ba62e6967d228af21d89aa9d3"
 
 
@@ -34,7 +34,7 @@ def package(out: Path, commit: str, *, pilk_source: Path | None = None) -> dict:
     subprocess.run(["git", "merge-base", "--is-ancestor", BASELINE, commit],
                    cwd=ROOT, check=True, timeout=30)
     project = tomllib.loads(git("show", f"{commit}:pyproject.toml"))["project"]
-    if project.get("name") != "obliviousodin-loki-agent" or project.get("version") != "0.1.0a1":
+    if project.get("name") != "obliviousodin-loki-agent" or project.get("version") != "0.1.0a2":
         raise ValueError("The admitted tree is not this Loki preview version")
     pinned = json.loads(git("show", f"{commit}:docs/loki/UPSTREAM.json"))
     if pinned.get("commit") != BASELINE:

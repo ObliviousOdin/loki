@@ -1,6 +1,6 @@
 # Loki preview installation
 
-The commands below target `v0.1.0-alpha.1` once that tag is published. The [release page](https://github.com/ObliviousOdin/loki/releases) lists available versions and artifacts; [delivery status](PREVIEW-STATUS.md) defines the required evidence.
+The commands below target the published `v0.1.0-alpha.1`. Development candidate `0.1.0-alpha.2` requires fresh release and installation evidence before it replaces these instructions. The [release page](https://github.com/ObliviousOdin/loki/releases) lists available versions and artifacts; [delivery status](PREVIEW-STATUS.md) defines the required evidence.
 
 The source repository is public. Git can clone it without a GitHub account or token.
 
