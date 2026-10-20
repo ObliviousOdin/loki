@@ -8,6 +8,8 @@
 
 Delete a PR branch only after its work has landed or its exact tip has a recorded recovery archive and disposition. Keep unmerged work and unrelated local worktrees intact. GitHub automatically deletes future merged PR branches. Published version tags, software assets and their checksum manifests are immutable; corrections use a new version. Development on `main` does not change the exact commit qualified by an existing release.
 
+The active release-tag ruleset blocks updates and deletion of `v*` tags without bypass actors. It permits new version tags; it does not attest to artifact signing or platform qualification.
+
 Repository controls and product release acceptance are separate. [Production readiness](PRODUCTION-READINESS.md) records the stable-release gates; [preview status](PREVIEW-STATUS.md) identifies the published source and its measured scope.
 
 ## Incorporating upstream changes

@@ -12,6 +12,7 @@ Private vulnerability reporting, dependency alerts, public secret scanning and s
 
 ## Evidence required before stable promotion
 
+- **Security triage:** resolve or document evidence-based dispositions for dependency advisories and credential-scanning findings through the private reporting process. Current dependency remediation and retained-history credential-owner review are incomplete. Keep unresolved alerts open; do not infer safety from a development dependency label, fixture name or upstream origin.
 - **Reliable checks:** establish and fix the cause of both observed intermittent failures: paused-mailbox receipt settlement and the Windows update-marker test. Retain failure/retry history and meaningful regression tests; a successful retry is not resolution.
 - **Published installation:** complete the additional default-path macOS public-network installation and installed CLI/TUI startup when disk capacity permits. Verify actual downloaded hashes, source/version, owned state/update paths and persistence. The controlled three-OS source installs remain separately scoped evidence.
 - **Real integrations:** use dedicated Loki credentials for a real provider conversation and resume, plus actual messaging delivery for claimed adapters. Qualify OAuth, hosted services and optional capabilities before claiming them. Synthetic sessions and mocked adapters do not establish delivery.
