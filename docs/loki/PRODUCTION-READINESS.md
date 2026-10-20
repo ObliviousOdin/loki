@@ -8,6 +8,8 @@ Changes use short-lived branches and protected pull requests. The required `Loki
 
 The sole-maintainer approval requirement is zero. Code Owners route changes for attention without claiming an independent approval or allowing fabricated self-approval. Delete branches after landing their work, or after recording an exact-tip recovery archive and disposition for unmerged work. Preserve unrelated local branches and worktrees. See [maintenance](MAINTENANCE.md#branch-and-release-policy).
 
+Loki's required CI runs Python files with automatic retries disabled. The first failed attempt fails its lane, including the actual-host and Docker suites. Preserve earlier failure and retry logs when investigating intermittent behavior; a successful later run does not explain the earlier failure.
+
 Private vulnerability reporting, dependency alerts, public secret scanning and secret push protection are enabled. Follow [SECURITY.md](../../SECURITY.md) for private reports. Review dependency alerts and update affected pins through PM/lockfile tooling and protected CI. Scheduled version-update PRs remain paused; automatic fixes and automatic merges are not enabled. Actions default to read-only permissions, and inherited publishing workflows remain guarded and disabled. The required verification includes a Linux amd64 image build and the real Docker suite, with skipped tests rejected. This uses a standard public runner without registry publication; other image architectures and the optional desktop-image variant require separate qualification. Existing spending limits stay unchanged.
 
 ## Evidence required before stable promotion
