@@ -11,6 +11,7 @@ it('keeps inherited options from enabling trusted commands in preview math', asy
 
   try {
     const math = createMemoizedMathPlugin({ singleDollarTextMath: true })
+
     const { container } = render(
       <Streamdown mode="static" plugins={{ math }}>
         {'$\\href{https://example.invalid/loki-math-trust}{Loki math trust}$'}
