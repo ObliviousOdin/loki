@@ -6,8 +6,8 @@
 { inputs, ... }: {
   perSystem = { pkgs, lib, self', ... }:
     let
-      hermes-agent = self'.packages.default;
-      hermesVenv = hermes-agent.hermesVenv;
+      loki = self'.packages.default;
+      hermesVenv = loki.hermesVenv;
 
       configMergeScript = pkgs.callPackage ./configMergeScript.nix { };
 
@@ -37,7 +37,7 @@
                 fsType = "ext4";
               };
             }
-            { services.hermes-agent = settings; }
+            { services.loki = settings; }
           ];
         };
 
@@ -49,12 +49,12 @@
             inputs.self.homeManagerModules.default
             {
               home = {
-                username = "hermes-check";
-                homeDirectory = "/home/hermes-check";
+                username = "loki-check";
+                homeDirectory = "/home/loki-check";
                 stateVersion = "24.11";
               };
             }
-            { services.hermes-agent = settings; }
+            { services.loki = settings; }
           ];
         };
 
@@ -71,23 +71,23 @@
             inputs.self.homeManagerModules.default
             {
               home = {
-                username = "hermes-check";
-                homeDirectory = "/home/hermes-check";
+                username = "loki-check";
+                homeDirectory = "/home/loki-check";
                 stateVersion = "24.11";
               };
             }
             {
-              programs.hermes-agent = programs;
-              services.hermes-agent = services;
+              programs.loki = programs;
+              services.loki = services;
             }
           ];
         };
 
       # The option names that each module defines under
-      # services.hermes-agent. The internal names that the module system adds
+      # services.loki. The internal names that the module system adds
       # are not in the list.
       moduleOptionNames =
-        eval: lib.attrNames (lib.filterAttrs (n: _: !lib.hasPrefix "_" n) eval.options.services.hermes-agent);
+        eval: lib.attrNames (lib.filterAttrs (n: _: !lib.hasPrefix "_" n) eval.options.services.loki);
 
       # These options belong to one module by design. The check does not
       # compare the two lists against each other, because that test only
@@ -103,16 +103,17 @@
       ];
       homeOnlyOptions = [
         "gateway"
-        "hermesHome"
+        "lokiHome"
         "installPackage"
       ];
 
       # Auto-generated config key reference — always in sync with Python
-      configKeys = pkgs.runCommand "hermes-config-keys" {} ''
+      configKeys = pkgs.runCommand "loki-config-keys" {} ''
         set -euo pipefail
         export HOME=$TMPDIR
         ${hermesVenv}/bin/python3 -c '
 import json, sys
+from loki_identity import bind_loki_environment; bind_loki_environment()
 from hermes_cli.config import DEFAULT_CONFIG
 
 def leaf_paths(d, prefix=""):
@@ -169,7 +170,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # On Linux the runtime checks below already depend on the package,
         # but this ensures darwin builders also build it during flake check.
         build-package = pkgs.runCommand "hermes-build-package" { } ''
-          echo "PASS: package built at ${hermes-agent}"
+          echo "PASS: package built at ${loki}"
           mkdir -p $out
           echo "ok" > $out/result
         '';
@@ -184,8 +185,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           from PIL import Image
 
           desktop = Path('${self'.packages.desktop}/share')
-          dist = desktop / 'hermes-desktop/dist'
-          launcher = desktop / 'icons/hicolor/1024x1024/apps/hermes.png'
+          dist = desktop / 'loki-desktop/dist'
+          launcher = desktop / 'icons/hicolor/1024x1024/apps/loki.png'
           for path in [launcher, dist / 'apple-touch-icon.png',
                        dist / 'nous-girl.png', dist / 'nous-girl-dark.png',
                        Path('${self'.packages.web}/favicon.ico')]:
@@ -221,9 +222,9 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 gateway.enable = true;
                 backend.mode = "serve";
                 settings.model.default = "test/model";
-                environment.HERMES_TEST = "1";
-                environmentFiles = [ "/run/secrets/hermes-env" ];
-                hermesHomeFiles."SOUL.md" = "test soul";
+                environment.LOKI_TEST = "1";
+                environmentFiles = [ "/run/secrets/loki-env" ];
+                lokiHomeFiles."SOUL.md" = "test soul";
                 # documents needs an explicit workingDirectory. The check
                 # workspace-files-need-a-directory below asserts that rule.
                 workingDirectory = "/home/test-user/workspace";
@@ -237,18 +238,18 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             cfg = enabled.config;
 
             # The gateway and the backend are two processes with one
-            # HERMES_HOME.
+            # LOKI_HOME.
             processes =
               if pkgs.stdenv.hostPlatform.isDarwin then
                 lib.mapAttrs (_: agent: {
                   argv = agent.config.ProgramArguments;
                   env = agent.config.EnvironmentVariables;
-                }) (lib.filterAttrs (n: _: lib.hasPrefix "hermes" n) cfg.launchd.agents)
+                }) (lib.filterAttrs (n: _: lib.hasPrefix "loki" n) cfg.launchd.agents)
               else
                 lib.mapAttrs (_: unit: {
                   argv = [ unit.Service.ExecStart ];
                   env = unit.Service.Environment;
-                }) (lib.filterAttrs (n: _: lib.hasPrefix "hermes" n) cfg.systemd.user.services);
+                }) (lib.filterAttrs (n: _: lib.hasPrefix "loki" n) cfg.systemd.user.services);
 
             names = lib.attrNames processes;
             argvOf = name: lib.concatStringsSep " " (lib.flatten (processes.${name}.argv));
@@ -264,45 +265,45 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 if lib.isAttrs env then lib.mapAttrsToList (k: v: "${k}=${toString v}") env else env
               );
 
-            activation = cfg.home.activation.hermesAgentSetup.data;
+            activation = cfg.home.activation.lokiAgentSetup.data;
 
             failures =
               lib.optional (names != [
-                "hermes-agent"
-                "hermes-backend"
-              ]) "expected hermes-agent + hermes-backend processes, got: ${toString names}"
+                "loki-backend"
+                "loki-gateway"
+              ]) "expected loki-backend + loki-gateway processes, got: ${toString names}"
               ++ lib.optional (
-                !lib.hasInfix "bin/hermes gateway" (argvOf "hermes-agent")
-              ) "gateway process does not run `hermes gateway`: ${argvOf "hermes-agent"}"
+                !lib.hasInfix "bin/loki gateway" (argvOf "loki-gateway")
+              ) "gateway process does not run `loki gateway`: ${argvOf "loki-gateway"}"
               ++ lib.optional (
-                !lib.hasInfix "bin/hermes serve" (argvOf "hermes-backend")
-              ) "backend process does not run `hermes serve`: ${argvOf "hermes-backend"}"
+                !lib.hasInfix "bin/loki serve" (argvOf "loki-backend")
+              ) "backend process does not run `loki serve`: ${argvOf "loki-backend"}"
               ++ lib.optional (
-                !lib.hasInfix "--no-open" (argvOf "hermes-backend")
+                !lib.hasInfix "--no-open" (argvOf "loki-backend")
               ) "backend must pass --no-open so a service never opens a browser"
               ++ lib.optional (
-                lib.any (n: !lib.hasInfix "/home/hermes-check/.hermes" (envOf n)) names
-              ) "gateway and backend must share one HERMES_HOME"
+                lib.any (n: !lib.hasInfix "/home/loki-check/.loki" (envOf n)) names
+              ) "gateway and backend must share one LOKI_HOME"
               ++ lib.optional (
-                cfg.home.sessionVariables.HERMES_HOME or null != "/home/hermes-check/.hermes"
-              ) "programs.hermes-agent.enable must export HERMES_HOME for interactive shells"
+                cfg.home.sessionVariables.LOKI_HOME or null != "/home/loki-check/.loki"
+              ) "programs.loki.enable must export LOKI_HOME for interactive shells"
               ++ lib.optional (
-                !lib.hasInfix "hermes-config-merge" activation
+                !lib.hasInfix "loki-config-merge" activation
               ) "activation must deep-merge config.yaml, not overwrite it"
               ++ lib.optional (
-                !lib.hasInfix "/home/hermes-check/.hermes/SOUL.md" activation
-              ) "hermesHomeFiles must install into HERMES_HOME"
+                !lib.hasInfix "/home/loki-check/.loki/SOUL.md" activation
+              ) "lokiHomeFiles must install into LOKI_HOME"
               ++ lib.optional (
                 !lib.hasInfix "/home/test-user/workspace/AGENTS.md" activation
               ) "documents must install into workingDirectory"
-              # The CLI reads HERMES_MANAGED to name the rebuild command when
+              # The CLI reads LOKI_MANAGED to name the rebuild command when
               # it refuses to write the configuration. A Home Manager install
               # has no nixos-rebuild command. Thus it must not report NixOS.
               ++ lib.optional (
-                !lib.any (n: lib.hasInfix "HERMES_MANAGED=home-manager" (envOf n)) names
-              ) "processes must report HERMES_MANAGED=home-manager"
+                !lib.any (n: lib.hasInfix "LOKI_MANAGED=home-manager" (envOf n)) names
+              ) "processes must report LOKI_MANAGED=home-manager"
               ++ lib.optional (
-                !lib.hasInfix "hermes-managed" activation
+                !lib.hasInfix "loki-managed" activation
               ) "activation must write a .managed marker naming the managing system";
           in
           pkgs.runCommand "hermes-home-manager-module" { } (
@@ -340,7 +341,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             # of values reads it as untouched, but a comparison of priorities
             # sees the definition. This row is the reason that the code tests
             # the priority.
-            sameAsDefault = "/home/hermes-check";
+            sameAsDefault = "/home/loki-check";
 
             cases = [
               {
@@ -369,8 +370,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 };
               }
               {
-                name = "hermesHomeFiles needs no directory";
-                ok = accepts { hermesHomeFiles."SOUL.md" = "x"; };
+                name = "lokiHomeFiles needs no directory";
+                ok = accepts { lokiHomeFiles."SOUL.md" = "x"; };
               }
               {
                 name = "no files at all is accepted";
@@ -393,12 +394,12 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
               ''
           );
 
-        # ── The desktop application shares one HERMES_HOME ───────────────
-        # `programs.enable` exports HERMES_HOME with home.sessionVariables,
+        # ── The desktop application shares one LOKI_HOME ───────────────
+        # `programs.enable` exports LOKI_HOME with home.sessionVariables,
         # which reaches an interactive shell only. Home Manager writes that
         # file to etc/profile.d, and a launcher from the desktop menu reads
-        # no shell profile. Thus the desktop application would open ~/.hermes
-        # while the services use the HERMES_HOME of the module, and the user
+        # no shell profile. Thus the desktop application would open ~/.loki
+        # while the services use the LOKI_HOME of the module, and the user
         # would see an empty application with no sessions and no keys.
         #
         # The launcher must therefore carry the value itself. This check
@@ -406,7 +407,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # installs, and not an option value.
         home-manager-desktop =
           let
-            tokenFile = "/run/secrets/hermes-desktop-token";
+            tokenFile = "/run/secrets/loki-desktop-token";
 
             enabled = evalHomeSplit {
               programs = {
@@ -415,7 +416,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
               };
               services = {
                 enable = true;
-                hermesHome = "/home/hermes-check/.hermes-work";
+                lokiHome = "/home/loki-check/.loki-work";
                 # An override on purpose. Without one the effective package
                 # IS the default package, so a launcher that pinned the plain
                 # default would look correct while it shipped a second
@@ -430,7 +431,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             };
             cfg = enabled.config;
 
-            desktopPackages = builtins.filter (p: (p.pname or "") == "hermes-desktop") cfg.home.packages;
+            desktopPackages = builtins.filter (p: (p.pname or "") == "loki-desktop") cfg.home.packages;
             desktop = lib.head desktopPackages;
             wrapper = desktop.installPhase;
 
@@ -447,18 +448,18 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
             # The agent package that the module installs, and the runtime
             # that the launcher pins. These must be the same store path: a
-            # second Hermes runtime beside the services is the fault that
+            # second Loki runtime beside the services is the fault that
             # `programs.enable` plus a plain desktop package would give.
-            agentPackages = builtins.filter (p: (p.pname or "") == "hermes-agent") cfg.home.packages;
+            agentPackages = builtins.filter (p: (p.pname or "") == "loki") cfg.home.packages;
 
             # The backend of the service, as the unit or the agent runs it.
             backendScript =
               let
                 argv =
                   if pkgs.stdenv.hostPlatform.isDarwin then
-                    cfg.launchd.agents.hermes-backend.config.ProgramArguments
+                    cfg.launchd.agents.loki-backend.config.ProgramArguments
                   else
-                    [ cfg.systemd.user.services.hermes-backend.Service.ExecStart ];
+                    [ cfg.systemd.user.services.loki-backend.Service.ExecStart ];
                 first = lib.head (lib.flatten argv);
                 # writeShellScript gives a store path. Read the real text, so
                 # the check tests the script and not the option that made it.
@@ -469,27 +470,27 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             failures =
               lib.optional (
                 lib.length desktopPackages != 1
-              ) "programs.desktop.enable must install exactly one hermes-desktop package, got ${toString (lib.length desktopPackages)}"
+              ) "programs.desktop.enable must install exactly one loki-desktop package, got ${toString (lib.length desktopPackages)}"
               ++ lib.optional (
-                setValue "HERMES_HOME" != "/home/hermes-check/.hermes-work"
-              ) "the launcher must carry HERMES_HOME: a GUI launcher reads no shell profile, so home.sessionVariables never reaches it (got: ${toString (setValue "HERMES_HOME")})"
+                setValue "LOKI_HOME" != "/home/loki-check/.loki-work"
+              ) "the launcher must carry LOKI_HOME: a GUI launcher reads no shell profile, so home.sessionVariables never reaches it (got: ${toString (setValue "LOKI_HOME")})"
               ++ lib.optional (
-                setValue "HERMES_MANAGED" != "home-manager"
-              ) "the launcher must report HERMES_MANAGED=home-manager while the services own the configuration (got: ${toString (setValue "HERMES_MANAGED")})"
+                setValue "LOKI_MANAGED" != "home-manager"
+              ) "the launcher must report LOKI_MANAGED=home-manager while the services own the configuration (got: ${toString (setValue "LOKI_MANAGED")})"
               ++ lib.optional (
                 lib.length agentPackages == 1
-                && setValue "HERMES_DESKTOP_HERMES" != "${lib.head agentPackages}/bin/hermes"
-              ) "the launcher must pin the agent package that programs.enable installs, and not a second runtime: ${toString (setValue "HERMES_DESKTOP_HERMES")}"
+                && setValue "LOKI_DESKTOP_HERMES" != "${lib.head agentPackages}/bin/loki"
+              ) "the launcher must pin the agent package that programs.enable installs, and not a second runtime: ${toString (setValue "LOKI_DESKTOP_HERMES")}"
 
               # ── The application reaches the backend of the service ──────
               ++ lib.optional (
-                setValue "HERMES_DESKTOP_REMOTE_URL" != "http://127.0.0.1:9231"
-              ) "the launcher must name the backend of the service, or the application starts a second one (got: ${toString (setValue "HERMES_DESKTOP_REMOTE_URL")})"
+                setValue "LOKI_DESKTOP_REMOTE_URL" != "http://127.0.0.1:9231"
+              ) "the launcher must name the backend of the service, or the application starts a second one (got: ${toString (setValue "LOKI_DESKTOP_REMOTE_URL")})"
               ++ lib.optional (
-                !lib.hasInfix "HERMES_DESKTOP_REMOTE_TOKEN" wrapper
+                !lib.hasInfix "LOKI_DESKTOP_REMOTE_TOKEN" wrapper
               ) "the launcher must give a token with the URL: the desktop resolver throws when the URL is set alone"
               ++ lib.optional (
-                !lib.hasInfix "HERMES_DASHBOARD_SESSION_TOKEN" backendScript
+                !lib.hasInfix "LOKI_DASHBOARD_SESSION_TOKEN" backendScript
               ) "the backend must read the session token, or it makes a new one that the application cannot know"
 
               # ── The token never enters the Nix store ────────────────────
@@ -503,7 +504,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 !lib.hasInfix tokenFile backendScript
               ) "the backend must read the token from ${tokenFile} at start time"
               ++ lib.optional (
-                setValue "HERMES_DESKTOP_REMOTE_TOKEN" != null
+                setValue "LOKI_DESKTOP_REMOTE_TOKEN" != null
               ) "the token must never be a --set value: makeWrapper writes it into the world-readable Nix store";
           in
           pkgs.runCommand "hermes-home-manager-desktop" { } (
@@ -511,7 +512,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
               throw "Home Manager desktop check failed:\n${lib.concatMapStringsSep "\n" (f: "  - ${f}") failures}"
             else
               ''
-                echo "PASS: the desktop launcher shares HERMES_HOME, the runtime and the backend of the service"
+                echo "PASS: the desktop launcher shares LOKI_HOME, the runtime and the backend of the service"
                 mkdir -p $out
                 echo "ok" > $out/result
               ''
@@ -533,7 +534,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             };
             cfg = enabled.config;
 
-            desktopPackages = builtins.filter (p: (p.pname or "") == "hermes-desktop") cfg.home.packages;
+            desktopPackages = builtins.filter (p: (p.pname or "") == "loki-desktop") cfg.home.packages;
             wrapper = (lib.head desktopPackages).installPhase;
 
             failures =
@@ -541,16 +542,16 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 lib.length desktopPackages != 1
               ) "programs.desktop.enable must install the application with no services enabled"
               ++ lib.optional (
-                !lib.hasInfix "--set HERMES_HOME" wrapper
-              ) "the launcher must carry HERMES_HOME even with no services"
+                !lib.hasInfix "--set LOKI_HOME" wrapper
+              ) "the launcher must carry LOKI_HOME even with no services"
               ++ lib.optional (
-                lib.hasInfix "HERMES_MANAGED" wrapper
+                lib.hasInfix "LOKI_MANAGED" wrapper
               ) "the launcher must not claim a managed install when no activation writes one"
               ++ lib.optional (
-                lib.hasInfix "HERMES_DESKTOP_REMOTE_URL" wrapper
+                lib.hasInfix "LOKI_DESKTOP_REMOTE_URL" wrapper
               ) "the launcher must not name a backend when the services run none"
               ++ lib.optional (
-                cfg.systemd.user.services ? hermes-backend || cfg.launchd.agents ? hermes-backend
+                cfg.systemd.user.services ? loki-backend || cfg.launchd.agents ? loki-backend
               ) "programs.enable alone must start no service";
           in
           pkgs.runCommand "hermes-home-manager-desktop-standalone" { } (
@@ -567,7 +568,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # ── installPackage names its replacement ─────────────────────────
         # The option was removed by the programs./services. split. It
         # defaulted to true, so a person who never named it still got the
-        # command line. A silent removal thus leaves them with no `hermes`
+        # command line. A silent removal thus leaves them with no `loki`
         # and no message. The module must refuse the configuration and name
         # the replacement.
         home-manager-install-package-removed =
@@ -598,11 +599,11 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             cases = [
               {
                 value = true;
-                expect = "programs.hermes-agent.enable = true;";
+                expect = "programs.loki.enable = true;";
               }
               {
                 value = false;
-                expect = "programs.hermes-agent.enable = false;";
+                expect = "programs.loki.enable = false;";
               }
             ];
 
@@ -694,32 +695,32 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
               enable = true;
               backend.mode = "dashboard";
               settings.model.default = "test/model";
-              environmentFiles = [ "/run/secrets/hermes-env" ];
-              hermesHomeFiles."SOUL.md" = "test soul";
+              environmentFiles = [ "/run/secrets/loki-env" ];
+              lokiHomeFiles."SOUL.md" = "test soul";
             }).config;
 
-            units = lib.filterAttrs (n: _: lib.hasPrefix "hermes" n) cfg.systemd.services;
+            units = lib.filterAttrs (n: _: lib.hasPrefix "loki" n) cfg.systemd.services;
             names = lib.attrNames units;
             execOf = name: units.${name}.serviceConfig.ExecStart;
-            activation = cfg.system.activationScripts."hermes-agent-setup".text;
+            activation = cfg.system.activationScripts."loki-setup".text;
 
             failures =
               lib.optional (names != [
-                "hermes-agent"
-                "hermes-backend"
-              ]) "expected hermes-agent + hermes-backend units, got: ${toString names}"
+                "loki-backend"
+                "loki-gateway"
+              ]) "expected loki-backend + loki-gateway units, got: ${toString names}"
               ++ lib.optional (
-                !lib.hasInfix "bin/hermes gateway" (execOf "hermes-agent")
-              ) "gateway unit does not run `hermes gateway`: ${execOf "hermes-agent"}"
+                !lib.hasInfix "bin/loki gateway" (execOf "loki-gateway")
+              ) "gateway unit does not run `loki gateway`: ${execOf "loki-gateway"}"
               ++ lib.optional (
-                !lib.hasInfix "bin/hermes dashboard" (execOf "hermes-backend")
-              ) "backend unit does not run `hermes dashboard`: ${execOf "hermes-backend"}"
+                !lib.hasInfix "bin/loki dashboard" (execOf "loki-backend")
+              ) "backend unit does not run `loki dashboard`: ${execOf "loki-backend"}"
               ++ lib.optional (
-                units.hermes-agent.environment.HERMES_HOME != units.hermes-backend.environment.HERMES_HOME
-              ) "gateway and backend must share one HERMES_HOME"
+                units.loki-gateway.environment.LOKI_HOME != units.loki-backend.environment.LOKI_HOME
+              ) "gateway and backend must share one LOKI_HOME"
               ++ lib.optional (
-                !lib.hasInfix "/var/lib/hermes/.hermes/SOUL.md" activation
-              ) "hermesHomeFiles must install into HERMES_HOME";
+                !lib.hasInfix "/var/lib/loki/.loki/SOUL.md" activation
+              ) "lokiHomeFiles must install into LOKI_HOME";
 
             # You cannot use container mode and the backend together. The
             # module says so with an assertion. Without the assertion it
@@ -753,13 +754,13 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # the address, such as tailscaled. `backend.waitFor` puts a poll in
         # front of the bind. This check proves three properties: the default
         # keeps the direct command line, each wait mode makes a launcher that
-        # polls and then execs hermes, and the assertions reject a
+        # polls and then execs loki, and the assertions reject a
         # configuration that cannot work.
         backend-bind-wait =
           let
             execOf =
               settings:
-              (evalNixosModule ({ enable = true; } // settings)).config.systemd.services.hermes-backend.serviceConfig.ExecStart;
+              (evalNixosModule ({ enable = true; } // settings)).config.systemd.services.loki-backend.serviceConfig.ExecStart;
 
             direct = execOf { backend.mode = "serve"; };
 
@@ -794,20 +795,20 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
             failures =
               # The default must not change.
-              lib.optional (!lib.hasInfix "bin/hermes serve --host 127.0.0.1" direct)
-                "without waitFor the backend must exec hermes directly, got: ${direct}"
-              ++ lib.optional (lib.hasInfix "hermes-backend-launch" direct)
+              lib.optional (!lib.hasInfix "bin/loki serve --host 127.0.0.1" direct)
+                "without waitFor the backend must exec loki directly, got: ${direct}"
+              ++ lib.optional (lib.hasInfix "loki-backend-launch" direct)
                 "without waitFor the backend must not use the launcher"
 
               # The hostname mode polls the resolver, then binds the name.
-              ++ lib.optional (!lib.hasInfix "hermes-backend-launch" hostnameWait)
+              ++ lib.optional (!lib.hasInfix "loki-backend-launch" hostnameWait)
                 "waitFor = hostname must run the launcher, got: ${hostnameWait}"
               ++ lib.optional (!lib.hasInfix "getent hosts" hostnameScript)
                 "the hostname launcher must poll with getent"
               ++ lib.optional (!lib.hasInfix "host.example.ts.net" hostnameScript)
                 "the hostname launcher must poll for backend.host"
               ++ lib.optional (!lib.hasInfix "exec " hostnameScript)
-                "the launcher must exec hermes, so that it keeps the MainPID"
+                "the launcher must exec loki, so that it keeps the MainPID"
               ++ lib.optional (!lib.hasInfix ''--host "$_target"'' hostnameScript)
                 "the launcher must bind the address that the poll resolved"
 
@@ -816,7 +817,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 "the interface launcher must poll backend.interfaceName"
               ++ lib.optional (!lib.hasInfix "_timeout=30" interfaceScript)
                 "the launcher must use backend.waitTimeout"
-              ++ lib.optional (!lib.hasInfix "bin/hermes dashboard" interfaceScript)
+              ++ lib.optional (!lib.hasInfix "bin/loki dashboard" interfaceScript)
                 "the launcher must keep backend.mode"
 
               # The assertions reject what cannot work.
@@ -839,7 +840,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                   })
                   "an assertion must reject interfaceName without waitFor = interface";
           in
-          pkgs.runCommand "hermes-backend-bind-wait" { } (
+          pkgs.runCommand "loki-backend-bind-wait" { } (
             if failures != [ ] then
               throw "backend bind wait check failed:\n${lib.concatMapStringsSep "\n" (f: "  - ${f}") failures}"
             else
@@ -865,12 +866,12 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             configOf = settings: (evalNixosModule ({ enable = true; } // settings)).config;
 
             managed = configOf { };
-            gateway = managed.systemd.services.hermes-agent;
+            gateway = managed.systemd.services.loki-gateway;
             gatewayUser = gateway.serviceConfig.User;
 
             # The operator declares the user themselves. Nothing here knows
             # whether they lingered it, so nothing may assume a bus.
-            unmanaged = (configOf { createUser = false; }).systemd.services.hermes-agent;
+            unmanaged = (configOf { createUser = false; }).systemd.services.loki-gateway;
 
             failures =
               lib.optional (!((managed.users.users.${gatewayUser}.linger or false) == true))
@@ -895,7 +896,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
         # ── How .env is built ────────────────────────────────────────────
         # This check runs the real script that both modules use to build
-        # $HERMES_HOME/.env. The important property is that a second run
+        # $LOKI_HOME/.env. The important property is that a second run
         # gives the same result. Activation runs at each rebuild. If the
         # script added the secrets to the file that exists, the file would
         # grow at each rebuild. The script writes the file again from the
@@ -906,11 +907,11 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             envScript = (import ./moduleCommon.nix { inherit lib; }).mkEnvScript {
               inherit pkgs;
               environment = {
-                HERMES_PUBLIC = "visible";
+                LOKI_PUBLIC = "visible";
               };
             };
           in
-          pkgs.runCommand "hermes-env-file-assembly" { } ''
+          pkgs.runCommand "loki-env-file-assembly" { } ''
             set -e
             workdir=$(mktemp -d)
             printf 'SECRET_TOKEN=s3cret\n' > "$workdir/secret-a"
@@ -920,7 +921,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             ${envScript} "$workdir/.env" 0600 "$workdir/secret-a" "$workdir/secret-b"
             first=$(cat "$workdir/.env")
 
-            grep -qx 'HERMES_PUBLIC=visible' "$workdir/.env" || \
+            grep -qx 'LOKI_PUBLIC=visible' "$workdir/.env" || \
               (echo "FAIL: non-secret environment missing"; cat "$workdir/.env"; exit 1)
             grep -qx 'SECRET_TOKEN=s3cret' "$workdir/.env" || \
               (echo "FAIL: secret from environmentFile missing"; cat "$workdir/.env"; exit 1)
@@ -972,7 +973,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           let
             common = import ./moduleCommon.nix { inherit lib; };
             cfgFor = mode: {
-              package = hermes-agent;
+              package = loki;
               extraPythonPackages = [ ];
               extraDependencyGroups = [ ];
               extraArgs = [ ];
@@ -1031,12 +1032,12 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         package-contents = pkgs.runCommand "hermes-package-contents" { } ''
           set -e
           echo "=== Checking binaries ==="
-          test -x ${hermes-agent}/bin/hermes || (echo "FAIL: hermes binary missing"; exit 1)
-          test -x ${hermes-agent}/bin/hermes-agent || (echo "FAIL: hermes-agent binary missing"; exit 1)
+          test -x ${loki}/bin/loki-agent || (echo "FAIL: loki-agent binary missing"; exit 1)
+          test -x ${loki}/bin/loki || (echo "FAIL: loki binary missing"; exit 1)
           echo "PASS: All binaries present"
 
           echo "=== Checking version ==="
-          ${hermes-agent}/bin/hermes --version 2>&1 | grep -qi "hermes" || (echo "FAIL: version check"; exit 1)
+          ${loki}/bin/loki --version 2>&1 | grep -qi "loki" || (echo "FAIL: version check"; exit 1)
           echo "PASS: Version check"
 
           echo "=== All checks passed ==="
@@ -1047,17 +1048,17 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         # Exercise every declared command and the environment delivered by
         # makeWrapper, plus the shared assembler's store-reference contract.
         entry-points-sync = pkgs.runCommand "hermes-entry-points-sync" { } ''
-          ${hermes-agent.python}/bin/python3 ${./tests/agent-references.py} \
-            ${hermes-agent} ${../pyproject.toml} ${hermes-agent.agentInputsFile}
+          ${loki.python}/bin/python3 ${./tests/agent-references.py} \
+            ${loki} ${../pyproject.toml} ${loki.agentInputsFile}
           mkdir -p $out
         '';
 
         # A pre-existing CLI install must not override the package's backend.
-        desktop-backend = pkgs.runCommand "hermes-desktop-backend" {
-          nativeBuildInputs = [ hermes-agent.python pkgs.cage ];
+        desktop-backend = pkgs.runCommand "loki-desktop-backend" {
+          nativeBuildInputs = [ loki.python pkgs.cage ];
         } ''
           python3 ${./tests/desktop-backend.py} \
-            ${self'.packages.desktop}/bin/hermes-desktop ${hermes-agent}/bin/hermes
+            ${self'.packages.desktop}/bin/loki-desktop ${loki}/bin/loki
           mkdir -p $out
         '';
 
@@ -1066,9 +1067,9 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           set -e
           export HOME=$(mktemp -d)
 
-          echo "=== Checking hermes --help ==="
-          ${hermes-agent}/bin/hermes --help 2>&1 | grep -q "gateway" || (echo "FAIL: gateway subcommand missing"; exit 1)
-          ${hermes-agent}/bin/hermes --help 2>&1 | grep -q "config" || (echo "FAIL: config subcommand missing"; exit 1)
+          echo "=== Checking loki --help ==="
+          ${loki}/bin/loki --help 2>&1 | grep -q "gateway" || (echo "FAIL: gateway subcommand missing"; exit 1)
+          ${loki}/bin/loki --help 2>&1 | grep -q "config" || (echo "FAIL: config subcommand missing"; exit 1)
           echo "PASS: All subcommands accessible"
 
           echo "=== All CLI checks passed ==="
@@ -1080,27 +1081,27 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-skills = pkgs.runCommand "hermes-bundled-skills" { } ''
           set -e
           echo "=== Checking bundled skills ==="
-          test -d ${hermes-agent}/share/hermes-agent/skills || (echo "FAIL: skills directory missing"; exit 1)
+          test -d ${loki}/share/hermes-agent/skills || (echo "FAIL: skills directory missing"; exit 1)
           echo "PASS: skills directory exists"
 
           # -L: skills/ is a symlink to the filtered source store path
-          SKILL_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/skills -name "SKILL.md" | wc -l)
+          SKILL_COUNT=$(find -L ${loki}/share/hermes-agent/skills -name "SKILL.md" | wc -l)
           test "$SKILL_COUNT" -gt 0 || (echo "FAIL: no SKILL.md files found in skills directory"; exit 1)
           echo "PASS: $SKILL_COUNT bundled skills found"
 
-          grep -q "HERMES_BUNDLED_SKILLS" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_BUNDLED_SKILLS not in wrapper"; exit 1)
-          echo "PASS: HERMES_BUNDLED_SKILLS set in wrapper"
+          grep -q "LOKI_BUNDLED_SKILLS" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_BUNDLED_SKILLS not in wrapper"; exit 1)
+          echo "PASS: LOKI_BUNDLED_SKILLS set in wrapper"
 
           # Optional skills ship via the wrapper too (pythonSrc excludes
           # them from the wheel, so the env var is the only path in nix).
-          test -d ${hermes-agent}/share/hermes-agent/optional-skills || \
+          test -d ${loki}/share/hermes-agent/optional-skills || \
             (echo "FAIL: optional-skills directory missing"; exit 1)
-          OPT_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/optional-skills -name "SKILL.md" | wc -l)
+          OPT_COUNT=$(find -L ${loki}/share/hermes-agent/optional-skills -name "SKILL.md" | wc -l)
           test "$OPT_COUNT" -gt 0 || (echo "FAIL: no SKILL.md files in optional-skills"; exit 1)
-          grep -q "HERMES_OPTIONAL_SKILLS" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_OPTIONAL_SKILLS not in wrapper"; exit 1)
-          echo "PASS: $OPT_COUNT optional skills found, HERMES_OPTIONAL_SKILLS set in wrapper"
+          grep -q "LOKI_OPTIONAL_SKILLS" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_OPTIONAL_SKILLS not in wrapper"; exit 1)
+          echo "PASS: $OPT_COUNT optional skills found, LOKI_OPTIONAL_SKILLS set in wrapper"
 
           echo "=== All bundled skills checks passed ==="
           mkdir -p $out
@@ -1111,16 +1112,16 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-plugins = pkgs.runCommand "hermes-bundled-plugins" { } ''
           set -e
           echo "=== Checking bundled plugins ==="
-          test -d ${hermes-agent}/share/hermes-agent/plugins || (echo "FAIL: plugins directory missing"; exit 1)
+          test -d ${loki}/share/hermes-agent/plugins || (echo "FAIL: plugins directory missing"; exit 1)
           echo "PASS: plugins directory exists"
 
-          test -f ${hermes-agent}/share/hermes-agent/plugins/platforms/irc/plugin.yaml || \
+          test -f ${loki}/share/hermes-agent/plugins/platforms/irc/plugin.yaml || \
             (echo "FAIL: irc plugin manifest missing"; exit 1)
           echo "PASS: irc plugin manifest present"
 
-          grep -q "HERMES_BUNDLED_PLUGINS" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_BUNDLED_PLUGINS not in wrapper"; exit 1)
-          echo "PASS: HERMES_BUNDLED_PLUGINS set in wrapper"
+          grep -q "LOKI_BUNDLED_PLUGINS" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_BUNDLED_PLUGINS not in wrapper"; exit 1)
+          echo "PASS: LOKI_BUNDLED_PLUGINS set in wrapper"
 
           echo "=== All bundled plugins checks passed ==="
           mkdir -p $out
@@ -1133,29 +1134,29 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-locales = pkgs.runCommand "hermes-bundled-locales" { } ''
           set -e
           echo "=== Checking bundled locales ==="
-          test -d ${hermes-agent}/share/hermes-agent/locales || (echo "FAIL: locales directory missing"; exit 1)
+          test -d ${loki}/share/hermes-agent/locales || (echo "FAIL: locales directory missing"; exit 1)
           echo "PASS: locales directory exists"
 
           # -L: locales/ is a symlink to the source store path
-          LOC_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/locales -name "*.yaml" | wc -l)
+          LOC_COUNT=$(find -L ${loki}/share/hermes-agent/locales -name "*.yaml" | wc -l)
           test "$LOC_COUNT" -ge 16 || (echo "FAIL: expected >=16 catalogs, found $LOC_COUNT"; exit 1)
           echo "PASS: $LOC_COUNT locale catalogs found"
 
-          test -f ${hermes-agent}/share/hermes-agent/locales/en.yaml || (echo "FAIL: en.yaml missing"; exit 1)
+          test -f ${loki}/share/hermes-agent/locales/en.yaml || (echo "FAIL: en.yaml missing"; exit 1)
           echo "PASS: en.yaml present"
 
-          grep -q "HERMES_BUNDLED_LOCALES" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_BUNDLED_LOCALES not in wrapper"; exit 1)
-          echo "PASS: HERMES_BUNDLED_LOCALES set in wrapper"
+          grep -q "LOKI_BUNDLED_LOCALES" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_BUNDLED_LOCALES not in wrapper"; exit 1)
+          echo "PASS: LOKI_BUNDLED_LOCALES set in wrapper"
 
           # locales/ is a bare data dir (no __init__.py), shipped via a
-          # symlink + HERMES_BUNDLED_LOCALES (not via wheel data-files).
+          # symlink + LOKI_BUNDLED_LOCALES (not via wheel data-files).
           # Verify the wrapper override resolves real strings.
           export HOME=$(mktemp -d)
-          RENDERED=$(cd "$HOME" && HERMES_BUNDLED_LOCALES=${hermes-agent}/share/hermes-agent/locales \
-            ${hermesVenv}/bin/python3 -c "from agent import i18n; print(i18n.t('gateway.reset.header_default', lang='en'))")
+          RENDERED=$(cd "$HOME" && LOKI_BUNDLED_LOCALES=${loki}/share/hermes-agent/locales \
+            ${hermesVenv}/bin/python3 -c "from loki_identity import bind_loki_environment; bind_loki_environment(); from agent import i18n; print(i18n.t('gateway.reset.header_default', lang='en'))")
           echo "rendered: $RENDERED"
-          test "$RENDERED" != "gateway.reset.header_default" || (echo "FAIL: i18n returned the raw key with HERMES_BUNDLED_LOCALES set"; exit 1)
+          test "$RENDERED" != "gateway.reset.header_default" || (echo "FAIL: i18n returned the raw key with LOKI_BUNDLED_LOCALES set"; exit 1)
           echo "PASS: i18n renders a human string via the wrapper override"
 
           echo "=== All bundled locales checks passed ==="
@@ -1165,23 +1166,23 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
         # Verify bundled optional-mcps catalog is present and resolvable.
         # optional-mcps/ is a bare data dir shipped via symlink +
-        # HERMES_OPTIONAL_MCPS (not via wheel data-files).
+        # LOKI_OPTIONAL_MCPS (not via wheel data-files).
         bundled-mcps = pkgs.runCommand "hermes-bundled-mcps" { } ''
           set -e
           echo "=== Checking bundled optional-mcps ==="
-          test -d ${hermes-agent}/share/hermes-agent/optional-mcps || (echo "FAIL: optional-mcps directory missing"; exit 1)
+          test -d ${loki}/share/hermes-agent/optional-mcps || (echo "FAIL: optional-mcps directory missing"; exit 1)
           echo "PASS: optional-mcps directory exists"
 
-          MANIFEST_COUNT=$(find -L ${hermes-agent}/share/hermes-agent/optional-mcps -name "manifest.yaml" | wc -l)
+          MANIFEST_COUNT=$(find -L ${loki}/share/hermes-agent/optional-mcps -name "manifest.yaml" | wc -l)
           test "$MANIFEST_COUNT" -gt 0 || (echo "FAIL: no manifest.yaml files found"; exit 1)
           echo "PASS: $MANIFEST_COUNT catalog manifests found"
 
-          grep -q "HERMES_OPTIONAL_MCPS" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_OPTIONAL_MCPS not in wrapper"; exit 1)
-          echo "PASS: HERMES_OPTIONAL_MCPS set in wrapper"
+          grep -q "LOKI_OPTIONAL_MCPS" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_OPTIONAL_MCPS not in wrapper"; exit 1)
+          echo "PASS: LOKI_OPTIONAL_MCPS set in wrapper"
 
           export HOME=$(mktemp -d)
-          CATALOG=$(cd "$HOME" && ${hermes-agent}/bin/hermes mcp catalog 2>/dev/null || true)
+          CATALOG=$(cd "$HOME" && ${loki}/bin/loki mcp catalog 2>/dev/null || true)
           echo "catalog output: $CATALOG"
           test -n "$CATALOG" || (echo "FAIL: hermes mcp catalog returned empty"; exit 1)
           echo "PASS: mcp catalog resolves entries"
@@ -1195,63 +1196,63 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
         bundled-tui = pkgs.runCommand "hermes-bundled-tui" { } ''
           set -e
           echo "=== Checking bundled TUI ==="
-          test -d ${hermes-agent}/ui-tui || (echo "FAIL: ui-tui directory missing"; exit 1)
+          test -d ${loki}/ui-tui || (echo "FAIL: ui-tui directory missing"; exit 1)
           echo "PASS: ui-tui directory exists"
 
-          test -f ${hermes-agent}/ui-tui/dist/entry.js || (echo "FAIL: compiled entry.js missing"; exit 1)
+          test -f ${loki}/ui-tui/dist/entry.js || (echo "FAIL: compiled entry.js missing"; exit 1)
           echo "PASS: compiled entry.js present"
 
-          # The compiled TUI runs these on HERMES_PYTHON; the Python package lives in another
+          # The compiled TUI runs these on LOKI_PYTHON; the Python package lives in another
           # store path, so they must ship beside entry.js (#139208).
           for helper in gateway_bootstrap.py clipboard_image.py; do
-            test -f ${hermes-agent}/ui-tui/dist/scripts/$helper || \
+            test -f ${loki}/ui-tui/dist/scripts/$helper || \
               (echo "FAIL: TUI helper $helper missing"; exit 1)
           done
           echo "PASS: TUI Python helpers present"
 
           # self-contained bundle; no runtime node_modules expected
 
-          grep -q "HERMES_TUI_DIR" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_TUI_DIR not in wrapper"; exit 1)
-          echo "PASS: HERMES_TUI_DIR set in wrapper"
+          grep -q "LOKI_TUI_DIR" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_TUI_DIR not in wrapper"; exit 1)
+          echo "PASS: LOKI_TUI_DIR set in wrapper"
 
           echo "=== All bundled TUI checks passed ==="
           mkdir -p $out
           echo "ok" > $out/result
         '';
 
-        # Verify HERMES_NODE is set in wrapper and points to Node 26+
-        # (Hermes pins its toolchain to Node 26 everywhere)
+        # Verify LOKI_NODE is set in wrapper and points to Node 26+
+        # (Loki pins its toolchain to Node 26 everywhere)
         hermes-node = pkgs.runCommand "hermes-node-version" { } ''
           set -e
-          echo "=== Checking HERMES_NODE in wrapper ==="
-          grep -q "HERMES_NODE" ${hermes-agent}/bin/hermes || \
-            (echo "FAIL: HERMES_NODE not set in wrapper"; exit 1)
-          echo "PASS: HERMES_NODE present in wrapper"
+          echo "=== Checking LOKI_NODE in wrapper ==="
+          grep -q "LOKI_NODE" ${loki}/bin/loki || \
+            (echo "FAIL: LOKI_NODE not set in wrapper"; exit 1)
+          echo "PASS: LOKI_NODE present in wrapper"
 
-          HERMES_NODE=$(sed -n "s/^export HERMES_NODE='\(.*\)'/\1/p" ${hermes-agent}/bin/hermes)
-          test -x "$HERMES_NODE" || (echo "FAIL: HERMES_NODE=$HERMES_NODE not executable"; exit 1)
-          echo "PASS: HERMES_NODE executable at $HERMES_NODE"
+          LOKI_NODE=$(sed -n "s/^export LOKI_NODE='\(.*\)'/\1/p" ${loki}/bin/loki)
+          test -x "$LOKI_NODE" || (echo "FAIL: LOKI_NODE=$LOKI_NODE not executable"; exit 1)
+          echo "PASS: LOKI_NODE executable at $LOKI_NODE"
 
-          NODE_MAJOR=$("$HERMES_NODE" --version | sed 's/^v//' | cut -d. -f1)
+          NODE_MAJOR=$("$LOKI_NODE" --version | sed 's/^v//' | cut -d. -f1)
           test "$NODE_MAJOR" -ge 26 || \
-            (echo "FAIL: Node v$NODE_MAJOR < 26, Hermes requires Node 26"; exit 1)
+            (echo "FAIL: Node v$NODE_MAJOR < 26, Loki requires Node 26"; exit 1)
           echo "PASS: Node v$NODE_MAJOR >= 26"
 
-          echo "=== All HERMES_NODE checks passed ==="
+          echo "=== All LOKI_NODE checks passed ==="
           mkdir -p $out
           echo "ok" > $out/result
         '';
 
-        # Verify HERMES_MANAGED guard works on all mutation commands
-        managed-guard = pkgs.runCommand "hermes-managed-guard" { } ''
+        # Verify LOKI_MANAGED guard works on all mutation commands
+        managed-guard = pkgs.runCommand "loki-managed-guard" { } ''
           set -e
           export HOME=$(mktemp -d)
 
           check_blocked() {
             local label="$1"
             shift
-            OUTPUT=$(HERMES_MANAGED=true "$@" 2>&1 || true)
+            OUTPUT=$(LOKI_MANAGED=true "$@" 2>&1 || true)
             # Case-insensitive: the message names the managing system as the
             # identifier it is keyed by, and the display form is not the
             # property under test here.
@@ -1259,9 +1260,9 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             echo "PASS: $label blocked in managed mode"
           }
 
-          echo "=== Checking HERMES_MANAGED guards ==="
-          check_blocked "config set" ${hermes-agent}/bin/hermes config set model foo
-          check_blocked "config edit" ${hermes-agent}/bin/hermes config edit
+          echo "=== Checking LOKI_MANAGED guards ==="
+          check_blocked "config set" ${loki}/bin/loki config set model foo
+          check_blocked "config edit" ${loki}/bin/loki config edit
 
           echo "=== All guard checks passed ==="
           mkdir -p $out
@@ -1273,23 +1274,23 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           # Built with the lock-derived interpreter, so this check fails
           # loudly if the package set and the lock drift apart.
           testPkg = pythonLock.interpreter.pkgs.pyfiglet;
-          hermesWithExtra = hermes-agent.override {
+          hermesWithExtra = loki.override {
             extraPythonPackages = [ testPkg ];
           };
         in pkgs.runCommand "hermes-extra-python-packages" { } ''
           set -e
           echo "=== Checking extraPythonPackages PYTHONPATH injection ==="
 
-          grep -q "PYTHONPATH" ${hermesWithExtra}/bin/hermes || \
+          grep -q "PYTHONPATH" ${hermesWithExtra}/bin/loki || \
             (echo "FAIL: PYTHONPATH not in wrapper"; exit 1)
           echo "PASS: PYTHONPATH present in wrapper"
 
-          grep -q "${testPkg}" ${hermesWithExtra}/bin/hermes || \
+          grep -q "${testPkg}" ${hermesWithExtra}/bin/loki || \
             (echo "FAIL: test package path not in PYTHONPATH"; exit 1)
           echo "PASS: test package path found in wrapper"
 
           echo "=== Checking base package has no PYTHONPATH ==="
-          if grep -q "PYTHONPATH" ${hermes-agent}/bin/hermes; then
+          if grep -q "PYTHONPATH" ${loki}/bin/loki; then
             echo "FAIL: base package should not have PYTHONPATH"; exit 1
           fi
           echo "PASS: base package clean"
@@ -1336,7 +1337,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
 
         # Verify extraDependencyGroups passes through to python.nix
         extra-dependency-groups = let
-          hermesWithGroups = hermes-agent.override {
+          hermesWithGroups = loki.override {
             extraDependencyGroups = [ "exa" ];
           };
         in pkgs.runCommand "hermes-extra-dependency-groups" { } ''
@@ -1368,8 +1369,8 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           echo "ok" > $out/result
         '';
 
-        # A fresh declarative install must be current to the Hermes it ships
-        # with. Hermes cannot stamp config.yaml in managed mode, so an
+        # A fresh declarative install must be current to the Loki it ships
+        # with. Loki cannot stamp config.yaml in managed mode, so an
         # unstamped file reads as version 0 and trips the support-floor
         # warning at every boot.
         generated-config-version =
@@ -1378,20 +1379,21 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
             configFiles = common.mkConfigFiles {
               inherit pkgs;
               cfg = {
-                package = hermes-agent;
+                package = loki;
                 extraPythonPackages = [ ];
                 extraDependencyGroups = [ ];
                 configFile = null;
                 settings.model.default = "test/nix-model";
               };
-              workingDirectory = "/var/lib/hermes/workspace";
+              workingDirectory = "/var/lib/loki/workspace";
             };
           in
           pkgs.runCommand "hermes-generated-config-version" { } ''
             set -e
-            export HOME=$(mktemp -d) HERMES_HOME=$(mktemp -d)
-            ${configMergeScript} ${configFiles.generated} "$HERMES_HOME/config.yaml"
+            export HOME=$(mktemp -d) LOKI_HOME=$(mktemp -d)
+            ${configMergeScript} ${configFiles.generated} "$LOKI_HOME/config.yaml"
             ${hermesVenv}/bin/python3 -c '
+            from loki_identity import bind_loki_environment; bind_loki_environment()
             from hermes_cli.config import check_config_version
             current, latest = check_config_version(raise_on_parse_error=True)
             assert current == latest, f"generated config.yaml reads as v{current}, package is v{latest}"
@@ -1461,7 +1463,7 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
                 - USER_VAR
           '';
 
-        in pkgs.runCommand "hermes-config-roundtrip" {
+        in pkgs.runCommand "loki-config-roundtrip" {
           nativeBuildInputs = [ pkgs.jq ];
         } ''
           set -e
@@ -1473,10 +1475,11 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
           # Helper: run merge then load with Python, output merged JSON
           merge_and_load() {
             local hermes_home="$1"
-            export HERMES_HOME="$hermes_home"
+            export LOKI_HOME="$hermes_home"
             ${configMergeScript} ${nixSettings} "$hermes_home/config.yaml"
             ${hermesVenv}/bin/python3 -c '
 import json, sys
+from loki_identity import bind_loki_environment; bind_loki_environment()
 from hermes_cli.config import load_config
 json.dump(load_config(), sys.stdout, default=str)
 '

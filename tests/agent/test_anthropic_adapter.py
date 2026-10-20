@@ -1,5 +1,9 @@
 """Tests for agent/anthropic_adapter.py — Anthropic Messages API adapter."""
 
+from loki_identity import CLIENT_USER_AGENT
+
+from tests.loki_auth_fixture import configure_auth
+
 import json
 import sys
 import time
@@ -87,10 +91,10 @@ class TestBuildAnthropicClient:
             )
             kwargs = mock_sdk.Anthropic.call_args[1]
             headers = kwargs["default_headers"]
-            assert headers["HTTP-Referer"] == "https://hermes-agent.nousresearch.com"
-            assert headers["X-Title"] == "Hermes Agent"
+            assert headers["HTTP-Referer"] == "https://github.com/ObliviousOdin/loki"
+            assert headers["X-Title"] == "Loki"
             from hermes_cli.version_info import get_version_info
-            assert headers["User-Agent"] == f"HermesAgent/{get_version_info().base_version}"
+            assert headers["User-Agent"] == CLIENT_USER_AGENT
             # Auth branch is unchanged: x-api-key via api_key, betas kept.
             assert kwargs["api_key"] == "sk-opencode-secret"
             assert "anthropic-beta" in headers
@@ -166,6 +170,7 @@ class TestReadClaudeCodeCredentials:
         )
 
     def test_reads_valid_credentials(self, tmp_path, monkeypatch):
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         cred_file = tmp_path / ".claude" / ".credentials.json"
         cred_file.parent.mkdir(parents=True)
         cred_file.write_text(json.dumps({
@@ -263,6 +268,7 @@ class TestResolveAnthropicToken:
         assert resolve_anthropic_token() == "sk-ant...ykey"
 
     def test_falls_back_to_claude_code_credentials(self, monkeypatch, tmp_path):
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("ANTHROPIC_TOKEN", raising=False)
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
@@ -383,6 +389,7 @@ class TestResolveAnthropicToken:
         assert captured == {"clear_expired": False, "refresh": False}
 
     def test_prefers_refreshable_claude_code_credentials_over_static_anthropic_token(self, monkeypatch, tmp_path):
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.setenv("ANTHROPIC_TOKEN", "sk-ant-oat01-static-token")
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
@@ -413,6 +420,7 @@ class TestRefreshOauthToken:
         assert _refresh_oauth_token(creds) is None
 
     def test_successful_refresh(self, tmp_path, monkeypatch):
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         monkeypatch.setattr("agent.anthropic_credentials.Path.home", lambda: tmp_path)
         monkeypatch.setattr(
             "agent.anthropic_credentials.read_claude_code_credentials", lambda: None
@@ -507,6 +515,7 @@ class TestWriteClaudeCodeCredentials:
 class TestResolveWithRefresh:
     def test_auto_refresh_on_expired_creds(self, monkeypatch, tmp_path):
         """When cred file has expired token + refresh token, auto-refresh is attempted."""
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("ANTHROPIC_TOKEN", raising=False)
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
@@ -530,6 +539,7 @@ class TestResolveWithRefresh:
         assert result == "refreshed-token"
 
     def test_static_env_oauth_token_does_not_block_refreshable_claude_creds(self, monkeypatch, tmp_path):
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.setenv("ANTHROPIC_TOKEN", "sk-ant-oat01-expired-env-token")
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
@@ -555,6 +565,7 @@ class TestRunOauthSetupToken:
 
     def test_returns_token_from_credential_files(self, monkeypatch, tmp_path):
         """After subprocess completes, reads credentials from Claude Code files."""
+        configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
         monkeypatch.setattr("agent.anthropic_adapter.find_claude_code_cli", lambda _: "/usr/bin/claude")
         monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
         monkeypatch.delenv("ANTHROPIC_TOKEN", raising=False)

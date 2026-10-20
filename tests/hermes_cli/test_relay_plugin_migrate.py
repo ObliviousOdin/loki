@@ -36,6 +36,17 @@ def _parse_env(path: Path) -> dict[str, str]:
     return out
 
 
+@pytest.mark.parametrize("custom_name", [None, "Hermes custom relay"])
+def test_exporter_identity_defaults_to_loki_preserving_configured_names(custom_name):
+    from hermes_cli.relay_plugin_migrate import relay_plugin_payload_from_legacy_env
+
+    env = {"HERMES_NEMO_RELAY_ATIF_ENABLED": "1"}
+    if custom_name is not None:
+        env["HERMES_NEMO_RELAY_ATIF_AGENT_NAME"] = custom_name
+    payload = relay_plugin_payload_from_legacy_env(env)
+    assert payload["components"][0]["config"]["atif"]["agent_name"] == (custom_name or "Loki")
+
+
 @pytest.fixture
 def profile_env(tmp_path, monkeypatch):
     home = tmp_path / ".hermes"

@@ -69,6 +69,7 @@ class _Ask:
 
 # Cheapest first; the last one reads the disk. Each is a reason the trial cannot be claimed.
 _CLAIM_BLOCKERS: tuple[tuple[str, Callable[[_Ask], bool]], ...] = (
+    ("Loki hosted services are not configured", lambda _ask: not _hosted_services_enabled()),
     ("not the desktop's local backend", lambda _ask: not anon_auth.on_local_desktop_backend()),
     ("guests are switched off", lambda _ask: not anon_auth.guest_allowed()),
     ("a Nous identity exists", lambda _ask: _has_nous_identity()),
@@ -76,6 +77,12 @@ _CLAIM_BLOCKERS: tuple[tuple[str, Callable[[_Ask], bool]], ...] = (
      lambda ask: provider_configured() if ask.configured is None else ask.configured),
     ("Hermes was used on this machine", lambda ask: _machine_is_used(ask.assume_fresh)),
 )
+
+
+def _hosted_services_enabled() -> bool:
+    from hermes_cli.loki_auth_policy import hosted_services_enabled
+
+    return hosted_services_enabled()
 
 
 def claim_blocker(*, assume_fresh: bool = False, configured: Optional[bool] = None) -> Optional[str]:

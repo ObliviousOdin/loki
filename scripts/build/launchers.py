@@ -36,10 +36,7 @@ def posix_launcher(name: str, entry: str, *, python: str, repo: str, site: str, 
         extra = '''PREFIX="${PREFIX:-/data/data/com.termux/files/usr}"
 export PREFIX
 export LD_LIBRARY_PATH="$root/tools/python/data/data/com.termux/files/usr/lib:$root/tools/node/data/data/com.termux/files/usr/lib:$root/tools/ffmpeg/data/data/com.termux/files/usr/lib:$root/runtime-libs/lib:$PREFIX/lib"
-export HERMES_PYTHON_SRC_ROOT="$REPO"
-export HERMES_PYTHON="$PYTHON"
-export HERMES_NODE="$root/tools/node/data/data/com.termux/files/usr/bin/node"
-export HERMES_RUNTIME_DIR="$root/tools"
+export LOKI_NODE="$root/tools/node/data/data/com.termux/files/usr/bin/node"
 export PATH="$root/tools/npm/bin:$root/tools/node/data/data/com.termux/files/usr/bin:$root/tools/ffmpeg/data/data/com.termux/files/usr/bin:$root/tools/ripgrep:$PATH"
 '''
     code = (
@@ -61,15 +58,22 @@ root="$(cd "$(dirname "$self")/.." && pwd)"
 PYTHON={shell_path(python)}
 REPO={shell_path(repo)}
 SITE={shell_path(site)}
-[ -x "$PYTHON" ] || {{ printf '%s\\n' 'Bundled interpreter missing; reinstall Hermes.' >&2; exit 2; }}
+[ -x "$PYTHON" ] || {{ printf '%s\\n' 'Bundled interpreter missing; reinstall Loki.' >&2; exit 2; }}
 unset PYTHONPATH PYTHONHOME
+if [ "${{__LOKI_ENV_BOUND:-}}" = 1 ] && [ -n "${{HERMES_HOME:-}}" ]; then
+    export LOKI_HOME="$HERMES_HOME"
+fi
+unset __LOKI_ENV_BOUND
+export LOKI_RUNTIME_DIR="$root/tools"
+export LOKI_PYTHON="$PYTHON"
+export LOKI_PYTHON_SRC_ROOT="$REPO"
 export PYTHONPATH="$REPO:$SITE"
 # PYTHONPATH cannot process .pth files (only site.addsitedir() can), and
 # the venv's .pth files are load-bearing (pywin32.pth -> win32\\lib ->
 # `import pywintypes` on Windows bundles; the win32 wrapper mirrors this
 # in launcher_wrapper.py). The -c bootstrap below runs addsitedir() on it.
 export HERMES_SITE="$SITE"
-export PYTHONPYCACHEPREFIX="${{PYTHONPYCACHEPREFIX:-${{XDG_CACHE_HOME:-$HOME/.cache}}/hermes-pycache}}"
+export PYTHONPYCACHEPREFIX="${{PYTHONPYCACHEPREFIX:-${{XDG_CACHE_HOME:-$HOME/.cache}}/loki-pycache}}"
 {extra}exec "$PYTHON" -P -c {shlex.quote(code)} "$@"
 '''
 

@@ -4,6 +4,8 @@ The owner hydrates the creation-time snapshot into the bootstrap; the child bind
 config import, so an edit to an already-selected MCP server's transport after creation reaches
 only sessions created after the edit (andrexibiza N1). Plugins, MCP and hooks stay ordinary.
 """
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 from contextlib import closing
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -153,7 +155,7 @@ def test_ordinary_worker_binding_freezes_readers_but_keeps_customizations(tmp_pa
     '''), encoding='utf-8')
     env = {**child_env(), **{k: os.environ[k] for k in ('TIRITH_ENABLED',) if k in os.environ}}
     env.update(HOME=str(tmp_path), USERPROFILE=str(tmp_path), HERMES_HOME=str(home), PYTHONPATH=str(root))
-    result = subprocess.run([sys.executable, str(script)], cwd=root, env=env, stdin=subprocess.DEVNULL,
+    result = subprocess.run([sys.executable, str(script)], cwd=root, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL,
                             capture_output=True, text=True, timeout=90, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     receipt = json.loads(result.stdout.strip().splitlines()[-1])

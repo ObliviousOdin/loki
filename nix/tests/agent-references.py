@@ -41,14 +41,18 @@ with tempfile.TemporaryDirectory() as temporary:
     probe = home / "probe"
     probe.mkdir()
     (probe / "sitecustomize.py").write_text(
-        "import importlib, json, os\n"
+        "import importlib, json, os\nfrom pathlib import Path\n"
         "observed = dict(os.environ)\n"
         "module, function = os.environ['NIX_CHECK_ENTRY'].split(':')\n"
         "assert callable(getattr(importlib.import_module(module), function))\n"
+        "from loki_identity import bind_loki_environment\nbind_loki_environment()\n"
+        "from hermes_cli.plugin_catalog import get_catalog_dir, load_catalog\n"
+        "assert get_catalog_dir().samefile(Path(os.environ['LOKI_BUNDLED_PLUGIN_CATALOG']))\n"
+        "assert load_catalog(), 'bound reviewed plugin catalog is empty'\n"
         "print(json.dumps(observed), flush=True)\n"
         "os._exit(0)\n"
     )
-    env = {"HOME": str(home), "HERMES_HOME": str(home / ".hermes"),
+    env = {"HOME": str(home), "LOKI_HOME": str(home / ".loki"),
            "PATH": os.defpath, "LANG": "C.UTF-8", "TZ": "UTC"}
     for name, entry in entries.items():
         command = command_map["commands"][name]
@@ -61,14 +65,16 @@ with tempfile.TemporaryDirectory() as temporary:
                                 text=True, capture_output=True, check=True, timeout=60)
         observed = json.loads(result.stdout)
         for key, value in command_map["env"].items():
-            assert observed[key] == value, (name, key, observed.get(key), value)
-        assert observed["HERMES_BIN"] == str(package / "bin/hermes")
+            public = "LOKI_" + key.removeprefix("HERMES_") if key.startswith("HERMES_") else key
+            assert observed[public] == value, (name, public, observed.get(public), value)
+        assert observed["LOKI_BIN"] == str(package / "bin/loki")
         print(f"PASS: {name} imports from a clean cwd and receives the shared environment")
 
     # These public interfaces parse --help without starting an agent session.
-    for name in ("hermes", "hermes-acp"):
+    for name in ("loki", "loki-acp"):
         subprocess.run([str(package / "bin" / name), "--help"], cwd=home, env=env,
                        check=True, timeout=60, stdout=subprocess.DEVNULL)
         print(f"PASS: {name} --help")
+    assert not (home / ".hermes").exists(), "Loki must not create upstream user state"
 
 print("PASS: referenced resources, independent PM runtime, and uv2nix code placement")

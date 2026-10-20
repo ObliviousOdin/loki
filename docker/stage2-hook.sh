@@ -540,7 +540,7 @@ fi
 # lines written here carry a marker so a boot WITHOUT the variable removes them
 # again (a hand-set line is never touched). Known gap: a profile created while the container
 # runs is synced on the next boot. Interim until the managed scope
-# (/etc/hermes/.env) composition reverted by #111600 is restored.
+# (/etc/loki/.env) composition reverted by #111600 is restored.
 _ROUTING_MARK='# stage2-managed'
 # rewrite_env_var FILE NAME DROP_PATTERN [LINE]: drop the lines matching DROP_PATTERN (a BRE),
 # append LINE when given. Rewritten through the existing inode (owner and mode kept — sed -i would
@@ -755,7 +755,7 @@ fi
 # --- Point agent-browser at the pinned Chromium binary ---
 # The image's Dockerfile pm-provisions pinned full Chromium into
 # $HERMES_RUNTIME_DIR (/opt/hermes/tools) at BUILD time and bakes the
-# resolved browser binary path into /etc/hermes/agent-browser-executable-path
+# resolved browser binary path into /etc/loki/agent-browser-executable-path
 # (the layout differs per arch — chrome-linux64/chrome on amd64,
 # chromium-linux-arm64/chromium on arm64 — so it is resolved at build time,
 # not hard-coded). agent-browser (the runtime CLI Hermes spawns for the
@@ -773,8 +773,8 @@ fi
 # - Quietly skipped when the baked path file is absent (e.g. custom builds
 #   that strip the pm tool store).
 if [ -z "${AGENT_BROWSER_EXECUTABLE_PATH:-}" ] && \
-        [ -f /etc/hermes/agent-browser-executable-path ]; then
-    browser_bin="$(cat /etc/hermes/agent-browser-executable-path)"
+        [ -f /etc/loki/agent-browser-executable-path ]; then
+    browser_bin="$(cat /etc/loki/agent-browser-executable-path)"
     if [ -n "$browser_bin" ] && [ -x "$browser_bin" ]; then
         echo "[stage2] Using pinned agent-browser Chromium binary: $browser_bin"
         # Write to s6's container_environment so with-contenv picks it

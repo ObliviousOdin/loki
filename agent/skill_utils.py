@@ -86,13 +86,13 @@ def parse_frontmatter(content: str) -> tuple[dict[str, Any], str]:
     return frontmatter, body
 
 
-def skill_matches_platform_list(platforms: Any) -> bool:
+def skill_matches_platform_list(platforms: Any, *, current: str | None = None) -> bool:
     """Return True when *platforms* is compatible with the current OS."""
     if not platforms:
         return True
     if not isinstance(platforms, list):
         platforms = [platforms]
-    current = sys.platform
+    current = sys.platform if current is None else current
     for platform in platforms:
         normalized = str(platform).lower().strip()
         mapped = PLATFORM_MAP.get(normalized, normalized)
@@ -492,13 +492,13 @@ def resolve_skill_catalog(entries: list[dict[str, Any]]) -> list[dict[str, Any]]
     return out
 
 
-# Project-local skills (<root>/.hermes/skills, <root>/.agents/skills; root = nearest
+# Project-local skills (<root>/.loki/skills, <root>/.agents/skills; root = nearest
 # .git ancestor) are a prompt-injection vector if auto-sourced from any clone, so
 # they load only when the root is in ``skills.trusted_project_dirs``; then they
 # override same-named profile/bundled skills. cwd + trust list are session-fixed
 # so the skills index stays byte-stable.
 
-PROJECT_SKILLS_SUBDIRS = (os.path.join(".hermes", "skills"), os.path.join(".agents", "skills"))
+PROJECT_SKILLS_SUBDIRS = (os.path.join(".loki", "skills"), os.path.join(".agents", "skills"))
 
 _PROJECT_ROOT_MAX_DEPTH = 64  # walk-up bound for pathological cwds
 

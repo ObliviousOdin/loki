@@ -333,3 +333,16 @@ def test_scan_sessions_never_opens_a_writable_session_db(plugin_api, tmp_path, m
     assert result.get("error") is None
     assert [s["session_id"] for s in result["sessions"]] == ["s1"]
     assert writable_opens == [], "the achievements scan must attach read-only"
+
+
+def test_display_copy_preserves_custom_achievement_values(plugin_api):
+    item = {"name": "Hermes custom badge", "description": "User's Hermes model milestone", "state": "unlocked"}
+    result = plugin_api.display_achievement(item)
+    assert result["name"] == item["name"]
+    assert result["description"] == item["description"]
+    assert result["criteria"] == "Requirement: complete the matching Loki behavior."
+    secret = plugin_api.display_achievement({**item, "state": "secret", "secret": True})
+    assert secret["name"] == "???"
+    assert "hidden until Loki detects" in secret["description"]
+    assert "until Loki sees" in secret["criteria"]
+    assert item["name"] == "Hermes custom badge"

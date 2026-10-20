@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import pytest
 
 from hermes_cli import auth
@@ -108,6 +110,7 @@ def test_step_up_requests_billing_scope_and_reuses_prior_urls(monkeypatch, _stub
 def test_device_login_fires_on_verification_before_polling(monkeypatch):
     """on_verification(url, code) must fire BEFORE _poll_for_token (so the TUI
     can render the link while the flow blocks waiting for approval)."""
+    configure_auth(monkeypatch, clients=("nous",))
     order: list[str] = []
 
     monkeypatch.setattr(

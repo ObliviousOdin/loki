@@ -41,7 +41,7 @@ def interactive_setup() -> None:
         print()
         _gw()._print_info_lines(
             "  After installing, link your account and start the daemon:",
-            '    signal-cli link -n "HermesAgent"',
+            '    signal-cli link -n "Loki"',
             "    signal-cli --account +YOURNUMBER daemon --http 127.0.0.1:8080",
         )
         print()

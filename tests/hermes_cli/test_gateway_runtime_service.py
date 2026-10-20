@@ -25,26 +25,26 @@ def test_ensure_checks_effective_service_binding_before_start(tmp_path, monkeypa
     from hermes_cli.gateway_runtime_service import service_suffix
 
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    home = tmp_path / (".hermes" if case == "default" else "custom root")
+    home = tmp_path / (".loki" if case == "default" else "custom root")
     if case == "named":
         home = home / "profiles" / "worker"
     home.mkdir(mode=0o700, parents=True)
     monkeypatch.setenv("HERMES_HOME", str(home))
     suffix = service_suffix(home)
-    unit = tmp_path / ".config/systemd/user" / f"hermes-gateway{'-' + suffix if suffix else ''}.service"
+    unit = tmp_path / ".config/systemd/user" / f"loki-gateway{'-' + suffix if suffix else ''}.service"
     unit.parent.mkdir(parents=True)
-    unit.write_text(f'[Service]\nExecStart={sys.executable} -m hermes_cli.main gateway run\nEnvironment="HERMES_HOME={home}"\n', encoding="utf-8")
+    unit.write_text(f'[Service]\nExecStart={sys.executable} -m hermes_cli.main gateway run\nEnvironment="LOKI_HOME={home}"\n', encoding="utf-8")
     original = unit.read_bytes()
     configured = home
     if case in {"wrong_home", "dropin_home"}:
         configured = tmp_path / "unrequested"
     if case == "wrong_home":
-        unit.write_text(f'[Service]\nEnvironment="HERMES_HOME={configured}"\n', encoding="utf-8")
+        unit.write_text(f'[Service]\nEnvironment="LOKI_HOME={configured}"\n', encoding="utf-8")
         original = unit.read_bytes()
     if case == "dropin_home":
         override = unit.parent / (unit.name + '.d') / 'override.conf'
         override.parent.mkdir()
-        override.write_text(f'[Service]\nEnvironment="HERMES_HOME={configured}"\n', encoding="utf-8")
+        override.write_text(f'[Service]\nEnvironment="LOKI_HOME={configured}"\n', encoding="utf-8")
     if case == "alias":
         configured = tmp_path / "alias"
         configured.symlink_to(home, target_is_directory=True)
@@ -56,7 +56,7 @@ def test_ensure_checks_effective_service_binding_before_start(tmp_path, monkeypa
     if case == "wrong_command":
         command = '/bin/echo hermes_cli.main gateway run'
     props = dict(LoadState="loaded", ActiveState="inactive", SubState="dead", UnitFileState="enabled",
-                 User=str(os.getuid()), DynamicUser="no", Environment=f'"HERMES_HOME={configured}" "HERMES_SUPERVISED_CHILD=1"',
+                 User=str(os.getuid()), DynamicUser="no", Environment=f'"LOKI_HOME={configured}" "LOKI_SUPERVISED_CHILD=1"',
                  EnvironmentFiles="", PassEnvironment="", UnsetEnvironment="", PAMName="",
                  RootDirectory="", RootImage="", ExecStartPre="", ExecCondition="",
                  ExecStart=f'{{ path={command.split()[0]} ; argv[]={command} ; ignore_errors=no ; }}',
@@ -73,16 +73,16 @@ def test_ensure_checks_effective_service_binding_before_start(tmp_path, monkeypa
             del props[key]
     if case == "env_file":
         env_file = tmp_path / "override.env"
-        env_file.write_text(f'HERMES_HOME={tmp_path / "other"}\n', encoding="utf-8")
+        env_file.write_text(f'LOKI_HOME={tmp_path / "other"}\n', encoding="utf-8")
         props['EnvironmentFiles'] = f'{env_file} (ignore_errors=no)'
     if case == "dynamic_user":
         props['DynamicUser'] = 'yes'
     if case == "manager_home":
-        props['Environment'] = 'HERMES_SUPERVISED_CHILD=1'
-        manager_env = f'HERMES_HOME={tmp_path / "other"}\n'
+        props['Environment'] = 'LOKI_SUPERVISED_CHILD=1'
+        manager_env = f'LOKI_HOME={tmp_path / "other"}\n'
     if case == "default":
         # An older default install may rely on the user manager's HOME.
-        props['Environment'] = 'HERMES_SUPERVISED_CHILD=1'
+        props['Environment'] = 'LOKI_SUPERVISED_CHILD=1'
         manager_env = f'HOME={tmp_path}\n'
     definition = tmp_path / "effective.json"
     definition.write_text(json.dumps({'props': props, 'system': False, 'env': manager_env}), encoding="utf-8")
@@ -123,10 +123,10 @@ def test_loaded_launchd_identity_is_independent_of_disk(configured, command, rea
     argv = [sys.executable, "-m", "hermes_cli.main", "gateway", "run"]
     if command == "echo":
         argv = ["/bin/echo", "hermes_cli.main", "gateway", "run"]
-    environment = f"HERMES_HOME => {tmp_path / configured}" if configured else ""
-    output = "gui/123/ai.hermes.gateway = {\n\tstate = not running\n\tprogram = " + argv[0] + "\n\targuments = {\n" + "\n".join("\t\t" + a for a in argv) + "\n\t}\n\tenvironment = {\n\t\t" + environment + "\n\t}\n}"
+    environment = f"LOKI_HOME => {tmp_path / configured}" if configured else ""
+    output = "gui/123/com.obliviousodin.loki.gateway = {\n\tstate = not running\n\tprogram = " + argv[0] + "\n\targuments = {\n" + "\n".join("\t\t" + a for a in argv) + "\n\t}\n\tenvironment = {\n\t\t" + environment + "\n\t}\n}"
     if command != "unsupervised":
-        output = output.replace("\n\tenvironment = {\n", "\n\tenvironment = {\n\t\tHERMES_SUPERVISED_CHILD => 1\n")
+        output = output.replace("\n\tenvironment = {\n", "\n\tenvironment = {\n\t\tLOKI_SUPERVISED_CHILD => 1\n")
     if command == "wrong_account":
         output = output.replace("\n\tstate", "\n\tusername = other\n\tstate")
     if reason:
@@ -140,7 +140,7 @@ def _launchd_gateway_command(tmp_path, monkeypatch, *, store, profile=""):
     """The gateway command generate_launchd_plist persists, from a store Python or an external one."""
     from hermes_cli import _launchers, gateway as gw
     from hermes_cli.gateway_launchd import _timestamped_stderr_gateway_command
-    monkeypatch.setattr(gw, "PROJECT_ROOT", tmp_path / "hermes-agent")
+    monkeypatch.setattr(gw, "PROJECT_ROOT", tmp_path / "loki-agent")
     monkeypatch.setattr(gw, "get_python_path", lambda: sys.executable)
     monkeypatch.setattr(gw, "_profile_arg", lambda *a, **k: profile)
     monkeypatch.setattr(_launchers, "resolve_store_python", lambda *a, **k: Path(sys.executable) if store else None)
@@ -166,7 +166,7 @@ def test_launchd_verifies_the_osascript_wrapped_command_the_installer_writes(cas
     import plistlib
     from hermes_cli.gateway_launchd import launchd_program_arguments
     from hermes_cli.gateway_runtime_service_identity import verify_launchd_loaded, verify_launchd_plist
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".loki"
     from hermes_cli import gateway as gw
     command = _launchd_gateway_command(tmp_path, monkeypatch,
                                        store=case not in {"inline", "tampered_bootstrap", "foreign_root_inline"},
@@ -183,7 +183,7 @@ def test_launchd_verifies_the_osascript_wrapped_command_the_installer_writes(cas
         from hermes_cli._launchers import installation_command
         foreign = installation_command(tmp_path / "other-checkout", ["gateway", "run", "--external-supervisor"],
                                        python=sys.executable)
-        assert Path(foreign[0]).name == "hermes"
+        assert Path(foreign[0]).name == "loki"
         command = foreign if case == "osascript_foreign_bare" else installation_command(
             gw.PROJECT_ROOT, ["--error-log", str(tmp_path / "logs" / "gateway.error.log"), "--", *foreign],
             module="hermes_cli.stderr_timestamp", python=sys.executable)
@@ -212,13 +212,13 @@ def test_launchd_verifies_the_osascript_wrapped_command_the_installer_writes(cas
         argv[4] += ' $.system("id");'
     if case == "foreign_osascript":
         argv[0] = str(tmp_path / "osascript")
-    env = dict(HERMES_HOME=str(home if case != "other_home" else tmp_path / "elsewhere" / ".hermes"),
-               HERMES_SUPERVISED_CHILD="1")
-    definition = plistlib.loads(plistlib.dumps(dict(Label="ai.hermes.gateway", ProgramArguments=argv, EnvironmentVariables=env)))
-    output = ("gui/123/ai.hermes.gateway = {\n\tstate = not running\n\tprogram = " + argv[0] + "\n\targuments = {\n"
+    env = dict(LOKI_HOME=str(home if case != "other_home" else tmp_path / "elsewhere" / ".loki"),
+               LOKI_SUPERVISED_CHILD="1")
+    definition = plistlib.loads(plistlib.dumps(dict(Label="com.obliviousodin.loki.gateway", ProgramArguments=argv, EnvironmentVariables=env)))
+    output = ("gui/123/com.obliviousodin.loki.gateway = {\n\tstate = not running\n\tprogram = " + argv[0] + "\n\targuments = {\n"
               + "\n".join("\t\t" + arg for arg in argv) + "\n\t}\n\tenvironment = {\n"
               + "".join(f"\t\t{key} => {value}\n" for key, value in env.items()) + "\t}\n}")
-    for verify in (lambda: verify_launchd_plist(definition, "ai.hermes.gateway", home),
+    for verify in (lambda: verify_launchd_plist(definition, "com.obliviousodin.loki.gateway", home),
                    lambda: verify_launchd_loaded(output, home, uid=123, username="owner")):
         if reason:
             with pytest.raises(ValueError, match=reason):
@@ -233,8 +233,8 @@ def _installed_vbs(home, configured):
     script.write_text("\n".join([
         "' Hermes Agent Gateway", "Option Explicit", "Dim sh, env, existing_pp",
         'Set sh = CreateObject("WScript.Shell")', 'Set env = sh.Environment("PROCESS")',
-        f'env.Item("HERMES_HOME") = "{configured}"',
-        'env.Item("HERMES_SUPERVISED_CHILD") = "1"',
+        f'env.Item("LOKI_HOME") = "{configured}"',
+        'env.Item("LOKI_SUPERVISED_CHILD") = "1"',
         'env.Item("VIRTUAL_ENV") = "C:\\Hermes"',
         'existing_pp = env.Item("PYTHONPATH")', 'If Len(existing_pp) > 0 Then',
         '  env.Item("PYTHONPATH") = "C:\\Hermes;" & existing_pp', 'Else',
@@ -306,16 +306,16 @@ def test_native_launchd_checks_loaded_job_before_disk(case, reason, tmp_path, mo
     home.mkdir(mode=0o700)
     monkeypatch.setenv('HERMES_HOME', str(home))
     monkeypatch.setattr(pwd, 'getpwuid', lambda uid: SimpleNamespace(pw_dir=str(tmp_path), pw_name="owner"))
-    label = 'ai.hermes.gateway' + ('-' + service.service_suffix(home) if service.service_suffix(home) else '')
+    label = 'com.obliviousodin.loki.gateway' + ('-' + service.service_suffix(home) if service.service_suffix(home) else '')
     plist = tmp_path / 'Library/LaunchAgents' / (label + '.plist')
     plist.parent.mkdir(parents=True)
     argv = [sys.executable, '-m', 'hermes_cli.main', 'gateway', 'run']
     disk_home = tmp_path / 'wrong' if case == 'loaded_good_disk_wrong' else home
     plist.write_bytes(plistlib.dumps(dict(Label=label, ProgramArguments=argv,
-        EnvironmentVariables=dict(HERMES_HOME=str(disk_home), HERMES_SUPERVISED_CHILD='1'))))
+        EnvironmentVariables=dict(LOKI_HOME=str(disk_home), LOKI_SUPERVISED_CHILD='1'))))
     original = plist.read_bytes()
     loaded_home = tmp_path / 'wrong' if case == 'loaded_wrong_disk_good' else home
-    output = 'gui/' + str(os.getuid()) + '/' + label + ' = {\n\tstate = not running\n\tprogram = ' + argv[0] + '\n\targuments = {\n' + '\n'.join('\t\t' + arg for arg in argv) + '\n\t}\n\tenvironment = {\n\t\tHERMES_HOME => ' + str(loaded_home) + '\n\t\tHERMES_SUPERVISED_CHILD => 1\n\t}\n}'
+    output = 'gui/' + str(os.getuid()) + '/' + label + ' = {\n\tstate = not running\n\tprogram = ' + argv[0] + '\n\targuments = {\n' + '\n'.join('\t\t' + arg for arg in argv) + '\n\t}\n\tenvironment = {\n\t\tLOKI_HOME => ' + str(loaded_home) + '\n\t\tLOKI_SUPERVISED_CHILD => 1\n\t}\n}'
     peer = tmp_path / 'supervisor.py'
     peer.write_text('import sys\n' + f'output={output!r}\nbootstrap={case == "bootstrap"!r}\n' +
         'if "print" in sys.argv:\n sys.exit(113) if bootstrap or any(a.startswith("user/") for a in sys.argv) else print(output)\n', encoding='utf-8')
@@ -494,7 +494,7 @@ def test_s6_command_timeout_ends_at_the_runtime_deadline(tmp_path, monkeypatch):
 def test_windows_startup_folder_entry_still_restarts_a_stopped_owner(tmp_path, monkeypatch):
     """The Startup-folder fallback is login persistence only (no start verb, no identity): with it
     present and no Scheduled Task registered, ensure takes the same detached direct spawn manual
-    `hermes gateway start` uses instead of refusing until the next login."""
+    `loki gateway start` uses instead of refusing until the next login."""
     from types import SimpleNamespace
     from hermes_cli import gateway_runtime as runtime, gateway_runtime_service as service, gateway_runtime_start as start
     from hermes_cli import gateway_windows

@@ -18,8 +18,10 @@ logger = logging.getLogger(__name__)
 # Marker comments wrapping the managed section so re-runs can detect what's ours and what's
 # user-edited. Both must appear or strip is a no-op.
 MIGRATION_MARKER = (
-    "# managed by hermes-agent — `hermes codex-runtime migrate` regenerates this section")
-MIGRATION_END_MARKER = "# end hermes-agent managed section"
+    "# managed by loki — `loki codex-runtime migrate` regenerates this section")
+MIGRATION_END_MARKER = "# end loki managed section"
+_FOREIGN_MARKER = "# managed by hermes-agent — `hermes codex-runtime migrate` regenerates this section"
+_FOREIGN_END_MARKER = "# end hermes-agent managed section"
 
 
 @dataclass
@@ -50,7 +52,7 @@ class MigrationReport:
                 note = f" (skipped: {', '.join(skipped)})" if skipped else ""
                 lines.append(f"  - {name}{note}")
         else:
-            lines.append("No MCP servers found in Hermes config.")
+            lines.append("No MCP servers found in Loki config.")
         if self.migrated_plugins:
             lines.append(f"Migrated {len(self.migrated_plugins)} native Codex plugin(s):")
             lines.extend(f"  - {name}" for name in self.migrated_plugins)
@@ -61,13 +63,13 @@ class MigrationReport:
         if self.preserved_user_servers:
             lines.append(
                 f"Kept {len(self.preserved_user_servers)} user-owned MCP server(s) already in "
-                f"config.toml (Hermes projection skipped): {', '.join(self.preserved_user_servers)}")
+                f"config.toml (Loki projection skipped): {', '.join(self.preserved_user_servers)}")
         lines.extend(f"⚠ {err}" for err in self.errors)
         return "\n".join(lines)
 
 
 # Hermes MCP keys codex understands (transport stdio/http, timeouts, general). Any other key is
-# dropped with a warning: ``sampling`` has no codex equivalent; the rest are unknown Hermes keys.
+# dropped with a warning: ``sampling`` has no codex equivalent; the rest are unknown Loki keys.
 _KNOWN_HERMES_KEYS = {
     "command", "args", "env", "cwd",
     "url", "headers", "transport",
@@ -128,7 +130,7 @@ def _translate_one_server(name: str, hermes_cfg: dict) -> tuple[Optional[dict], 
         if key in _KEYS_DROPPED_WITH_WARNING:
             skipped.append(f"{key} (no codex equivalent)")
         elif key not in _KNOWN_HERMES_KEYS:
-            skipped.append(f"{key} (unknown Hermes key)")
+            skipped.append(f"{key} (unknown Loki key)")
     return out, skipped
 
 
@@ -182,7 +184,7 @@ def render_codex_toml_section(
     """
     out = [MIGRATION_MARKER]
     if not servers and not plugins and not default_permission_profile:
-        out += ["# (no MCP servers, plugins, or permissions configured by Hermes)", MIGRATION_END_MARKER]
+        out += ["# (no MCP servers, plugins, or permissions configured by Loki)", MIGRATION_END_MARKER]
         return "\n".join(out) + "\n"
     if default_permission_profile:
         profile = default_permission_profile
@@ -207,6 +209,8 @@ def _insert_managed_block_at_top_level(user_text: str, managed_block: str) -> st
     key like ``default_permissions = ...`` after a user ``[features]`` table would actually create
     ``features.default_permissions``, which codex rejects.
     """
+    if any(foreign for foreign, _text in _foreign_sections(user_text)):
+        return user_text + "\n" + managed_block
     if not user_text.strip():
         return managed_block
     lines = user_text.splitlines(keepends=True)
@@ -219,7 +223,47 @@ def _insert_managed_block_at_top_level(user_text: str, managed_block: str) -> st
     return f"{prefix}\n\n{managed_block}\n{suffix}" if prefix else f"{managed_block}\n{suffix}"
 
 
+def _foreign_sections(text: str) -> list[tuple[bool, str]]:
+    """Keep another application's exact managed block opaque, including legacy EOF blocks."""
+    sections: list[tuple[bool, str]] = []
+    lines: list[str] = []
+    foreign = False
+    for line in text.splitlines(keepends=True):
+        bare = line.rstrip("\r\n")
+        if bare == _FOREIGN_MARKER and not foreign:
+            if lines:
+                sections.append((False, "".join(lines)))
+            lines, foreign = [], True
+        lines.append(line)
+        if bare == _FOREIGN_END_MARKER and foreign:
+            sections.append((True, "".join(lines)))
+            lines, foreign = [], False
+    if lines:
+        sections.append((foreign, "".join(lines)))
+    return sections
+
+
+def _respect_foreign_projection(user_text, plugins, report, permission):
+    """Preserve another application's plugin choices and root permission authority."""
+    foreign_text = "".join(text for foreign, text in _foreign_sections(user_text) if foreign)
+    if not foreign_text:
+        return plugins, permission
+    try:
+        foreign_plugins = tomllib.loads(foreign_text).get("plugins", {})
+    except tomllib.TOMLDecodeError:
+        raise ValueError("Foreign managed configuration could not be safely parsed; no config was changed.") from None
+    filtered = [p for p in plugins if f"{p.get('name') or ''}@{p.get('marketplace') or 'openai-curated'}" not in foreign_plugins]
+    report.migrated_plugins = [f"{p['name']}@{p['marketplace']}" for p in filtered]
+    report.wrote_permissions_default = None
+    return filtered, None
+
+
 def _strip_unmanaged_plugin_tables(toml_text: str) -> str:
+    return "".join(text if foreign else _strip_plugin_tables(text)
+                   for foreign, text in _foreign_sections(toml_text))
+
+
+def _strip_plugin_tables(toml_text: str) -> str:
     """Remove ``[plugins."<name>@<marketplace>"]`` tables that live OUTSIDE the managed block.
 
     Codex writes these when the user runs ``codex plugins enable`` directly, before migrate has
@@ -288,6 +332,13 @@ _LEGACY_MANAGED_HEADERS = ("[mcp_servers", "[plugins", "[permissions]", "[permis
 
 
 def _strip_existing_managed_block(toml_text: str) -> str:
+    """Closed foreign sections are opaque; legacy EOF sections may contain our appended block."""
+    return "".join(text if foreign and text.splitlines()[-1] == _FOREIGN_END_MARKER
+                   else _strip_loki_managed_block(text)
+                   for foreign, text in _foreign_sections(toml_text))
+
+
+def _strip_loki_managed_block(toml_text: str) -> str:
     """Remove any prior managed section so re-runs idempotently replace it.
 
     The managed section spans MIGRATION_MARKER through MIGRATION_END_MARKER inclusive; user text
@@ -298,7 +349,7 @@ def _strip_existing_managed_block(toml_text: str) -> str:
     out: list[str] = []
     in_managed = False
     for line in toml_text.splitlines(keepends=True):
-        bare = line.rstrip("\n")
+        bare = line.rstrip("\r\n")
         if bare == MIGRATION_MARKER:
             in_managed = True
             continue
@@ -397,14 +448,19 @@ def _build_hermes_tools_mcp_entry() -> dict:
     # profile. The pytest-tempdir guard below catches the issue #26250 Bug C scenario: a sibling test's
     # monkeypatch.setenv("HERMES_HOME", tmp_path) would otherwise leak a transient pytest tempdir into the
     # user's real ~/.codex/config.toml and silently brick codex once the tempdir is GC'd.
-    hermes_home = os.environ.get("HERMES_HOME") or ""
+    from loki_identity import ENV_BOUND
+    hermes_home = (os.environ.get("HERMES_HOME") if os.environ.get(ENV_BOUND) == "1"
+                   else os.environ.get("LOKI_HOME")) or ""
     if hermes_home and not _looks_like_test_tempdir(hermes_home):
         env["HERMES_HOME"] = hermes_home
+        env["LOKI_HOME"] = hermes_home
     if os.environ.get("PYTHONPATH"):
         env["PYTHONPATH"] = os.environ["PYTHONPATH"]
     # Quiet mode + redaction defaults so the MCP wire stays clean.
     env["HERMES_QUIET"] = "1"
     env["HERMES_REDACT_SECRETS"] = env.get("HERMES_REDACT_SECRETS", "true")
+    env["LOKI_QUIET"] = env["HERMES_QUIET"]
+    env["LOKI_REDACT_SECRETS"] = env["HERMES_REDACT_SECRETS"]
     return {
         "command": sys.executable,
         "args": ["-m", "agent.transports.hermes_tools_mcp_server"],
@@ -416,8 +472,11 @@ def _build_hermes_tools_mcp_entry() -> dict:
 
 def _write_atomic(target: Path, text: str) -> None:
     """Atomic rewrite so a crash mid-write never leaves a half-written config.toml codex refuses to load."""
-    from utils import atomic_write_text
-    atomic_write_text(target, text, tmp_prefix=".config.toml.", preserve_mode=True)
+    from utils import _atomic_write, _preserve_file_mode
+    # Binary output preserves foreign CRLF bytes on every host while retaining
+    # the same atomic replacement, owner and permission machinery.
+    _atomic_write(target, lambda stream: stream.write(text.encode("utf-8")),
+                  prefix=".config.toml.", binary=True, mode=_preserve_file_mode(target))
 
 
 def migrate(
@@ -440,7 +499,7 @@ def migrate(
     report.target_path = target
     hermes_servers = (hermes_config or {}).get("mcp_servers") or {}
     if not isinstance(hermes_servers, dict):
-        report.errors.append("mcp_servers in Hermes config is not a dict; cannot migrate.")
+        report.errors.append("mcp_servers in Loki config is not a dict; cannot migrate.")
         return report
     translated: dict[str, dict] = {}
     for raw_name, cfg in hermes_servers.items():
@@ -475,7 +534,10 @@ def migrate(
     without_managed = ""
     if target.exists():
         try:
-            existing = target.read_text(encoding="utf-8-sig")
+            with target.open(encoding="utf-8-sig", newline="") as stream:
+                existing = stream.read()
+            plugins, default_permission_profile = _respect_foreign_projection(
+                _strip_existing_managed_block(existing), plugins, report, default_permission_profile)
         except Exception as exc:
             report.errors.append(f"could not read {target}: {exc}")
             return report
@@ -485,7 +547,7 @@ def migrate(
             except tomllib.TOMLDecodeError:
                 # codex could not load the pre-broken file, so plugin/list failed for that reason.
                 report.plugin_query_error += (
-                    "; existing config.toml was unloadable — re-run `hermes codex-runtime migrate` "
+                    "; existing config.toml was unloadable — re-run `loki codex-runtime migrate` "
                     "to migrate plugins")
         without_managed = _strip_existing_managed_block(existing)
         if plugin_query_succeeded:

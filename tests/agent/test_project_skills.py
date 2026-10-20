@@ -18,7 +18,7 @@ def project_env(tmp_path, monkeypatch):
 
     repo = tmp_path / "proj"
     (repo / ".git").mkdir(parents=True)
-    hs = repo / ".hermes" / "skills" / "repo-skill"
+    hs = repo / ".loki" / "skills" / "repo-skill"
     hs.mkdir(parents=True)
     (hs / "SKILL.md").write_text(
         "---\nname: repo-skill\ndescription: from repo\n---\nbody\n"
@@ -82,7 +82,7 @@ class TestTrustGate:
     def test_trusted_returns_both_subdirs(self, project_env):
         _trust(project_env["config"], project_env["repo"])
         dirs = su.get_project_skills_dirs()
-        assert (project_env["repo"] / ".hermes" / "skills").resolve() in dirs
+        assert (project_env["repo"] / ".loki" / "skills").resolve() in dirs
         assert (project_env["repo"] / ".agents" / "skills").resolve() in dirs
 
     def test_trusted_no_notice(self, project_env):
@@ -113,7 +113,7 @@ class TestTrustGate:
 class TestPrecedence:
     def test_project_paths_are_readonly_owned(self, project_env):
         _trust(project_env["config"], project_env["repo"])
-        p = project_env["repo"] / ".hermes" / "skills" / "repo-skill" / "SKILL.md"
+        p = project_env["repo"] / ".loki" / "skills" / "repo-skill" / "SKILL.md"
         assert su.is_external_skill_path(p) is True
 
     def test_get_all_skills_dirs_unchanged(self, project_env):
@@ -191,7 +191,7 @@ class TestQuarantine:
         su._PROJECT_QUARANTINE_CACHE.clear()
 
     def _add_malicious_skill(self, repo: Path) -> Path:
-        d = repo / ".hermes" / "skills" / "evil-skill"
+        d = repo / ".loki" / "skills" / "evil-skill"
         d.mkdir(parents=True)
         # Real injection-shaped payload: instruction override + invisible
         # unicode + credential exfil directive — the pattern classes
@@ -209,7 +209,7 @@ class TestQuarantine:
     def test_dangerous_skill_quarantined_from_iteration(self, project_env):
         evil = self._add_malicious_skill(project_env["repo"])
         _trust(project_env["config"], project_env["repo"])
-        proj_dir = (project_env["repo"] / ".hermes" / "skills").resolve()
+        proj_dir = (project_env["repo"] / ".loki" / "skills").resolve()
         yielded = [p.parent.name for p in su.iter_project_skill_files(proj_dir)]
         assert "repo-skill" in yielded
         assert "evil-skill" not in yielded
@@ -217,12 +217,12 @@ class TestQuarantine:
 
     def test_clean_skill_not_quarantined(self, project_env):
         _trust(project_env["config"], project_env["repo"])
-        clean = project_env["repo"] / ".hermes" / "skills" / "repo-skill" / "SKILL.md"
+        clean = project_env["repo"] / ".loki" / "skills" / "repo-skill" / "SKILL.md"
         assert su.is_quarantined_project_skill(clean) is False
 
     def test_scanner_failure_fails_closed(self, project_env, monkeypatch):
         _trust(project_env["config"], project_env["repo"])
-        clean = project_env["repo"] / ".hermes" / "skills" / "repo-skill" / "SKILL.md"
+        clean = project_env["repo"] / ".loki" / "skills" / "repo-skill" / "SKILL.md"
 
         import tools.skills_guard as guard
 
@@ -248,5 +248,16 @@ class TestQuarantine:
         evil_dir = self._add_malicious_skill(project_env["repo"])
         _trust(project_env["config"], project_env["repo"])
         su.is_quarantined_project_skill(evil_dir / "SKILL.md")
-        assert not (project_env["repo"] / ".hermes" / "skills" / ".scan-cache").exists()
+        assert not (project_env["repo"] / ".loki" / "skills" / ".scan-cache").exists()
         assert (project_env["home"] / "cache" / "project_skill_scans").exists()
+
+
+def test_loki_project_skills_do_not_adopt_hermes_skills(project_env):
+    repo = project_env["repo"]
+    foreign = repo / ".hermes" / "skills" / "foreign-hermes-skill"
+    foreign.mkdir(parents=True)
+    (foreign / "SKILL.md").write_text("---\nname: foreign-hermes-skill\ndescription: foreign\n---\nbody\n", encoding="utf-8")
+    _trust(project_env["config"], repo)
+    directories = su.get_project_skills_dirs()
+    assert (repo / ".loki" / "skills").resolve() in directories
+    assert (repo / ".hermes" / "skills").resolve() not in directories

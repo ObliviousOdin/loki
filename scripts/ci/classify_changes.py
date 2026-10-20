@@ -278,6 +278,7 @@ _UPDATE_PIPELINE = (
     "hermes_cli/git_pack_tidy.py",  # partial-clone pack tidy: every update's pre-fetch runs it
     "hermes_bootstrap.py",  # every launch's prepare_launch
     "hermes_constants.py",  # root home = update marker location
+    "loki_identity.py",  # source update admission and owned runtime paths
     "hermes_dir_acl.py",  # update restores the Windows user ACL on the home after elevation
     "gateway/status.py",  # code_sha stamp the fleet verify reads
     "gateway/status_inline_source.py",  # the Windows pause identifies inline-bootstrapped gateways
@@ -483,6 +484,7 @@ _E2E_LANES: dict[str, tuple[str, ...]] = {
         "hermes_cli/source_stamp.py",
         # Imported by the Desktop build's scripts (scripts/build/desktop.mjs closure).
         "apps/desktop/product-identity.cjs",
+        "apps/desktop/preview-identity.cjs",
         "scripts/msix-shared.mjs",
         # The launchers the Desktop relaunches through reach the launch-time repair first.
         "hermes_cli/_launchers.py",

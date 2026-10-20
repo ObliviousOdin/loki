@@ -47,7 +47,7 @@ def _argv_visible(pid: int, marker: str) -> bool:
 
 
 def test_plan_reconciliation_live_windows(tmp_path, monkeypatch):
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".loki"
     home.mkdir()
     monkeypatch.setenv("HERMES_HOME", str(home))
 
@@ -56,7 +56,7 @@ def test_plan_reconciliation_live_windows(tmp_path, monkeypatch):
     # which requires a live `gateway run` command line (#109680), so the
     # stand-in wears one; a bare sleeper is recorded too and must NOT count.
     child = subprocess.Popen(
-        [sys.executable, sleeper_script_path(), "hermes", "gateway", "run"],
+        [sys.executable, sleeper_script_path(), "loki", "gateway", "run"],
         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     foreign = subprocess.Popen(
@@ -74,7 +74,7 @@ def test_plan_reconciliation_live_windows(tmp_path, monkeypatch):
             "pid": child.pid,
             "create_time": create_time,
             "gateway_state": "running",
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "code_sha": "f" * 40,
             "code_version": "0.20.5",
         }), encoding="utf-8")
@@ -127,7 +127,7 @@ def test_plan_reconciliation_live_windows(tmp_path, monkeypatch):
             "pid": foreign.pid,
             "create_time": psutil.Process(foreign.pid).create_time(),
             "gateway_state": "running",
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "code_sha": "f" * 40,
         }), encoding="utf-8")
         plan2 = collect_runtime_inventory()

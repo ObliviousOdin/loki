@@ -1,9 +1,9 @@
-# nix/desktop.nix — Hermes Desktop (Electron) app build + wrapper
+# nix/desktop.nix — Loki Desktop (Electron) app build + wrapper
 #
-# `hermesAgent` is the fully-built `.#default` package — it ships the
-# `hermes` binary with the venv, runtime PATH, bundled skills/plugins, etc.
+# `lokiAgent` is the fully-built `.#default` package — it ships the
+# `loki` binary with the venv, runtime PATH, bundled skills/plugins, etc.
 # already wired up.  We point the desktop at it via the existing
-# `HERMES_DESKTOP_HERMES` override env var, so the desktop's resolver
+# `LOKI_DESKTOP_HERMES` override env var, so the desktop's resolver
 # uses our fully wrapped binary before the mutable managed install.
 # No reimplementation of the agent resolution in this wrapper.
 {
@@ -20,7 +20,7 @@
   # Environment to bake into the launcher. A GUI launcher reads none of the
   # shell profile, so a variable that an interactive shell exports does not
   # reach an app that the desktop menu starts. The Home Manager module passes
-  # HERMES_HOME and HERMES_MANAGED here, which gives the app the same state
+  # LOKI_HOME and LOKI_MANAGED here, which gives the app the same state
   # directory as the services.
   extraEnv ? { },
   # Shell lines to run before the app starts. A secret belongs here and never
@@ -32,9 +32,9 @@
 }:
 let
   wrapperEnv = {
-    # set HERMES_DESKTOP_HERMES to the absolute path of the nix-built `hermes`
+    # set LOKI_DESKTOP_HERMES to the absolute path of the nix-built `loki`
     # binary so the deployment override selects our fully wrapped hermes install.
-    HERMES_DESKTOP_HERMES = lib.getExe hermesAgent;
+    LOKI_DESKTOP_HERMES = lib.getExe hermesAgent;
     ELECTRON_IS_DEV = "0";
   }
   # extraEnv overrides the defaults
@@ -44,7 +44,7 @@ let
     "--add-flags"
     "--enable-features=WaylandWindowDecorations"
     "--add-flags"
-    "${placeholder "out"}/share/hermes-desktop"
+    "${placeholder "out"}/share/loki-desktop"
   ]
   ++ lib.concatLists (
     lib.mapAttrsToList (name: value: [
@@ -67,7 +67,7 @@ let
     else if stdenv.hostPlatform.isLinux then
       "linux"
     else
-      throw "hermes-desktop: unsupported host platform for node-pty staging";
+      throw "loki-desktop: unsupported host platform for node-pty staging";
 
   targetArch =
     if stdenv.hostPlatform.isAarch64 then
@@ -75,7 +75,7 @@ let
     else if stdenv.hostPlatform.isx86_64 then
       "x64"
     else
-      throw "hermes-desktop: unsupported host arch for node-pty staging";
+      throw "loki-desktop: unsupported host arch for node-pty staging";
 
   # Build the renderer (dist/ + electron/ + package.json).
   renderer = hermesNpmLib.buildNpmPackage {
@@ -90,7 +90,7 @@ let
       "scripts/msix-shared.mjs"
       "scripts/release-content-types.json"
     ];
-    pname = "hermes-desktop-renderer";
+    pname = "loki-desktop-renderer";
 
     doCheck = true;
 
@@ -155,6 +155,8 @@ let
       mkdir -p $out
       # The shared product contains renderer, main/preload, and native deps.
       cp -rn apps/desktop/dist $out/
+      # Freshness proof contains local prepared paths, not runtime data.
+      rm -f $out/dist/hermes-build.json
 
       cp ${installStampFile} $out/install-stamp.json
 
@@ -166,7 +168,7 @@ in
 
 # Electron wrapper: nixpkgs' electron binary pointed at the renderer dir.
 stdenv.mkDerivation {
-  pname = "hermes-desktop";
+  pname = "loki-desktop";
   inherit (renderer) version;
 
   dontUnpack = true;
@@ -180,27 +182,27 @@ stdenv.mkDerivation {
   installPhase = ''
     runHook preInstall
 
-    mkdir -p $out/share/hermes-desktop $out/bin
-    cp -r ${renderer}/* $out/share/hermes-desktop/
+    mkdir -p $out/share/loki-desktop $out/bin
+    cp -r ${renderer}/* $out/share/loki-desktop/
 
     # Standard nixpkgs pattern for electron-builder apps: patch process.resourcesPath
     # to point to the app's directory. In Nix, unpackaged electron defaults this
     # to the electron distribution's resources path, breaking extraResources lookups.
-    substituteInPlace $out/share/hermes-desktop/dist/electron-main.mjs \
-      --replace-fail "process.resourcesPath" "'$out/share/hermes-desktop'"
+    substituteInPlace $out/share/loki-desktop/dist/electron-main.mjs \
+      --replace-fail "process.resourcesPath" "'$out/share/loki-desktop'"
 
     # Wrap the nixpkgs electron binary to launch our app.
-    makeWrapper ${lib.getExe electron} $out/bin/hermes-desktop \
+    makeWrapper ${lib.getExe electron} $out/bin/loki-desktop \
       ${lib.escapeShellArgs wrapperArgs}
 
     # XDG launcher entry
     mkdir -p $out/share/applications $out/share/icons/hicolor/1024x1024/apps
     install -m 0644 ${generatedIcons}/apps/desktop/assets/icon.png \
-      $out/share/icons/hicolor/1024x1024/apps/hermes.png
+      $out/share/icons/hicolor/1024x1024/apps/loki.png
     export PYTHONPATH=$(mktemp -d)
     cp ${../hermes_cli/linux_desktop_entry.py} "$PYTHONPATH/linux_desktop_entry.py"
-    export DESKTOP_EXEC="$out/bin/hermes-desktop"
-    export DESKTOP_ICON="$out/share/icons/hicolor/1024x1024/apps/hermes.png"
+    export DESKTOP_EXEC="$out/bin/loki-desktop"
+    export DESKTOP_ICON="$out/share/icons/hicolor/1024x1024/apps/loki.png"
     entry_name=$(python3 -c 'from linux_desktop_entry import DESKTOP_ENTRY_NAME; print(DESKTOP_ENTRY_NAME)')
     python3 -c 'import os; from linux_desktop_entry import render_desktop_entry; print(render_desktop_entry(os.environ["DESKTOP_EXEC"], os.environ["DESKTOP_ICON"]))' > "$out/share/applications/$entry_name"
     runHook postInstall
@@ -211,10 +213,10 @@ stdenv.mkDerivation {
   };
 
   meta = with lib; {
-    description = "Native Electron desktop shell for Hermes Agent";
-    homepage = "https://github.com/NousResearch/hermes-agent";
+    description = "Native Electron desktop shell for Loki";
+    homepage = "https://github.com/ObliviousOdin/loki";
     license = licenses.mit;
     platforms = platforms.unix;
-    mainProgram = "hermes-desktop";
+    mainProgram = "loki-desktop";
   };
 }

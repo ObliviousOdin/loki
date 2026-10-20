@@ -43,3 +43,16 @@ def test_soul_symlink_to_customized_file_is_left_alone(tmp_path):
 
     assert soul.is_symlink()
     assert soul.read_text(encoding="utf-8") == "custom identity\n"
+
+
+def test_new_loki_home_seeds_its_own_identity(tmp_path):
+    from agent.prompt_builder import DEFAULT_AGENT_IDENTITY
+
+    home = tmp_path / '.loki'
+    home.mkdir()
+    initialize_home(home, _SUBDIRS, set())
+    identity = (home / 'SOUL.md').read_text(encoding='utf-8-sig')
+    assert identity.startswith('You are Loki,')
+    assert identity == DEFAULT_AGENT_IDENTITY
+    assert identity.startswith('You are Loki, a personal AI agent.')
+    assert 'Hermes' not in identity

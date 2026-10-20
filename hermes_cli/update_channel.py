@@ -155,7 +155,17 @@ def default_channel(project_root: Optional[Path] = None) -> str:
     root = Path(project_root) if project_root is not None else install_root()
     stamp = _read_stamp(root)
     if not _package_channel(stamp):
-        return CHANNEL_STABLE if _tracks_official_origin(root) else CHANNEL_MAIN
+        if not _tracks_official_origin(root):
+            return CHANNEL_MAIN
+        import tomllib
+
+        try:
+            project = tomllib.loads((root / "pyproject.toml").read_text(encoding="utf-8-sig")).get("project", {})
+        except (OSError, ValueError):
+            project = {}
+        # A preview must remain usable before the first stable publication.
+        version = str(project.get("version", ""))
+        return CHANNEL_MAIN if re.search(r"[a-z]", version, re.IGNORECASE) else CHANNEL_STABLE
     if stamp.get("source") == "channel-build":
         request = stamp.get("channelBuild")
         if not isinstance(request, dict):

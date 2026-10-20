@@ -22,7 +22,23 @@ def lock_package_names(source_repo: Path) -> set[str]:
     return {entry["name"].lower().replace("_", "-") for entry in data["package"]}
 
 
-def prune_uv_cache_to_lock(cache: Path, source_repo: Path) -> int:
+def project_package_name(source_repo: Path) -> str:
+    """The source project is assembled separately in a native distribution."""
+    from pm.environment import _project_name
+
+    return _project_name(source_repo).lower().replace("_", "-")
+
+
+def archive_package_name(bucket: Path) -> str | None:
+    """Identify an extracted wheel without importing its installed code."""
+    for marker_file in bucket.glob("*.dist-info"):
+        match = re.fullmatch(r"([A-Za-z0-9_.]+?)-\d[^-]*\.dist-info", marker_file.name)
+        if match:
+            return match.group(1).lower().replace("_", "-")
+    return None
+
+
+def prune_uv_cache_to_lock(cache: Path, source_repo: Path, *, exclude_project: bool = False) -> int:
     """Delete cache entries for dists the lock cannot resolve.
 
     Unidentifiable buckets (no dist-info) survive — pruning fails open for
@@ -30,14 +46,8 @@ def prune_uv_cache_to_lock(cache: Path, source_repo: Path) -> int:
     entry count for the build log.
     """
     keep = lock_package_names(source_repo)
-    dist_info = re.compile(r"([A-Za-z0-9_.]+?)-\d[^-]*\.dist-info")
-
-    def dist_name(bucket: Path) -> str | None:
-        for marker_file in bucket.glob("*.dist-info"):
-            match = dist_info.match(marker_file.name)
-            if match:
-                return match.group(1).lower().replace("_", "-")
-        return None
+    if exclude_project:
+        keep.discard(project_package_name(source_repo))
 
     pruned = 0
     archive = cache / "archive-v0"
@@ -45,7 +55,7 @@ def prune_uv_cache_to_lock(cache: Path, source_repo: Path) -> int:
         for bucket in archive.iterdir():
             if not bucket.is_dir():
                 continue
-            name = dist_name(bucket)
+            name = archive_package_name(bucket)
             if name is not None and name not in keep:
                 shutil.rmtree(bucket, ignore_errors=True)
                 pruned += 1

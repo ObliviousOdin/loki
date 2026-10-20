@@ -1,14 +1,13 @@
 name: honcho
-repo: https://github.com/plastic-labs/honcho
-sha: e2d2aba182862deeb846e5cd4a30a41bce0ed82a
-subdir: hermes-plugin-honcho
-version: "1.0.0"
-description: "Honcho is memory infrastructure for building stateful agents that understand changing people, agents, groups, projects, and ideas over time. Store messages and events, let Honcho reason in the background, then query peer representations, session context, search results, or natural-language insights from any model or framework. Use it managed at api.honcho.dev, run a local stack with the honcho CLI, or self-host the server yourself. Maintained by Plastic Labs; the same provider that shipped in-tree. Disclosure — conversation turns, derived conclusions and peer/session ids are sent to the Honcho API (api.honcho.dev by default, or the self-hosted base_url you configure) under your HONCHO_API_KEY; every request also carries X-Honcho-Host (Hermes version and OS platform) and X-Honcho-Plugin (plugin version) headers that Honcho records for usage attribution."
-maintainer: plastic-labs
+repo: https://github.com/ObliviousOdin/loki
+sha: be203aa5d3d9af4ea9aaef96706cb16dbfbf92a4
+subdir: optional-plugins/honcho
+version: "0.1.0a1"
+description: "Loki compatibility copy of the Honcho memory provider from Plastic Labs, with isolated Loki configuration and host/workspace/peer defaults. Preserves cross-session memory, semantic search, reasoning and persistent conclusions. Installation requires configured Git read access to the Loki repository and normal dependency consent. Use your own Honcho account/API key or self-hosted server; OAuth requires an application authorized for Loki. Disclosure — conversation turns, derived conclusions and peer/session identifiers are sent to your configured Honcho API (api.honcho.dev by default), and requests carry X-Honcho-Host (Loki version and OS) and X-Honcho-Plugin (compatibility plugin version) headers. The original MIT license and exact upstream provenance are retained in the plugin directory."
+maintainer: ObliviousOdin
 tier: community
 category: memory
-image: https://raw.githubusercontent.com/plastic-labs/honcho/e2d2aba182862deeb846e5cd4a30a41bce0ed82a/hermes-plugin-honcho/docs/banner.png
-docs_url: https://docs.honcho.dev/v3/guides/integrations/hermes
+docs_url: https://github.com/ObliviousOdin/loki/blob/be203aa5d3d9af4ea9aaef96706cb16dbfbf92a4/optional-plugins/honcho/README.md
 capabilities:
   provides_tools: []
   provides_hooks:

@@ -33,17 +33,17 @@ def test_shim_removes_only_its_owned_profile(tmp_path, outcome):
     )
     install = tmp_path / "hermes-agent"
     install.mkdir()
-    env = {**os.environ, "HOME": str(tmp_path), "HERMES_HOME": str(tmp_path),
+    env = {**os.environ, "HOME": str(tmp_path), "LOKI_HOME": str(tmp_path),
            "XDG_CONFIG_HOME": str(config), "TMPDIR": str(tmp_path),
-           "PATH": f"{bin_dir}:/usr/bin:/bin", "HERMES_SELFTEST_HOLD_SECONDS": "1",
-           "HERMES_UPDATE_SHIM_GRACE_SECONDS": "1", "HERMES_SELFTEST_FAIL": "1" if outcome == "error" else ""}
+           "PATH": f"{bin_dir}:/usr/bin:/bin", "LOKI_SELFTEST_HOLD_SECONDS": "1",
+           "LOKI_UPDATE_SHIM_GRACE_SECONDS": "1", "LOKI_SELFTEST_FAIL": "1" if outcome == "error" else ""}
     process = subprocess.Popen(
         ["bash", "-c", 'while [ ! -f "$HOME/start" ]; do sleep .05; done; exec bash "$@"', "probe",
          str(Path(__file__).resolve().parents[3] / "scripts/desktop-update/posix.sh"),
          "--install-root", str(install), "--self-test-ui"],
         env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
     )
-    collision = tmp_path / f"hermes-update-ui-{process.pid}"
+    collision = tmp_path / f"loki-update-ui-{process.pid}"
     collision.mkdir()
     (collision / "keep").write_text("keep", encoding="utf-8")
     (tmp_path / "start").touch()

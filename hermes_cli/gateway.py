@@ -122,9 +122,9 @@ def _get_service_pids(all_profiles: bool = False) -> set:
 
     Relies on the service manager committing the new PID before the restart command returns.
     ``all_profiles`` widens the current profile's unit/label to the whole ``hermes-gateway*`` /
-    ``ai.hermes.gateway*`` fleet so update/reaper never kill a sibling's service gateway as "manual".
+    ``com.obliviousodin.loki.gateway*`` fleet so update/reaper never kill a sibling's service gateway as "manual".
 
-    ``all_profiles`` widens the launchd branch to every installed ``ai.hermes.gateway*`` LaunchAgent — the
+    ``all_profiles`` widens the launchd branch to every installed ``com.obliviousodin.loki.gateway*`` LaunchAgent — the
     update path needs the whole fleet excluded from its sweep (#41403, #73626): sibling-profile launchd
     gateways found by the (BSD-fixed) ps scan must not be misclassified as manual processes and killed.
     Default-scope callers (``gateway status``, cron checks) keep seeing only the current profile's service;
@@ -136,11 +136,11 @@ def _get_service_pids(all_profiles: bool = False) -> set:
 
     # --- systemd (Linux): user and system scopes ---
     if supports_systemd_services():
-        pattern = "hermes-gateway*" if all_profiles else get_service_name()
+        pattern = "loki-gateway*" if all_profiles else get_service_name()
         for scope_args in [["systemctl", "--user"], ["systemctl"]]:
             try:
                 # Belt-and-suspenders for the EXCLUDE use case (#74075): a bare ``launchctl list`` prefix
-                # scan also catches ai.hermes.gateway* agents the label derivation can't map (renamed
+                # scan also catches com.obliviousodin.loki.gateway* agents the label derivation can't map (renamed
                 # profiles, other installs sharing this user). Over-inclusion is safe here — these PIDs are
                 # only ever protected from the kill sweep, never targeted. Restart paths use the
                 # label-derived set only.
@@ -189,14 +189,14 @@ def _get_service_pids(all_profiles: bool = False) -> set:
             if pid is not None and pid > 0:
                 pids.add(pid)
         if all_profiles:
-            # Prefix scan also catches ai.hermes.gateway* agents the label derivation can't map
+            # Prefix scan also catches com.obliviousodin.loki.gateway* agents the label derivation can't map
             # (renamed profiles, other installs). Over-inclusion is safe: PIDs are only protected.
             try:
                 result = subprocess.run(["launchctl", "list"], timeout=5, **_CAPTURE_TEXT, check=False)
                 if result.returncode == 0:
                     for line in result.stdout.strip().splitlines():
                         parts = line.split()
-                        if len(parts) >= 3 and parts[-1].startswith("ai.hermes.gateway"):
+                        if len(parts) >= 3 and parts[-1].startswith("com.obliviousodin.loki.gateway"):
                             try:
                                 pid = int(parts[0])
                                 if pid > 0:
@@ -997,7 +997,7 @@ def launch_detached_profile_gateway_restart(profile: str, old_pid: int) -> bool:
 GATEWAY_RESTART_WATCHER_TIMEOUT_S = 120
 """How long the detached restart watcher waits for the old PID to exit before giving up.
 
-``hermes update``'s post-relaunch liveness check budgets against this: the watcher spawns the new
+``loki update``'s post-relaunch liveness check budgets against this: the watcher spawns the new
 gateway only AFTER the old PID is gone, so a verification window shorter than this can expire
 before the relaunch it is verifying has even started (#107002).
 """
@@ -1359,7 +1359,7 @@ def _wait_for_systemd_service_restart(
                 if gateway_state == "degraded":
                     # Serving, but a configured platform is parked or retrying: a real restart, not a
                     # failure — say so instead of waiting out the timeout and reporting one.
-                    print(f"⚠ {scope_label} gateway is DEGRADED — see `hermes gateway status`")
+                    print(f"⚠ {scope_label} gateway is DEGRADED — see `loki gateway status`")
                 return True
             if gateway_state == "startup_failed":
                 reason = (runtime_state or {}).get("exit_reason") or "startup failed"
@@ -1384,7 +1384,7 @@ def _wait_for_systemd_service_restart(
     sudo, _, user_flag = _systemd_cli_bits(system)
     print(
         f"⚠ {scope_label} service did not become active within {int(timeout)}s.\n"
-        f"  Check status: {sudo}hermes gateway status\n"
+        f"  Check status: {sudo}loki gateway status\n"
         f"  Check logs:   journalctl {user_flag}-u {svc} -l --since '2 min ago'"
     )
     return False
@@ -1427,7 +1427,7 @@ def _print_systemd_start_limit_wait(system: bool = False) -> None:
     sudo, scope_flag, user_flag = _systemd_cli_bits(system)
     print(f"⏳ {scope_label} service is temporarily rate-limited by systemd.")
     print("  systemd is refusing another immediate start after repeated exits.")
-    print(f"  Wait for the start-limit window to expire, then run: {sudo}hermes gateway restart{scope_flag}")
+    print(f"  Wait for the start-limit window to expire, then run: {sudo}loki gateway restart{scope_flag}")
     print(f"  Or clear the failed state manually: systemctl {user_flag}reset-failed {svc}")
     print(f"  Check logs: journalctl {user_flag}-u {svc} -l --since '5 min ago'")
 
@@ -1609,11 +1609,11 @@ def _print_gateway_process_mismatch(snapshot: GatewayRuntimeSnapshot) -> None:
         print("⚠ Gateway is running as a detached fallback process — launchd cannot supervise it")
         print(pids_line)
         print("  Auto-start at login and auto-restart on crash are NOT available.")
-        print("  Stop it with: hermes gateway stop")
+        print("  Stop it with: loki gateway stop")
     else:
         print("⚠ Gateway process is running for this profile, but the service is not active")
         print(pids_line)
-        print("  This is usually a manual foreground/tmux/nohup run, so `hermes gateway`")
+        print("  This is usually a manual foreground/tmux/nohup run, so `loki gateway`")
         print("  can refuse to start another copy until this process stops.")
 
 
@@ -1816,7 +1816,7 @@ def _reap_unsupervised_gateway_orphans(
             from hermes_cli.gateway_windows import get_task_name  # profile-aware task name
             _task_name = get_task_name()
         except Exception:
-            _task_name = "Hermes_Gateway"
+            _task_name = "Loki_Gateway"
         if _windows_scheduled_task_supervises(_task_name):
             return False
 
@@ -1894,7 +1894,7 @@ def _reaper_exclusion_pids(extra_exclude: set | None) -> set[int]:
         # that got past the gate above (#83683, #85344).
         # all_profiles=True: the reaper's process scan sees every profile's gateway (and on macOS the
         # now-working ps fallback surfaces sibling launchd gateways, #73626), so the service exclusion must
-        # cover the whole ai.hermes.gateway* fleet — not just the current profile's label — or a sibling
+        # cover the whole com.obliviousodin.loki.gateway* fleet — not just the current profile's label — or a sibling
         # profile's launchd gateway is misclassified as an unsupervised orphan and reaped. Same class as the
         # update-sweep fix in #74075.
         own |= _get_service_pids(all_profiles=True)
@@ -2195,8 +2195,8 @@ def _windows_gateway_breakaway_state() -> bool | None:
 # Service Configuration
 # =============================================================================
 
-_SERVICE_BASE = "hermes-gateway"
-SERVICE_DESCRIPTION = "Hermes Agent Gateway - Messaging Platform Integration"
+_SERVICE_BASE = "loki-gateway"
+SERVICE_DESCRIPTION = "Loki Gateway - Messaging Platform Integration"
 
 _SYSTEM_UNIT_DIR = Path("/etc/systemd/system")
 
@@ -2522,7 +2522,7 @@ def _raise_user_systemd_unavailable(username: str, *, reason: str, fix_hint: str
         "\n"
         "  Alternative: run the gateway in the foreground (stays up until\n"
         "  you exit / close the terminal):\n"
-        "    hermes gateway run"
+        "    loki gateway run"
     )
     raise UserSystemdUnavailableError(msg)
 
@@ -2562,16 +2562,14 @@ def has_conflicting_systemd_units() -> bool:
     return len(get_installed_systemd_scopes()) > 1
 
 
-# Legacy pre-rename names: explicit allowlist (NOT a glob) so profile and third-party units never match.
-_LEGACY_SERVICE_NAMES: tuple[str, ...] = ("hermes.service",)
+_LEGACY_SERVICE_NAMES: tuple[str, ...] = ("loki-agent.service",)  # Never inspect Hermes/Fabric units.
 
-# ExecStart markers identifying a unit as running our gateway; a legacy unit is flagged only if one matches.
 _LEGACY_UNIT_EXECSTART_MARKERS: tuple[str, ...] = (
     "hermes_cli.main gateway",
     "hermes_cli/main.py gateway",
     "gateway/run.py",
-    " hermes gateway ",
-    "/hermes gateway ",
+    " loki gateway ",
+    "/loki gateway ",
 )
 
 
@@ -2614,13 +2612,13 @@ def print_legacy_unit_warning() -> None:
     legacy = _find_legacy_hermes_units()
     if not legacy:
         return
-    print_warning("Legacy Hermes gateway unit(s) detected from an older install:")
+    print_warning("Legacy Loki gateway unit(s) detected from an older install:")
     for name, path, is_system in legacy:
         print_info(f"    {path}  ({_service_scope_label(is_system)} scope)")
     print_info("  These run alongside the current hermes-gateway service and")
     print_info("  cause SIGTERM flap loops — both try to use the same bot token.")
     print_info("  Remove them with:")
-    print_info("    hermes gateway migrate-legacy")
+    print_info("    loki gateway migrate-legacy")
 
 
 def remove_legacy_hermes_units(interactive: bool = True, dry_run: bool = False) -> tuple[int, list[Path]]:
@@ -2628,11 +2626,11 @@ def remove_legacy_hermes_units(interactive: bool = True, dry_run: bool = False) 
     only lists. Returns ``(removed_count, remaining_paths)`` (remaining: e.g. system-scope when not root)."""
     legacy = _find_legacy_hermes_units()
     if not legacy:
-        print("No legacy Hermes gateway units found.")
+        print("No legacy Loki gateway units found.")
         return 0, []
 
     print()
-    print("Legacy Hermes gateway unit(s) found:")
+    print("Legacy Loki gateway unit(s) found:")
     for name, path, is_system in legacy:
         print(f"  {path}  ({_service_scope_label(is_system)} scope)")
     print()
@@ -2642,7 +2640,7 @@ def remove_legacy_hermes_units(interactive: bool = True, dry_run: bool = False) 
         return 0, [p for _, p, _ in legacy]
 
     if interactive and not prompt_yes_no("Remove these legacy units?", True):
-        print("Skipped. Run again with: hermes gateway migrate-legacy")
+        print("Skipped. Run again with: loki gateway migrate-legacy")
         return 0, [p for _, p, _ in legacy]
 
     removed = 0
@@ -2673,7 +2671,7 @@ def remove_legacy_hermes_units(interactive: bool = True, dry_run: bool = False) 
         if os.geteuid() != 0:  # windows-footgun: ok — Linux systemd removal path, guarded by `if system == "Linux"` / systemd-only branch
             print()
             print_warning("System-scope legacy units require root to remove.")
-            print_info("  Re-run with: sudo hermes gateway migrate-legacy")
+            print_info("  Re-run with: sudo loki gateway migrate-legacy")
             remaining.extend(path for _, path in system_units)
         else:
             _remove_units(system_units, system=True)
@@ -2696,8 +2694,8 @@ def print_systemd_scope_conflict_warning() -> None:
     print_info("  This is confusing and can make start/stop/status behavior ambiguous.")
     print_info("  Default gateway commands target the user service unless you pass --system.")
     print_info("  Keep one of these:")
-    print_info("    hermes gateway uninstall")
-    print_info("    sudo hermes gateway uninstall --system")
+    print_info("    loki gateway uninstall")
+    print_info("    sudo loki gateway uninstall --system")
 
 
 def refuses_container_user_scope_install(system: bool) -> bool:
@@ -2717,11 +2715,11 @@ def refuses_container_user_scope_install(system: bool) -> bool:
         "starts the same unit, so a second gateway polls the same bot token outside the container",
         "(Telegram: 'Conflict: terminated by other getUpdates request').",
         "",
-        "  hermes gateway run                                # run as the container's main process",
+        "  loki gateway run                                # run as the container's main process",
         "  docker run --restart unless-stopped ...           # container restart policy",
         "",
         "If systemd manages this container (systemd as PID 1), install an isolated system service instead:",
-        "  sudo hermes gateway install --system --run-as-user <user>",
+        "  sudo loki gateway install --system --run-as-user <user>",
     )
     return True
 
@@ -2799,7 +2797,7 @@ def install_linux_gateway_from_setup(force: bool = False, enable_on_startup: boo
             # Unreachable from the wizard (system scope only offered to root); defensive guard for direct callers.
             print_warning(
                 "  System service install requires root. Re-run setup from a "
-                "root shell, or install a user service instead: hermes gateway install"
+                "root shell, or install a user service instead: loki gateway install"
             )
             return scope, False
 
@@ -2861,10 +2859,10 @@ def get_systemd_linger_status(username: str | None = None) -> tuple[bool | None,
 
 
 def get_launchd_plist_path() -> Path:
-    """``~/Library/LaunchAgents/ai.hermes.gateway[-<profile>].plist`` under the real account home."""
+    """``~/Library/LaunchAgents/com.obliviousodin.loki.gateway[-<profile>].plist`` under the real account home."""
     import pwd
     suffix = _profile_suffix()
-    name = f"ai.hermes.gateway-{suffix}" if suffix else "ai.hermes.gateway"
+    name = f"com.obliviousodin.loki.gateway-{suffix}" if suffix else "com.obliviousodin.loki.gateway"
     # Real account home: profile mode may point HOME at a profile dir. Sandboxed/app-hosted
     # shells can expose a UID that pwd cannot resolve (#57292); fall back to the shared
     # real-home resolver (HERMES_REAL_HOME → HOME → pwd → ~, profile home skipped) instead
@@ -2888,16 +2886,16 @@ def launchd_gateway_labels_for_install() -> list[str]:
     profile_labels: list[str] = []
     for profile in list_profiles():
         if profile.is_default:
-            root_label.append("ai.hermes.gateway")
+            root_label.append("com.obliviousodin.loki.gateway")
         elif _re.match(r"^[a-z0-9][a-z0-9_-]{0,63}$", profile.name):
-            profile_labels.append(f"ai.hermes.gateway-{profile.name}")
+            profile_labels.append(f"com.obliviousodin.loki.gateway-{profile.name}")
     return root_label + sorted(profile_labels)
 
 
 def legacy_launchd_labels_for_install(exclude=()) -> list[str]:
     """Launchd labels of THIS install that the profile-layout derivation can't map (#115254).
 
-    A unit whose label predates the profile-name suffix scheme (``ai.hermes.gateway-<8hex>`` from the
+    A unit whose label predates the profile-name suffix scheme (``com.obliviousodin.loki.gateway-<8hex>`` from the
     historical hash suffix) is invisible to ``launchd_gateway_labels_for_install()`` and therefore to
     the update restart pass. This reads the account's LaunchAgents and credits a plist only when its
     pinned ``HERMES_HOME`` is this install's root or one of its ``profiles/<name>`` homes — ownership
@@ -2920,7 +2918,7 @@ def legacy_launchd_labels_for_install(exclude=()) -> list[str]:
         return []
     excluded = set(exclude)
     labels: set[str] = set()
-    for plist_path in sorted(agents_dir.glob("ai.hermes.gateway*.plist")):
+    for plist_path in sorted(agents_dir.glob("com.obliviousodin.loki.gateway*.plist")):
         try:
             data = plistlib.loads(plist_path.read_bytes())
             label = data["Label"]
@@ -2928,7 +2926,7 @@ def legacy_launchd_labels_for_install(exclude=()) -> list[str]:
             rel = pinned.relative_to(root).parts
         except Exception:
             continue  # unreadable plist, no pinned home, or a home outside this root: not ours — fail closed
-        if not isinstance(label, str) or label in excluded or not label.startswith("ai.hermes.gateway"):
+        if not isinstance(label, str) or label in excluded or not label.startswith("com.obliviousodin.loki.gateway"):
             continue
         if not rel or (len(rel) == 2 and rel[0] == "profiles"):
             labels.add(label)
@@ -3041,8 +3039,8 @@ def _hermes_home_for_target_user(target_home_dir: str) -> str:
     current_hermes_raw = os.environ.get("HERMES_HOME", "").strip()
     current_hermes = Path(current_hermes_raw).expanduser() if current_hermes_raw else get_hermes_home()
     # Keep paths lexical: resolving a non-existent path can bake a different HERMES_HOME into the unit.
-    current_default = Path.home() / ".hermes"
-    target_default = Path(target_home_dir) / ".hermes"
+    current_default = Path.home() / ".loki"
+    target_default = Path(target_home_dir) / ".loki"
     try:
         # Default ~/.hermes or a profile/subdir of it → preserve the relative structure under the target.
         return str(target_default / current_hermes.relative_to(current_default))
@@ -3178,7 +3176,7 @@ def _prepare_service_launcher(*, system: bool = False, run_as_user: str | None =
         # HERMES_RUNTIME_DIR cannot stand in for this install's store (#131745).
         if resolve_store_python(root, publication=True) is None:
             return  # Externally owned Nix/developer runtime.
-        local = root / ".hermes" / "bin"
+        local = root / ".loki" / "bin"
         paths = ensure_install_launchers(root, local)
         if len(paths) != len(ENTRY_POINTS):
             raise RuntimeError("Could not publish the gateway installation launcher")
@@ -3211,7 +3209,7 @@ def generate_systemd_unit(system: bool = False, run_as_user: str | None = None) 
         username, group_name, home_dir, uid = _system_service_identity(run_as_user)
         hermes_home = _hermes_home_for_target_user(home_dir)
         # Profile arg relative to the TARGET user's ~/.hermes when hermes_home lives under it.
-        target_root = Path(home_dir) / ".hermes"
+        target_root = Path(home_dir) / ".loki"
         try:
             Path(hermes_home).resolve().relative_to(target_root.resolve())
             profile_arg = _profile_arg(hermes_home, default_root=target_root)
@@ -3272,7 +3270,9 @@ Type={systemd_type}
 WorkingDirectory={working_dir}
 {env_lines}Environment="PATH={sane_path}"
 
+Environment="LOKI_HOME={hermes_home}"
 Environment="HERMES_HOME={hermes_home}"
+Environment="LOKI_SUPERVISED_CHILD=1"
 Environment="HERMES_SUPERVISED_CHILD=1"
 Restart=always
 RestartSec=5
@@ -3369,7 +3369,7 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
     current = systemd_unit_is_current(system=system)
     if _retire_hermes_replace_dropin(system=system):
         _run_systemctl(["daemon-reload"], system=system, check=True, timeout=30)
-        print(f"↻ Removed the stale Hermes --replace drop-in from the gateway {_service_scope_label(system)} service")
+        print(f"↻ Removed the stale Loki --replace drop-in from the gateway {_service_scope_label(system)} service")
         if current:
             return True
     elif current:
@@ -3390,7 +3390,7 @@ def refresh_systemd_unit_if_needed(system: bool = False) -> bool:
     _prepare_service_launcher(system=system, run_as_user=expected_user)
     unit_path.write_text(new_unit, encoding="utf-8")
     _run_systemctl(["daemon-reload"], system=system, check=True, timeout=30)
-    print(f"↻ Updated gateway {_service_scope_label(system)} service definition to match the current Hermes install")
+    print(f"↻ Updated gateway {_service_scope_label(system)} service definition to match the current Loki install")
     return True
 
 
@@ -3501,9 +3501,9 @@ def _print_system_scope_remediation(action: str) -> None:
     print_info(f"    1. {action.capitalize()} it this time:")
     print_info(f"         sudo systemctl {action} {get_service_name()}")
     print_info("    2. Switch to a per-user service (recommended for personal use):")
-    print_info("         sudo hermes gateway uninstall --system")
-    print_info("         hermes gateway install")
-    print_info("         hermes gateway start")
+    print_info("         sudo loki gateway uninstall --system")
+    print_info("         loki gateway install")
+    print_info("         loki gateway start")
 
 
 def _get_restart_drain_timeout() -> float:
@@ -3625,8 +3625,8 @@ def systemd_install(
     print(f"✓ {scope_label.capitalize()} service {'installed and enabled' if enable_on_startup else 'installed'}!")
     print()
     print("Next steps:")
-    print(f"  {sudo}hermes gateway start{scope_flag}              # Start the service")
-    print(f"  {sudo}hermes gateway status{scope_flag}             # Check status")
+    print(f"  {sudo}loki gateway start{scope_flag}              # Start the service")
+    print(f"  {sudo}loki gateway status{scope_flag}             # Check status")
     print(f"  journalctl {user_flag}-u {get_service_name()} -f  # View logs")
     print()
 
@@ -3691,7 +3691,7 @@ def systemd_uninstall(system: bool = False):
 def _print_service_not_installed(system: bool) -> None:
     sudo, scope_flag, _ = _systemd_cli_bits(system)
     print("✗ Gateway service is not installed")
-    print(f"  Run: {sudo}hermes gateway install{scope_flag}")
+    print(f"  Run: {sudo}loki gateway install{scope_flag}")
 
 
 def _require_service_installed(action: str, system: bool = False) -> None:
@@ -3717,7 +3717,7 @@ def systemd_stop(system: bool = False):
     except subprocess.TimeoutExpired:
         print(
             f"Gateway {_service_scope_label(system)} service is still stopping after 90s; "
-            "check `hermes gateway status` or logs for final shutdown state."
+            "check `loki gateway status` or logs for final shutdown state."
         )
         return
     print(f"✓ {_service_scope_label(system).capitalize()} service stopped")
@@ -3826,7 +3826,7 @@ def _systemd_reset_and_run(action: str, *, system: bool, previous_pid) -> None:
     except subprocess.TimeoutExpired:
         print(
             f"Gateway {_service_scope_label(system)} service is still restarting after 90s; "
-            "check `hermes gateway status` or logs for final state."
+            "check `loki gateway status` or logs for final state."
         )
         return
     _wait_for_systemd_service_restart(system=system, previous_pid=previous_pid)
@@ -3853,7 +3853,7 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
 
     if not systemd_unit_is_current(system=system):
         print("⚠ Installed gateway service definition is outdated")
-        print(f"  Run: {sudo}hermes gateway restart{scope_flag}  # auto-refreshes the unit")
+        print(f"  Run: {sudo}loki gateway restart{scope_flag}  # auto-refreshes the unit")
         print()
 
     status_cmd = ["status", svc, "--no-pager"] + (["-l"] if full else [])
@@ -3863,7 +3863,7 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
         print(f"✓ {scope_label} gateway service is running")
     else:
         print(f"✗ {scope_label} gateway service is stopped")
-        print(f"  Run: {sudo}hermes gateway start{scope_flag}")
+        print(f"  Run: {sudo}loki gateway start{scope_flag}")
 
     configured_user = _read_systemd_user_from_unit(unit_path) if system else None
     if configured_user:
@@ -3878,11 +3878,11 @@ def systemd_status(deep: bool = False, system: bool = False, full: bool = False)
         print("  ⏳ Restart pending: systemd is waiting to relaunch the gateway")
     elif _systemd_unit_is_start_limited(unit_props):
         print("  ⏳ Restart pending: systemd is temporarily rate-limiting starts")
-        print(f"  Run after the start-limit window expires: {sudo}hermes gateway restart{scope_flag}")
+        print(f"  Run after the start-limit window expires: {sudo}loki gateway restart{scope_flag}")
         print(f"  Or clear it manually: systemctl {user_flag}reset-failed {svc}")
     elif active_state == "failed" and unit_props.get("ExecMainStatus", "") == str(GATEWAY_SERVICE_RESTART_EXIT_CODE):
         print("  ⚠ Planned restart is stuck in systemd failed state (exit 75)")
-        print(f"  Run: systemctl {user_flag}reset-failed {svc} && {sudo}hermes gateway start{scope_flag}")
+        print(f"  Run: systemctl {user_flag}reset-failed {svc} && {sudo}loki gateway start{scope_flag}")
     elif active_state == "failed" and result_code:
         print(f"  ⚠ Systemd unit result: {result_code}")
 
@@ -4079,7 +4079,7 @@ def host_multiplexer_serving(profile_name: str | None = None):
         # "serving default" is a name collision, and the CLI guards refused on it with exit 78 (#121352).
         from gateway.host_attach import launched_by_other_tenant
         if launched_by_other_tenant(gateway.home, get_hermes_home()):
-            logger.debug("Host gateway %s belongs to another Hermes home; not ours", gateway.describe())
+            logger.debug("Host gateway %s belongs to another Loki home; not ours", gateway.describe())
             return None
         return gateway
     except Exception:
@@ -4236,18 +4236,18 @@ def _named_profile_refused_under_multiplexer(force: bool = False) -> bool:
     if served:
         print("  Manage the host gateway instead:")
         print()
-        print(f"    hermes -p {owner.profile_label if owner is not None else 'default'} gateway restart")
+        print(f"    loki -p {owner.profile_label if owner is not None else 'default'} gateway restart")
     else:
         print("  Install or start the host gateway from the default profile; it serves this one too:")
         print()
-        print("    hermes gateway install")
+        print("    loki gateway install")
         print()
         print("  Or fold an existing per-profile fleet onto one host gateway:")
         print()
-        print("    hermes gateway migrate --multiplex")
+        print("    loki gateway migrate --multiplex")
     print()
     print("  A separate per-profile gateway (for a fleet split across UNIX users or a")
-    print(f"  HERMES_HOME outside profiles/) needs --force:  hermes -p {suffix} gateway install --force")
+    print(f"  HERMES_HOME outside profiles/) needs --force:  loki -p {suffix} gateway install --force")
     print()
     from hermes_constants import display_hermes_home
     from hermes_cli.gateway_multiplex_mode import STANDALONE_DEPRECATION_NOTICE
@@ -4361,7 +4361,7 @@ def _guard_supervised_gateway_conflict(force: bool = False) -> None:
         "  instead:"
     )
     print()
-    print("    hermes gateway restart")
+    print("    loki gateway restart")
     print()
     print(
         "  Pass --force to start a foreground gateway anyway (not recommended\n"
@@ -4399,9 +4399,9 @@ def _guard_existing_gateway_process_conflict(replace: bool = False) -> None:
         return
 
     print_error(f"A gateway is already running (PID {pid}), so your bots are most likely online already.")
-    print("  Check with `hermes gateway status`.")
-    print("  To restart it: `hermes gateway restart`. To stop it: `hermes gateway stop`.")
-    print("  To replace it from here: `hermes gateway run --replace`.")
+    print("  Check with `loki gateway status`.")
+    print("  To restart it: `loki gateway restart`. To stop it: `loki gateway stop`.")
+    print("  To replace it from here: `loki gateway run --replace`.")
     sys.exit(1)
 
 
@@ -4412,11 +4412,11 @@ def _guard_official_docker_root_gateway() -> None:
     if not _is_official_docker_checkout():
         return
 
-    print_error("Refusing to run the Hermes gateway as root inside the official Docker image.")
+    print_error("Refusing to run the Loki gateway as root inside the official Docker image.")
     print(
         "  The image entrypoint normally drops privileges to the 'hermes' user. "
         "If you override entrypoint in Docker Compose, include "
-        "/opt/hermes/docker/entrypoint.sh before the Hermes command."
+        "/opt/hermes/docker/entrypoint.sh before the Loki command."
     )
     print(
         "  Running the gateway as root can leave root-owned files in "
@@ -4586,7 +4586,7 @@ def run_gateway(verbose: int = 0, quiet: bool = False, replace: bool = False, fo
         redact_detached_stdio()
     from gateway.run import start_gateway
     print("┌─────────────────────────────────────────────────────────┐")
-    print("│           ☤ Hermes Gateway Starting...                 │")
+    print("│           ᛚ Loki Gateway Starting...                 │")
     print("├─────────────────────────────────────────────────────────┤")
     print("│  Messaging platforms + cron scheduler                    │")
     print("│  Press Ctrl+C to stop                                   │")
@@ -5011,7 +5011,7 @@ def _refuse_from_inside_gateway(verb: str, reason: str) -> None:
         print_error(
             f"Refusing to {verb} the gateway from inside the gateway process.\n"
             f"This command was blocked to prevent {reason}.\n"
-            f"Use `hermes gateway {verb}` from a shell outside the running gateway."
+            f"Use `loki gateway {verb}` from a shell outside the running gateway."
         )
         sys.exit(1)
 
@@ -5047,40 +5047,40 @@ def _cmd_setup(args):
 
 
 _WSL_FOREGROUND_HINT = (
-    "", "  hermes gateway run                              # direct foreground",
-    "  tmux new -s hermes 'hermes gateway run'         # persistent via tmux",
-    "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background",
+    "", "  loki gateway run                              # direct foreground",
+    "  tmux new -s loki 'loki gateway run'         # persistent via tmux",
+    "  nohup loki gateway run > ~/.loki/logs/gateway.log 2>&1 &  # background",
 )
 # ``(exit_code, *lines)`` when a subcommand has no service backend, keyed by (subcommand, reason).
 # Reasons in check order: "termux", "wsl" (no operational systemd), "s6" / "container", "unsupported".
 # ``None`` exit code means plain return.
 _NO_BACKEND_MESSAGES = {
     ("install", "termux"): (1,
-        "Gateway service installation is not supported on Termux.", "Run manually: hermes gateway"),
+        "Gateway service installation is not supported on Termux.", "Run manually: loki gateway"),
     ("install", "wsl"): (1,
         "WSL detected but systemd is not running.",
         "Either enable systemd (add systemd=true to /etc/wsl.conf and restart WSL)",
         "or run the gateway in foreground mode:", *_WSL_FOREGROUND_HINT),
     ("install", "s6"): (None,
         "Per-profile gateways are auto-registered when you create a profile.", "",
-        "  hermes profile create <name>     # creates the s6 service slot",
-        "  hermes -p <name> gateway start   # bring it up via s6",
-        "  hermes status                    # see currently-supervised gateways"),
+        "  loki profile create <name>     # creates the s6 service slot",
+        "  loki -p <name> gateway start   # bring it up via s6",
+        "  loki status                    # see currently-supervised gateways"),
     ("install", "container"): (0,
         "Service installation is not needed inside a Docker container.",
         "The container runtime is your service manager — use Docker restart policies instead:", "",
         "  docker run --restart unless-stopped ...   # auto-restart on crash/reboot",
         "  docker restart <container>                # manual restart", "",
-        "To run the gateway: hermes gateway run"),
+        "To run the gateway: loki gateway run"),
     ("install", "unsupported"): (1,
-        "Service installation not supported on this platform.", "Run manually: hermes gateway run"),
+        "Service installation not supported on this platform.", "Run manually: loki gateway run"),
     ("uninstall", "termux"): (1,
         "Gateway service uninstall is not supported on Termux because there is no managed service to remove.",
-        "Stop manual runs with: hermes gateway stop"),
+        "Stop manual runs with: loki gateway stop"),
     ("uninstall", "s6"): (None,
         "Per-profile gateways are auto-unregistered when you delete the profile.", "",
-        "  hermes profile delete <name>     # tears down the s6 service slot",
-        "  hermes -p <name> gateway stop    # stop without deleting the profile"),
+        "  loki profile delete <name>     # tears down the s6 service slot",
+        "  loki -p <name> gateway stop    # stop without deleting the profile"),
     ("uninstall", "container"): (0,
         "Service uninstall is not applicable inside a Docker container.",
         "To stop the gateway, stop or remove the container:", "",
@@ -5088,10 +5088,10 @@ _NO_BACKEND_MESSAGES = {
     ("uninstall", "unsupported"): (1,
         "Running the gateway as a background service is not available on this platform "
         "(no systemd, launchd or Scheduled Tasks), so there is nothing to uninstall.",
-        "Stop a manually started gateway with: hermes gateway stop"),
+        "Stop a manually started gateway with: loki gateway stop"),
     ("start", "termux"): (1,
         "Gateway service start is not supported on Termux because there is no system service manager.",
-        "Run manually: hermes gateway"),
+        "Run manually: loki gateway"),
     ("start", "wsl"): (1,
         "WSL detected but systemd is not available.",
         "Run the gateway in foreground mode instead:", *_WSL_FOREGROUND_HINT, "",
@@ -5101,11 +5101,11 @@ _NO_BACKEND_MESSAGES = {
         "The gateway runs as the container's main process.", "",
         "  docker start <container>     # start a stopped container",
         "  docker restart <container>   # restart a running container", "",
-        "Or run the gateway directly: hermes gateway run"),
+        "Or run the gateway directly: loki gateway run"),
     ("start", "unsupported"): (1,
         "Running the gateway as a background service is not available on this platform "
         "(no systemd, launchd or Scheduled Tasks).",
-        "Run it directly with: hermes gateway run"),
+        "Run it directly with: loki gateway run"),
 }
 
 
@@ -5156,8 +5156,8 @@ def _install_systemd_from_cli(args, *, force: bool, system: bool, run_as_user) -
     if is_wsl():
         print_warning("WSL detected — systemd services may not survive WSL restarts.")
         _print_info_lines(
-            "  Consider running in foreground instead: hermes gateway run",
-            "  Or use tmux/screen for persistence: tmux new -s hermes 'hermes gateway run'",
+            "  Consider running in foreground instead: loki gateway run",
+            "  Or use tmux/screen for persistence: tmux new -s loki 'loki gateway run'",
         )
         print()
     # Honor --start-now/--start-on-login; else prompt on a TTY, default True headless.
@@ -5264,7 +5264,7 @@ def _print_unfolded_gateway_note(owner) -> None:
         return
     print(f"  {len(others)} per-profile gateway process(es) still run beside it "
           f"(PIDs: {', '.join(str(p) for p in others)}).")
-    print("  They were left running; fold them in with: hermes gateway migrate --multiplex")
+    print("  They were left running; fold them in with: loki gateway migrate --multiplex")
 
 
 def _cmd_start(args):
@@ -5329,8 +5329,8 @@ def _cmd_stop(args):
         print("  Stop or restart the host gateway instead:")
         print()
         owner_flag = f"-p {owner.profile_label} " if owner is not None else ""
-        print(f"    hermes {owner_flag}gateway stop      # takes every served profile offline")
-        print(f"    hermes {owner_flag}gateway restart")
+        print(f"    loki {owner_flag}gateway stop      # takes every served profile offline")
+        print(f"    loki {owner_flag}gateway restart")
         sys.exit(GATEWAY_FATAL_CONFIG_EXIT_CODE)
     # Under s6 a bare pkill is seen as a crash and restarted; go through the supervisor.
     if stop_all and _dispatch_all_via_service_manager_if_s6("stop"):
@@ -5380,7 +5380,7 @@ def _restart_all(system: bool) -> None:
         print(f"  {owner.describe()}")
         print("  `--all` restarts the one host multiplexer, and this profile is not its owner.")
         print()
-        print(f"    hermes -p {owner.profile_label} gateway restart --all")
+        print(f"    loki -p {owner.profile_label} gateway restart --all")
         sys.exit(GATEWAY_FATAL_CONFIG_EXIT_CODE)
     # No live owner: stop/kill/start as the host root, not as the invoking profile (whose own
     # gateway the run-side guard would refuse — the host stayed down after a Desktop update).
@@ -5455,12 +5455,12 @@ def _refuse_restart_of_service_managed_gateway(pid: int | None) -> None:
     _print_lines(
         "",
         f"✗ Gateway (PID {pid}) is managed by systemd unit {unit}.",
-        "  `hermes gateway restart` cannot restart it from here: the fallback would",
+        "  `loki gateway restart` cannot restart it from here: the fallback would",
         "  kill a live gateway and spawn an unsupervised replacement in this shell's",
         "  cgroup while the unit keeps failing against the stolen lock.",
         "  Restart it through its unit instead:",
         *(f"    {c}" for c in cmds),
-        "  (Pre-convention `hermes.service` installs: `hermes gateway migrate-legacy`",
+        "  (Pre-convention `hermes.service` installs: `loki gateway migrate-legacy`",
         "  removes the legacy unit so the canonical one can own the gateway.)",
     )
     sys.exit(1)
@@ -5518,7 +5518,7 @@ def _cmd_restart(args):
                 "", "⚠ Cannot restart gateway as a service — linger is not enabled.",
                 "  The gateway user service requires linger to function on headless servers.", "",
                 f"  Run:  sudo loginctl enable-linger {getpass.getuser()}", "",
-                "  Then restart the gateway:", "    hermes gateway restart",
+                "  Then restart the gateway:", "    loki gateway restart",
             )
             return
 
@@ -5526,7 +5526,7 @@ def _cmd_restart(args):
         _print_lines(
             "", "✗ Gateway service restart failed.",
             "  The service definition exists, but the service manager did not recover it.",
-            "  Fix the service, then retry: hermes gateway start",
+            "  Fix the service, then retry: loki gateway start",
         )
         sys.exit(1)
 
@@ -5559,23 +5559,23 @@ _STATUS_RUNNING_HINTS = {
         "WSL note:", "  The gateway is running in foreground/manual mode (recommended for WSL).",
         "  Use tmux or screen for persistence across terminal closes.",
     ),
-    "windows": ("To install as a Windows Scheduled Task (auto-start on login):", "  hermes gateway install"),
+    "windows": ("To install as a Windows Scheduled Task (auto-start on login):", "  loki gateway install"),
     "other": (
-        "To install as a service:", "  hermes gateway install", "  sudo hermes gateway install --system",
+        "To install as a service:", "  loki gateway install", "  sudo loki gateway install --system",
     ),
 }
 _STATUS_STOPPED_HINTS = {
     "termux": (
-        "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # Best-effort background start",
+        "  nohup loki gateway run > ~/.loki/logs/gateway.log 2>&1 &  # Best-effort background start",
     ),
     "wsl": (
-        "  tmux new -s hermes 'hermes gateway run'         # persistent via tmux",
-        "  nohup hermes gateway run > ~/.hermes/logs/gateway.log 2>&1 &  # background",
+        "  tmux new -s loki 'loki gateway run'         # persistent via tmux",
+        "  nohup loki gateway run > ~/.loki/logs/gateway.log 2>&1 &  # background",
     ),
-    "windows": ("  hermes gateway install  # Install as Windows Scheduled Task (auto-start on login)",),
+    "windows": ("  loki gateway install  # Install as Windows Scheduled Task (auto-start on login)",),
     "other": (
-        "  hermes gateway install  # Install as user service",
-        "  sudo hermes gateway install --system  # Install as boot-time system service",
+        "  loki gateway install  # Install as user service",
+        "  sudo loki gateway install --system  # Install as boot-time system service",
     ),
 }
 
@@ -5611,7 +5611,7 @@ def _cmd_status(args):
     if not active_standalone and not snapshot.running and named_profile_served_by_running_multiplexer():
         # Satellite profile: the default multiplexer is the live inbound process for it.
         print("✓ Gateway is running via the default-profile multiplexer")
-        print("  Manage it from the default profile: hermes gateway status")
+        print("  Manage it from the default profile: loki gateway status")
         _print_served_ingress_urls(get_active_profile_name())
         _print_unserved_shared_ingress(get_active_profile_name())
     elif (kind := _installed_service_kind_for(lambda: _windows_service_installed)) is not None:
@@ -5649,7 +5649,7 @@ def _cmd_status(args):
             _print_runtime_health()
             print()
             print("To start:")
-            print("  hermes gateway run      # Run in foreground")
+            print("  loki gateway run      # Run in foreground")
             _print_lines(*_STATUS_STOPPED_HINTS[_status_host_kind()])
 
     _print_duplicate_credential_warnings()

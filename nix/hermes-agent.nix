@@ -1,9 +1,9 @@
-# nix/hermes-agent.nix — Overridable Hermes Agent package
+# nix/hermes-agent.nix — Overridable Loki package
 #
 # callPackage auto-wires nixpkgs args; flake inputs are passed explicitly.
 # Users override via:
-#   pkgs.hermes-agent.override { extraPythonPackages = [...]; }
-#   pkgs.hermes-agent.override { extraDependencyGroups = [ "voice" ]; }
+#   pkgs.loki.override { extraPythonPackages = [...]; }
+#   pkgs.loki.override { extraDependencyGroups = [ "voice" ]; }
 {
   lib,
   stdenv,
@@ -36,7 +36,7 @@
   dirty ? false,
   lastModified ? null,
   # Overridable parameters
-  version ? "0.0.0",
+  version ? (builtins.fromTOML (builtins.readFile ../pyproject.toml)).project.version,
   distance ? 0,
   extraPythonPackages ? [ ],
   extraDependencyGroups ? [ ],
@@ -142,6 +142,10 @@ let
     filter = path: _type: !(lib.hasInfix "/__pycache__/" path);
   };
 
+  # The catalog is data beside source code in checkout/native distributions;
+  # wheel-based Nix installs bind the same reviewed declarations explicitly.
+  bundledPluginCatalog = lib.cleanSource ../plugin-catalog;
+
   runtimeDeps = [
     hermesNpmLib.nodejs
     ripgrep
@@ -169,7 +173,7 @@ let
     ];
   };
 
-  agentInputsFile = writeText "hermes-agent-inputs.json" (builtins.toJSON {
+  agentInputsFile = writeText "loki-inputs.json" (builtins.toJSON {
     project = "${../pyproject.toml}";
     code = "${hermesVenv}/${sitePackagesPath}";
     repo = "share/hermes-agent";
@@ -188,9 +192,10 @@ let
       plugins = toString bundledPlugins;
       locales = toString bundledLocales;
       optional-mcps = toString bundledOptionalMcps;
+      plugin-catalog = toString bundledPluginCatalog;
     };
     frontends = {
-      tui = "${hermesTui}/lib/hermes-tui";
+      tui = "${hermesTui}/lib/loki-tui";
       web = toString hermesWeb;
     };
     ref = if dirty then null else rev;
@@ -250,7 +255,7 @@ let
   '';
 in
 stdenv.mkDerivation (finalAttrs: {
-  pname = "hermes-agent";
+  pname = "loki";
   inherit version;
 
   dontUnpack = true;
@@ -272,7 +277,7 @@ stdenv.mkDerivation (finalAttrs: {
       shift 2
       makeWrapper "$source" "$out/$destination" "$@" \
         --suffix PATH : "${runtimePath}" \
-        --set-default HERMES_BIN "$out/bin/hermes"${
+        --set-default LOKI_BIN "$out/bin/loki"${
           lib.optionalString (extraPythonPackages != [ ])
             " \\\n        --suffix PYTHONPATH : \"${pythonPath}\""
         }
@@ -282,8 +287,11 @@ stdenv.mkDerivation (finalAttrs: {
 
     with open(sys.argv[1]) as handle:
         description = json.load(handle)
+    # Fresh Loki launches accept only public LOKI_* overrides. The shared
+    # assembler retains Hermes names as its internal environment contract.
     env = [arg for key, value in sorted(description["env"].items())
-           for arg in ("--set", key, value)]
+           for arg in ("--set", "LOKI_" + key.removeprefix("HERMES_")
+                       if key.startswith("HERMES_") else key, value)]
     for command in description["commands"].values():
         print(shlex.join(["makeAgentWrapper", command["source"], command["destination"], *env]))
     PY
@@ -317,9 +325,9 @@ stdenv.mkDerivation (finalAttrs: {
 
       # `hermesDesktop` references `finalAttrs.finalPackage` (this whole
       # derivation, after all overrides are applied) so the desktop wrapper
-      # can pin its `hermes` command via HERMES_DESKTOP_HERMES. The
+      # can pin its `loki` command via LOKI_DESKTOP_HERMES. The
       # deployment override then picks up the fully wrapped
-      # `hermes` binary — venv with all deps, bundled skills/plugins,
+      # `loki` binary — venv with all deps, bundled skills/plugins,
       # runtime PATH (ripgrep/git/ffmpeg/etc).  No re-implementation
       # of the agent resolution in the desktop wrapper.
       hermesDesktop = callPackage ./desktop.nix {
@@ -329,7 +337,8 @@ stdenv.mkDerivation (finalAttrs: {
       };
 
       devShellHook = ''
-        export HERMES_PYTHON=${devPython}/bin/python3
+        export LOKI_PYTHON=${devPython}/bin/python3
+        export HERMES_PYTHON="$LOKI_PYTHON"
       '';
 
       devDeps =
@@ -344,8 +353,8 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = with lib; {
     description = "AI agent with advanced tool-calling capabilities";
-    homepage = "https://github.com/NousResearch/hermes-agent";
-    mainProgram = "hermes";
+    homepage = "https://github.com/ObliviousOdin/loki";
+    mainProgram = "loki";
     license = licenses.mit;
     platforms = platforms.unix;
   };

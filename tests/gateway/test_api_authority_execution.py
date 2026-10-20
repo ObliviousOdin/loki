@@ -5,6 +5,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 
 def _probe(tmp_path, *, advanced=False, runs=False):
     repo = Path(__file__).resolve().parents[2]
@@ -18,7 +20,7 @@ def _probe(tmp_path, *, advanced=False, runs=False):
     if runs:
         env['API_RUN'] = str(runs)
     result = subprocess.run([sys.executable, str(Path(__file__).parent / 'fixtures' / 'api_authority_peer.py')],
-                            cwd=repo, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=100, check=False)
+                            cwd=repo, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=100, check=False)
     assert result.returncode == 0, result.stdout + '\n' + result.stderr
     receipt = json.loads((state / 'receipt.json').read_text())
     assert receipt['same_agent'], receipt

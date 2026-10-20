@@ -3,7 +3,7 @@ import path from 'node:path'
 import { rehashPayloadDigests } from './payload-digests.mjs'
 
 /**
- * @param {Pick<import('app-builder-lib').ElectronSignOptions, 'entitlements' | 'entitlementsInherit' | 'hardenedRuntime'> & { ignore: (file: string) => boolean }} policy
+ * @param {Pick<import('app-builder-lib').ElectronSignOptions, 'entitlements' | 'entitlementsInherit' | 'hardenedRuntime' | 'timestamp'> & { ignore: (file: string) => boolean }} policy
  * @returns {(opts: import('@electron/osx-sign').SignOptions, packager: import('app-builder-lib').MacPackager) => Promise<void>}
  */
 export function createMacSigner(policy) {

@@ -195,7 +195,7 @@ def _warn_if_gateway_running(auto_yes: bool) -> None:
         ("Migrating bot tokens while the gateway is active will cause "
          "conflicts (Telegram, Discord, and Slack only allow one active "
          "session per token).",
-         "Recommendation: stop the host gateway first with 'hermes gateway stop'."),
+         "Recommendation: stop the host gateway first with 'loki gateway stop'."),
         "Continue anyway?", declined="Migration cancelled. Stop the gateway and try again.",
     ) is False:
         sys.exit(0)
@@ -259,10 +259,10 @@ def claw_command(args):
     elif action in {"cleanup", "clean"}:
         _cmd_cleanup(args)
     else:
-        print("Usage: hermes claw <command> [options]\n\nCommands:\n"
-              "  migrate          Migrate settings from OpenClaw to Hermes\n"
+        print("Usage: loki claw <command> [options]\n\nCommands:\n"
+              "  migrate          Migrate settings from OpenClaw to Loki\n"
               "  cleanup          Archive leftover OpenClaw directories after migration\n\n"
-              "Run 'hermes claw <command> --help' for options.")
+              "Run 'loki claw <command> --help' for options.")
 
 
 def _cmd_migrate(args):
@@ -276,7 +276,7 @@ def _cmd_migrate(args):
         return _error_block(
             f"OpenClaw directory not found: {opts.source_dir}",
             "Make sure your OpenClaw installation is at the expected path.",
-            "You can specify a custom path: hermes claw migrate --source /path/to/.openclaw")
+            "You can specify a custom path: loki claw migrate --source /path/to/.openclaw")
     script_path = _find_migration_script()
     if not script_path:
         return _error_block(
@@ -305,7 +305,7 @@ def _cmd_migrate(args):
     print()
     if _confirm(opts.yes, "Proceed with migration?", default=True, declined="Migration cancelled.",
                 non_tty=("Non-interactive session — preview only.",
-                         "To execute, re-run with: hermes claw migrate --yes")):
+                         "To execute, re-run with: loki claw migrate --yes")):
         _apply_migration(run_migrator, opts)
     # Source directory is left untouched — archiving is `hermes claw cleanup`'s job.
 
@@ -378,7 +378,7 @@ def _apply_migration(run_migrator: Callable[[bool], dict], opts: SimpleNamespace
                 print()
                 print_success(f"Pre-migration backup: {backup_archive} "
                               f"({_format_size(backup_archive.stat().st_size)})")
-                print_info(f"Restore with: hermes import {backup_archive.name}")
+                print_info(f"Restore with: loki import {backup_archive.name}")
             else:
                 print()
                 print_warning("Pre-migration backup was not created (nothing to back up, the write "
@@ -395,7 +395,7 @@ def _apply_migration(run_migrator: Callable[[bool], dict], opts: SimpleNamespace
         _error_block(f"Migration failed: {e}", debug="OpenClaw migration error")
         if backup_archive:
             _info(f"A pre-migration backup is available at: {backup_archive}",
-                  f"Restore with: hermes import {backup_archive.name}")
+                  f"Restore with: loki import {backup_archive.name}")
         return
     _print_migration_report(report, dry_run=False)
 
@@ -418,7 +418,7 @@ def _cmd_cleanup(args):
          "immediately recreate an empty skeleton directory, destroying your config.",
          "Stop OpenClaw first: systemctl --user stop openclaw-gateway.service"),
         "Proceed anyway?",
-        declined="Aborted. Stop OpenClaw first, then re-run: hermes claw cleanup",
+        declined="Aborted. Stop OpenClaw first, then re-run: loki claw cleanup",
         non_tty=("Non-interactive session — aborting. Stop OpenClaw and re-run.",)):
         return
     total_archived = 0
@@ -429,7 +429,7 @@ def _cmd_cleanup(args):
             print_info(f"Would archive: {source_dir} → {archive_path}")
         elif _confirm(auto_yes, f"Archive {source_dir}?", default=True, declined="Skipped.",
                       non_tty=(f"Non-interactive session — would archive: {source_dir}",
-                               "To execute, re-run with: hermes claw cleanup --yes")):
+                               "To execute, re-run with: loki claw cleanup --yes")):
             try:
                 archive_path = _archive_directory(source_dir)
                 print_success(f"Archived: {source_dir} → {archive_path}")
@@ -515,7 +515,7 @@ def _print_migration_report(report: dict, dry_run: bool):
         print_info(f"Full report saved to: {report['output_dir']}")
     if dry_run:
         _info("", "To execute the migration, run without --dry-run:",
-              f"  hermes claw migrate --preset {report.get('preset', 'full')}")
+              f"  loki claw migrate --preset {report.get('preset', 'full')}")
     elif migrated:
         print()
         print_success("Migration complete!")
@@ -527,5 +527,5 @@ def _print_migration_report(report: dict, dry_run: bool):
                 "  Your OPENROUTER_API_KEY and other provider keys must be added manually."):
                 print(color(line, Colors.YELLOW))
             _info("", "To migrate API keys, re-run with:",
-                  "  hermes claw migrate --migrate-secrets", "", "Or add your key manually:",
-                  "  hermes config set OPENROUTER_API_KEY sk-or-v1-...")
+                  "  loki claw migrate --migrate-secrets", "", "Or add your key manually:",
+                  "  loki config set OPENROUTER_API_KEY sk-or-v1-...")

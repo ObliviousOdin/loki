@@ -1,4 +1,6 @@
 """Discovery stays transport-independent and cannot select another profile."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 import json
 import os
@@ -39,7 +41,7 @@ async def _legacy_ws_snapshot(root, home, env, requests):
     with (home.parent / 'legacy-serve.log').open('w+') as log:
         process = subprocess.Popen([sys.executable, '-m', 'hermes_cli.main', 'serve',  # noqa: ASYNC220 -- Popen returns immediately; the test drives the child through its handle
                                     '--host', '127.0.0.1', '--port', '0', '--skip-build', '--isolated'],
-                                   cwd=root, env=legacy_env, stdin=subprocess.DEVNULL,
+                                   cwd=root, env=bind_fixture_child_env(legacy_env), stdin=subprocess.DEVNULL,
                                    stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 40
@@ -141,7 +143,7 @@ sys.__stdout__.write(json.dumps(results) + '\\n')
                 'unauthenticated_ws': 'rejected', 'foreign_profile': 'rejected'}
 
     with (tmp_path / 'gateway.log').open('w+') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             descriptor = {}
@@ -158,7 +160,7 @@ sys.__stdout__.write(json.dumps(results) + '\\n')
             assert descriptor.get('state') == 'ready', (descriptor, log.read())
             # Ordinary startup syncs bundled skills; compare both transports on that same snapshot.
             legacy = subprocess.run([sys.executable, '-c', legacy_code, json.dumps(requests)],
-                                    cwd=root, env=env, stdin=subprocess.DEVNULL,
+                                    cwd=root, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL,
                                     capture_output=True, text=True, timeout=45, check=False)
             assert legacy.returncode == 0, legacy.stderr
             expected = json.loads(legacy.stdout.splitlines()[-1])

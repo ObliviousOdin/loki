@@ -663,7 +663,7 @@ describe("ChatPage side panel collapse", () => {
       );
     });
 
-    expect(localStorage.getItem("hermes-chat-panel-collapsed")).toBe("1");
+    expect(localStorage.getItem("loki-chat-panel-collapsed")).toBe("1");
     expect(
       container.querySelector('[aria-label="Collapse chat side panel"]'),
     ).toBeNull();
@@ -678,7 +678,7 @@ describe("ChatPage side panel collapse", () => {
         .dispatchEvent(new MouseEvent("click", { bubbles: true }));
     });
 
-    expect(localStorage.getItem("hermes-chat-panel-collapsed")).toBe("0");
+    expect(localStorage.getItem("loki-chat-panel-collapsed")).toBe("0");
     expect(
       container.querySelector('[aria-label="Collapse chat side panel"]'),
     ).not.toBeNull();

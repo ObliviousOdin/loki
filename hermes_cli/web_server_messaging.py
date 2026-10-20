@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, Optional
 from hermes_cli.config import OPTIONAL_ENV_VARS, write_platform_config_field
 from hermes_cli.setup_hidden_env import is_setup_hidden_env as _is_setup_hidden_env
-from hermes_cli.version_info import get_version_info
+from loki_identity import CLIENT_USER_AGENT
 
 # Same logger the code used before extraction (record parity).
 _log = logging.getLogger("hermes_cli.web_server")
@@ -25,7 +25,7 @@ _log = logging.getLogger("hermes_cli.web_server")
 _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "api_server": {
         "name": "API server",
-        "description": "Expose Hermes as an OpenAI-compatible HTTP API for tools like Open WebUI.",
+        "description": "Expose Loki as an OpenAI-compatible HTTP API for tools like Open WebUI.",
         "docs_url": "https://hermes-agent.nousresearch.com/docs/user-guide/messaging/",
         "env_vars": (
             "API_SERVER_ENABLED", "API_SERVER_KEY", "API_SERVER_PORT", "API_SERVER_HOST",
@@ -47,7 +47,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     },
     "relay": {
         "name": "Relay (experimental)",
-        "description": "Generic relay adapter fronted by the Hermes Relay connector.",
+        "description": "Generic relay adapter fronted by the Loki Relay connector.",
         "docs_url": "", "required_env": (),
     },
 }
@@ -224,8 +224,8 @@ def _restart_gateway_after_whatsapp_onboarding(profile: Optional[str] = None) ->
     return _restart_gateway_after(profile, what="WhatsApp onboarding", label="WhatsApp onboarding")
 
 
-_TELEGRAM_ONBOARDING_DEFAULT_URL = "https://setup.hermes-agent.nousresearch.com"
-_TELEGRAM_ONBOARDING_USER_AGENT = f"HermesDashboard/{get_version_info().base_version}"
+_TELEGRAM_ONBOARDING_DEFAULT_URL = ""
+_TELEGRAM_ONBOARDING_USER_AGENT = CLIENT_USER_AGENT
 
 
 @dataclass
@@ -265,6 +265,11 @@ def _telegram_onboarding_request_sync(
     method: str, path: str, *, body: dict[str, Any] | None = None, bearer_token: str | None = None
 ) -> dict[str, Any]:
     import httpx
+    base_url = _telegram_onboarding_base_url()
+    if not base_url:
+        raise HTTPException(status_code=503, detail=(
+            "Loki Telegram setup service is not configured. Set TELEGRAM_ONBOARDING_URL "
+            "to an authorized endpoint, or use manual bot setup."))
     headers = {"Accept": "application/json", "User-Agent": _TELEGRAM_ONBOARDING_USER_AGENT}
     request_kwargs: dict[str, Any] = {}
     if body is not None:
@@ -274,7 +279,7 @@ def _telegram_onboarding_request_sync(
         headers["Authorization"] = f"Bearer {bearer_token}"
     try:
         with httpx.Client(timeout=httpx.Timeout(10.0)) as client:
-            response = client.request(method, f"{_telegram_onboarding_base_url()}{path}", headers=headers, **request_kwargs)
+            response = client.request(method, f"{base_url}{path}", headers=headers, **request_kwargs)
             response.raise_for_status()
     except httpx.HTTPStatusError as exc:
         try:

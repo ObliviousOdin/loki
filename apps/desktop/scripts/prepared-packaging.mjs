@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 
 /** @typedef {{ path: string, digest: string }} PreparedFile */
 /** @typedef {{ sevenZip: string, icons: string, winCodeSign?: string, appimage?: string, fpm?: string }} PackagingToolsets */
@@ -14,6 +15,42 @@ export function preparationRequired(message) {
 /** @param {string} file @returns {string} */
 export function fileDigest(file) {
   return createHash('sha256').update(fs.readFileSync(file)).digest('hex')
+}
+
+export const ELECTRON_LICENSE_FILES = Object.freeze(['LICENSE', 'LICENSES.chromium.html'])
+
+/** @param {string} root @param {string} name @returns {Buffer} */
+function electronNotice(root, name) {
+  const file = path.join(root, name)
+  if (!fs.existsSync(file) || !fs.lstatSync(file).isFile() || fs.statSync(file).size === 0) {
+    throw preparationRequired(`Missing Electron distribution notice: ${file}`)
+  }
+  return fs.readFileSync(file)
+}
+
+/** Compare packaged notices with the admitted distribution, without changing either input.
+ * @param {string} packaged @param {string} electron @returns {void} */
+export function verifyElectronLicenseNotices(packaged, electron) {
+  for (const name of ELECTRON_LICENSE_FILES) {
+    if (!electronNotice(packaged, name).equals(electronNotice(electron, name))) {
+      throw new Error(`Packaged Electron notice differs from the admitted distribution: ${name}`)
+    }
+  }
+}
+
+/** Preserve the exact target's notices before macOS packaging removes the vendor's root files.
+ * @param {string} electron @param {string} destination @returns {void} */
+export function stageElectronLicenseNotices(electron, destination) {
+  const { unzipSync } = createRequire(import.meta.url)('fflate')
+  const entries = unzipSync(fs.readFileSync(electron), {
+    filter: entry => ELECTRON_LICENSE_FILES.includes(entry.name)
+  })
+  const notices = ELECTRON_LICENSE_FILES.map(name => {
+    if (!entries[name]?.length) throw preparationRequired(`Missing Electron distribution notice: ${name}`)
+    return { name, bytes: entries[name] }
+  })
+  fs.mkdirSync(destination, { recursive: true })
+  for (const { name, bytes } of notices) fs.writeFileSync(path.join(destination, name), bytes)
 }
 
 /**

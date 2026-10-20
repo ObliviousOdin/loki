@@ -188,7 +188,7 @@ async def test_start_gateway_replace_aborts_when_force_killed_pid_still_alive(
         "gateway.status._read_pid_record",
         lambda path=None: {
             "pid": 42,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "start_time": 0,
             "hermes_home": str(tmp_path),
@@ -290,7 +290,7 @@ async def test_start_gateway_replace_writes_takeover_marker_before_sigterm(
         "gateway.status._read_pid_record",
         lambda path=None: {
             "pid": 42,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "start_time": 0,
             "hermes_home": str(tmp_path),

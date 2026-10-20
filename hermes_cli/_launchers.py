@@ -52,7 +52,8 @@ def runtime_command(repo_root: Path, args=(), *, module: str = "hermes_cli.main"
     # checkout, so it is pinned only after ``hermes_bootstrap``'s launch-time repair (see
     # ``_launcher_script``), here again for a bootstrap that predates that hook.
     if home is not None:
-        pin, settle = (f"os.environ['HERMES_HOME'] = os.environ.get('HERMES_HOME') or "
+        pin, settle = (f"os.environ['LOKI_HOME'] = (os.environ.get('HERMES_HOME') "
+                       f"if os.environ.get('__LOKI_ENV_BOUND') == '1' else None) or "
                        f"{_inline_string_literal(str(home))}; "), ""
     else:
         pin = f"sys.{PIN_DEFAULT_HOME_FLAG} = True; "
@@ -95,17 +96,17 @@ def installation_command(repo_root: Path, args=(), *, module: str = "hermes_cli.
     if resolve_store_python(root) is None:
         return runtime_command(root, args, module=module, python=python, home=home)
     prefix = [] if module == "hermes_cli.main" else ["--run-module", module]
-    return [str(root / ".hermes" / "bin" / "hermes"), *prefix, *args]
+    return [str(root / ".loki" / "bin" / "loki"), *prefix, *args]
 
 #: Launcher command names — keep in lockstep with scripts/install.ps1
 #: Publish-UserCommand and hermes_cli/_install_repair.py.
-WINDOWS_BIN_LAUNCHERS = ("hermes", "hermes-acp")
+WINDOWS_BIN_LAUNCHERS = ("loki", "loki-acp")
 
 #: command name -> (entry module, callable) — mirrors pyproject.toml
 #: [project.scripts].
 ENTRY_POINTS = {
-    "hermes": ("hermes_cli.main", "main"),
-    "hermes-acp": ("acp_adapter.entry", "main"),
+    "loki": ("hermes_cli.main", "main"),
+    "loki-acp": ("acp_adapter.entry", "main"),
 }
 
 
@@ -176,12 +177,12 @@ def exe_is_venv_bound(exe: Path, venv_dir: Path | None) -> bool:
         return False
     needles = set()
     for interpreter in (
-        venv_dir / "Scripts" / "hermes.exe",
-        venv_dir / "Scripts" / "hermes-acp.exe",
+        venv_dir / "Scripts" / "loki.exe",
+        venv_dir / "Scripts" / "loki-acp.exe",
         venv_dir / "Scripts" / "python.exe",
         venv_dir / "bin" / "python3",
-        venv_dir / "bin" / "hermes",
-        venv_dir / "bin" / "hermes-acp",
+        venv_dir / "bin" / "loki",
+        venv_dir / "bin" / "loki-acp",
     ):
         for enc in ("utf-8", "utf-16-le"):
             try:
@@ -383,7 +384,7 @@ def _hermes_closure_repair():
             shutil.rmtree(staging, ignore_errors=True)
         if not verified():
             return
-    for name in [n for n in sys.modules if n.split('.')[0] in ('hermes_cli', 'hermes_bootstrap', 'hermes_constants', 'pm')]:
+    for name in [n for n in sys.modules if n.split('.')[0] in ('hermes_cli', 'hermes_bootstrap', 'hermes_constants', 'loki_identity', 'pm')]:
         del sys.modules[name]
     tree = os.path.normcase(os.path.realpath(root))
     sys.path[:] = [str(closure)] + [p for p in sys.path if p and os.path.normcase(os.path.realpath(p)) != tree
@@ -442,10 +443,17 @@ def _launcher_script(name: str, repo_root: Path, dependencies: Path | None) -> s
         "import contextlib, hashlib, io, pathlib, shutil, subprocess\n"
         "os.environ.pop('PYTHONHOME', None)\n"
         "os.environ.pop('PYTHONPATH', None)\n"
-        f"sys.path.insert(0, {root!r})\n"
-        + closure_repair +
         "if sys.argv[1:2] == ['--print-runtime-command']:\n"
         "    sys.dont_write_bytecode = True\n"
+        f"sys.path.insert(0, {root!r})\n"
+        + closure_repair +
+        "try:\n"
+        "    from loki_identity import bind_loki_environment\n"
+        "    bind_loki_environment()\n"
+        "except Exception:\n"
+        "    _hermes_closure_repair()\n"
+        "    raise\n"
+        "if sys.argv[1:2] == ['--print-runtime-command']:\n"
         "    from pathlib import Path\n"
         "    try:\n"
         "        from hermes_cli import _early_recovery\n"
@@ -511,9 +519,9 @@ def _owns_launcher(target: Path, root: Path) -> bool:
     except (OSError, UnicodeError, ValueError):
         return False
     paths = {str(root / p) for p in (
-        "hermes", "run_agent.py", "venv/bin/python", "venv/bin/python3",
-        "venv/bin/hermes",
-        ".hermes/bin/hermes", ".hermes/bin/hermes-acp",
+        "loki", "run_agent.py", "venv/bin/python", "venv/bin/python3",
+        "venv/bin/loki",
+        ".loki/bin/loki", ".loki/bin/loki-acp",
     )}
     # Current store launchers pass this Python bootstrap as one shell argument.
     bootstrap = f"sys.path.insert(0, {str(root)!r})"
@@ -521,8 +529,8 @@ def _owns_launcher(target: Path, root: Path) -> bool:
         return True
     # The historical updater wrote ACP as a sibling-hermes forwarder. Adopt
     # it only when that sibling demonstrably belongs to this installation.
-    if target.name == "hermes-acp":
-        sibling = target.with_name("hermes")
+    if target.name == "loki-acp":
+        sibling = target.with_name("loki")
         return (tokens == ["exec", str(sibling), "acp", "$@"]
                 and _owns_launcher(sibling, root))
     return False
@@ -540,8 +548,8 @@ def _publish_conveniences(root: Path, out_dir: Path, names, *, create: bool = Tr
         if (not create or target.exists() or target.is_symlink()) and not _owns_launcher(target, root):
             continue
         before = target.lstat().st_mtime_ns if target.exists() or target.is_symlink() else None
-        command = ([str(root / ".hermes/bin/hermes"), "--run-module", "run_agent"]
-                   if name == "hermes-agent" else [str(root / ".hermes/bin" / name)])
+        command = ([str(root / ".loki/bin/loki"), "--run-module", "run_agent"]
+                   if name == "loki-agent" else [str(root / ".loki/bin" / name)])
         if _write_shell(target, command) is None:
             raise OSError(f"could not publish launcher {target}")
         published[target] = before != target.lstat().st_mtime_ns
@@ -700,7 +708,7 @@ def _kept_shared_launcher(name: str, local: Path, store: Path, own: Path | None)
 def ensure_install_launchers(repo_root: Path, out_dir: Path) -> list[str]:
     """Publish exact-install commands; conveniences follow them across Python repins."""
     root = Path(repo_root).resolve()
-    local = root / ".hermes" / "bin"
+    local = root / ".loki" / "bin"
     local.mkdir(parents=True, exist_ok=True)
     store = store_root(root)
     own = resolve_store_python(root)
@@ -777,7 +785,7 @@ def expose_cli(project_root: Path | None = None, *, create: bool = True) -> dict
     if resolve_store_python(root, publication=True) is None:
         return {"ok": True, "skipped": "no-store-python"}
     try:
-        local = root / ".hermes" / "bin"
+        local = root / ".loki" / "bin"
         if len(ensure_install_launchers(root, local)) != len(WINDOWS_BIN_LAUNCHERS):
             return {"ok": False, "error": "source launcher publication failed"}
         dirs = [Path.home() / ".local" / "bin"]
@@ -785,11 +793,11 @@ def expose_cli(project_root: Path | None = None, *, create: bool = True) -> dict
         # entries or reclaim a convenience that was repointed to another root.
         from hermes_constants import get_default_hermes_root
         for directory in (get_default_hermes_root() / "bin", Path("/usr/local/bin")):
-            if directory not in dirs and (not create or _owns_launcher(directory / "hermes", root)):
+            if directory not in dirs and (not create or _owns_launcher(directory / "loki", root)):
                 dirs.append(directory)
         written = []
         for directory in dirs:
-            published = _publish_conveniences(root, directory, (*WINDOWS_BIN_LAUNCHERS, "hermes-agent"), create=create)
+            published = _publish_conveniences(root, directory, (*WINDOWS_BIN_LAUNCHERS, "loki-agent"), create=create)
             written.extend(path.name for path, changed in published.items() if changed)
         return {"ok": True, "written": written}
     except OSError as exc:
@@ -997,7 +1005,7 @@ def _symlink_sealed_launchers(payload_bin) -> dict:
     written: list[str] = []
     try:
         link_dir.mkdir(parents=True, exist_ok=True)
-        for name in ("hermes", "hermes-agent", "hermes-acp"):
+        for name in ("loki", "loki-agent", "loki-acp"):
             source = payload_bin / name
             if not source.is_file():
                 continue

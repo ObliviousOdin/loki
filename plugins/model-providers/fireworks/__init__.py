@@ -1,6 +1,8 @@
 """Fireworks AI provider profile. Models are addressed by full catalog ID
 (``accounts/fireworks/models/<slug>``), tracking fw-ai/fireconnect ``setup-cli``."""
 
+from loki_identity import CLIENT_USER_AGENT
+
 from typing import Any
 
 from hermes_cli.version_info import get_version_info
@@ -34,9 +36,9 @@ fireworks = FireworksProfile(
     # Attribution headers (canonical Hermes set); via default_headers so they
     # survive switch_model and credential rotation.
     default_headers={
-        "HTTP-Referer": "https://hermes-agent.nousresearch.com",
-        "X-Title": "Hermes Agent",
-        "User-Agent": f"HermesAgent/{get_version_info().base_version}",
+        "HTTP-Referer": "https://github.com/ObliviousOdin/loki",
+        "X-Title": "Loki",
+        "User-Agent": CLIENT_USER_AGENT,
     },
     default_aux_model="accounts/fireworks/models/glm-5p2",
     # Picker safety net when the live catalog fetch fails.

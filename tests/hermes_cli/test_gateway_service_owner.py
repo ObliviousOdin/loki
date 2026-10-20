@@ -1,8 +1,8 @@
 """Gateway service-definition writes belong to the home the definition pins.
 
 Every gateway boot refreshes "its" unit, and a scratch/E2E process whose service name resolves to the
-real install's unit (a fake HERMES_HOME under ~/.hermes/cache/scratch takes the bare name, and
-``<root>/profiles/x`` collides with ``~/.hermes/profiles/x``) rewrote that unit to point at the scratch
+real install's unit (a fake HERMES_HOME under ~/.loki/cache/scratch takes the bare name, and
+``<root>/profiles/x`` collides with ``~/.loki/profiles/x``) rewrote that unit to point at the scratch
 home. The real gateway then crash-looped on its next restart.
 """
 
@@ -15,7 +15,7 @@ from hermes_cli import gateway_service_owner
 
 UNIT = (
     "[Service]\n"
-    "ExecStart=/home/ace/.hermes/hermes-agent/.hermes/bin/hermes gateway run\n"
+    "ExecStart=/home/ace/.loki/hermes-agent/.loki/bin/hermes gateway run\n"
     "WorkingDirectory={home}\n"
     'Environment="HERMES_HOME={home}"\n'
 )
@@ -23,11 +23,11 @@ UNIT = (
 
 @pytest.fixture
 def unit(tmp_path, monkeypatch):
-    real = tmp_path / "account" / ".hermes"
-    scratch = tmp_path / "scratch" / "fakehome" / ".hermes"
+    real = tmp_path / "account" / ".loki"
+    scratch = tmp_path / "scratch" / "fakehome" / ".loki"
     real.mkdir(parents=True)
     scratch.mkdir(parents=True)
-    path = tmp_path / "systemd" / "hermes-gateway.service"
+    path = tmp_path / "systemd" / "loki-gateway.service"
     path.parent.mkdir()
     path.write_text(UNIT.format(home=real), encoding="utf-8")
     calls = []

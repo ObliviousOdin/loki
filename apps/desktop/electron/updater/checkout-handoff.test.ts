@@ -31,8 +31,8 @@ function handoffFixture(remote: boolean, scriptText: string = ''): { root: strin
   fs.mkdirSync(scriptDirectory, { recursive: true })
   fs.writeFileSync(path.join(scriptDirectory, IS_WINDOWS ? 'windows.ps1' : 'posix.sh'), scriptText)
   fs.writeFileSync(path.join(scriptDirectory, 'runtime.ps1'), '')
-  fs.mkdirSync(path.join(root, '.hermes', 'bin'), { recursive: true })
-  fs.writeFileSync(path.join(root, '.hermes', 'bin', 'hermes.exe'), '')
+  fs.mkdirSync(path.join(root, '.loki', 'bin'), { recursive: true })
+  fs.writeFileSync(path.join(root, '.loki', 'bin', 'loki.exe'), '')
 
   const status: SourceUpdate = { supported: true, branch: 'main', targetSha: 'a'.repeat(40), updateAvailable: true }
 
@@ -169,7 +169,7 @@ it('a failed hand-off spawn keeps the app alive and reports the failure in plain
       await createCheckoutStrategy(deps).apply()
 
     expect(result).toMatchObject({ ok: false, error: 'updater-spawn-failed' })
-    expect(result.message).toMatch(/Hermes keeps running/)
+    expect(result.message).toMatch(/Loki keeps running/)
     expect(result.message).toMatch(/Details: .*ENOENT/)
     expect(result.message?.indexOf('Details:')).toBeGreaterThan(0)
     expect(deps.quit).not.toHaveBeenCalled()
@@ -372,7 +372,7 @@ describe.skipIf(IS_WINDOWS)('protocol 2 hand-off', () => {
 
   // Review 5411223284 regression 1: a bridge the helper could not withdraw
   // stays adoptable by a late (setsid, unkillable) daemon. Reporting "did not
-  // start" and restarting the backend would run `hermes update` beside it.
+  // start" and restarting the backend would run `loki update` beside it.
   it.each(['busy', 'error'])(
     'a withdraw that stays `%s` keeps the bridge and quits instead of restarting the backend',
     async (answer: string): Promise<void> => {

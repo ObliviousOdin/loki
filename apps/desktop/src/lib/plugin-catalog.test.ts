@@ -108,7 +108,7 @@ describe('sendWhenGatewayOpen', () => {
 
     await expect(
       sendWhenGatewayOpen(send, { state: atom<ConnectionState>('connecting'), timeoutMs: 10 })
-    ).rejects.toThrow('Hermes backend did not connect')
+    ).rejects.toThrow('Loki backend did not connect')
     expect(send).not.toHaveBeenCalled()
   })
 })

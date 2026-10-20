@@ -16,6 +16,7 @@ def test_minted_launcher_reads_current_selection_and_editable_members(tmp_path, 
     from pm import environments as runtime_paths
     from hermes_cli import runtime_state
     import hermes_constants
+    import loki_identity
 
     root = tmp_path / "repo"
     package = root / "hermes_cli"
@@ -28,6 +29,7 @@ def test_minted_launcher_reads_current_selection_and_editable_members(tmp_path, 
     (pm_package / "environments.py").write_bytes(Path(runtime_paths.__file__).read_bytes())
     (pm_package / "filesystem.py").write_bytes((Path(runtime_paths.__file__).parent / "filesystem.py").read_bytes())
     (package / "runtime_state.py").write_bytes(Path(runtime_state.__file__).read_bytes())
+    (root / "loki_identity.py").write_bytes(Path(loki_identity.__file__).read_bytes())
     (root / "hermes_constants.py").write_bytes(Path(hermes_constants.__file__).read_bytes())
     (root / "hermes_bootstrap.py").write_text(
         "from pathlib import Path\nfrom pm.environments import activate_dependencies\n"
@@ -44,7 +46,7 @@ def test_minted_launcher_reads_current_selection_and_editable_members(tmp_path, 
     state = install_state_dir(root)
     out = tmp_path / "bin"
     out.mkdir()
-    launcher = _launchers.mint_launcher("hermes", root, out, Path(sys.executable), base)
+    launcher = _launchers.mint_launcher("loki", root, out, Path(sys.executable), base)
     assert launcher is not None
 
     selected = state / "environments" / "selected" / "venv"

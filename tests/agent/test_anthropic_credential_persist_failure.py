@@ -27,6 +27,8 @@ the contention between two refreshers.
 
 from __future__ import annotations
 
+from tests.loki_auth_fixture import write_auth_config
+
 import json
 import os
 import time
@@ -81,6 +83,7 @@ def hermes_home(tmp_path, monkeypatch):
     monkeypatch.setattr(
         "hermes_cli.auth.is_provider_explicitly_configured", lambda pid: True
     )
+    write_auth_config(home, clients=("anthropic",), adopt_external_logins=True)
     return home
 
 
@@ -219,7 +222,7 @@ def test_failed_write_leaves_no_temp_file_behind(claude_credentials, monkeypatch
 
 
 def test_direct_resolver_fails_closed_when_rotation_cannot_commit(
-    claude_credentials, monkeypatch
+    hermes_home, claude_credentials, monkeypatch
 ):
     """``_refresh_oauth_token`` must not hand back a token it could not persist.
 

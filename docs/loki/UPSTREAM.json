@@ -1,0 +1,14 @@
+{
+  "repository": "https://github.com/NousResearch/hermes-agent",
+  "commit": "18c525b669b6ea4ba62e6967d228af21d89aa9d3",
+  "committed_at": "2026-10-17T16:11:41Z",
+  "sdk_base_version": "0.22.2",
+  "license": "MIT",
+  "latest_release_at_pin": "v0.22.2",
+  "latest_release_commit": "d923a5eb487a17c0a68801bba9ef0f56c81040a8",
+  "latest_release_published_at": "2026-10-15T08:21:32Z",
+  "commits_ahead_of_release": 1376,
+  "release_is_ancestor": true,
+  "loki_repository": "https://github.com/ObliviousOdin/loki",
+  "loki_preview": "0.1.0-alpha.1"
+}

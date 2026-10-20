@@ -145,7 +145,10 @@ class TestPluginRegister:
         nous_plugin.register(ctx)
         ctx.register_dashboard_auth_provider.assert_not_called()
         # Skip reason is surfaced for the gate's fail-closed message.
-        assert "HERMES_DASHBOARD_OAUTH_CLIENT_ID" in nous_plugin.LAST_SKIP_REASON
+        assert "LOKI_DASHBOARD_OAUTH_CLIENT_ID" in nous_plugin.LAST_SKIP_REASON
+        assert "explicitly provisioned, authorized" in nous_plugin.LAST_SKIP_REASON
+        assert "not included with Loki" in nous_plugin.LAST_SKIP_REASON
+        assert "--insecure" in nous_plugin.LAST_SKIP_REASON
 
     def test_registers_with_default_portal_url_when_only_client_id_set(
         self, monkeypatch

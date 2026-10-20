@@ -140,6 +140,39 @@ def test_owner_exit_kills_router_tree_not_external(tmp_path, stop_mode, nested):
                 launcher.wait(timeout=10)
 
 
+def _assert_child_threads_already_suspended(proc):
+    """Check the kernel suspend count, not psutil's sampled scheduler-state label.
+
+    SuspendThread returns the previous count; the paired ResumeThread restores it:
+    https://learn.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-suspendthread
+    """
+    import ctypes
+    from ctypes import wintypes
+
+    api = ctypes.WinDLL("kernel32", use_last_error=True)
+    api.OpenThread.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+    api.OpenThread.restype = wintypes.HANDLE
+    for name in ("SuspendThread", "ResumeThread"):
+        getattr(api, name).argtypes = [wintypes.HANDLE]
+        getattr(api, name).restype = wintypes.DWORD
+    api.CloseHandle.argtypes = [wintypes.HANDLE]
+    api.CloseHandle.restype = wintypes.BOOL
+    threads = psutil.Process(proc.pid).threads()
+    assert threads, "suspended child must have an initial thread"
+    for thread in threads:
+        handle = api.OpenThread(0x0002, False, thread.id)  # THREAD_SUSPEND_RESUME
+        assert handle, ctypes.WinError(ctypes.get_last_error())
+        try:
+            previous = api.SuspendThread(handle)
+            assert previous != 0xFFFFFFFF, ctypes.WinError(ctypes.get_last_error())
+            try:
+                assert previous > 0, "child thread ran before containment assignment"
+            finally:
+                assert api.ResumeThread(handle) == previous + 1
+        finally:
+            assert api.CloseHandle(handle)
+
+
 @pytest.mark.platforms("windows")
 @pytest.mark.parametrize('failure', ['assign', 'resume', 'popen', 'configure'])
 def test_failed_setup_never_runs_child_and_releases_handles(tmp_path, monkeypatch, failure):
@@ -174,7 +207,7 @@ def test_failed_setup_never_runs_child_and_releases_handles(tmp_path, monkeypatc
 
     def assign(job, proc):
         children.append(proc)
-        assert psutil.Process(proc.pid).status() == psutil.STATUS_STOPPED
+        _assert_child_threads_already_suspended(proc)
         assert not marker.exists()
         # Query the actual kernel object, not implementation source/constants.
         limits = processes._ExtendedLimits()

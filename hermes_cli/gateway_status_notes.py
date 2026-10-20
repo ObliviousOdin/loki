@@ -27,7 +27,7 @@ def report_incompatible_owner(pids) -> bool:
     print(f"✗ {running} but cannot serve this Hermes ({stale})")
     print("  It was started by another Hermes version; TUI, Desktop and chat cannot attach to it.")
     print("  Replace it with this version:")
-    print("    hermes gateway restart")
+    print("    loki gateway restart")
     return True
 
 

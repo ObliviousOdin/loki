@@ -90,7 +90,7 @@ def _dead_pid() -> int:
 def _run(home: Path, *args: str, install: Path | None = None, timeout: int = 120):
     command = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
                '-InstallRoot', str(install or home / 'hermes-agent'), '-NoUi', *args]
-    env = {**os.environ, 'HERMES_HOME': str(home), 'HERMES_RUNTIME_DIR': str(home / 'empty-store')}
+    env = {**os.environ, 'LOKI_HOME': str(home), 'LOKI_RUNTIME_DIR': str(home / 'empty-store')}
     proc = subprocess.Popen(command, cwd=home, env=env,
                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     try:
@@ -238,7 +238,7 @@ def test_desktop_that_never_exits_is_not_relaunched_over(
 ) -> None:
     # The verdict (refuse with 4, never relaunch) is the same at any ceiling; the production
     # 150 s one alone pushed this file to the runner's 300 s per-file cap on a loaded runner.
-    monkeypatch.setenv('HERMES_UPDATE_DESKTOP_EXIT_SECONDS', '5')
+    monkeypatch.setenv('LOKI_UPDATE_DESKTOP_EXIT_SECONDS', '5')
     install = tmp_path / 'checkout'
     publish_fixture_launcher(install, CLI)
     home = tmp_path / 'home'; home.mkdir()
@@ -255,14 +255,14 @@ def test_desktop_that_never_exits_is_not_relaunched_over(
 
 @pytest.mark.platforms('windows')
 def test_ui_profile_sweep_keeps_dirs_of_live_handoffs(tmp_path: Path, sleeper: subprocess.Popen) -> None:
-    live = tmp_path / f'hermes-update-ui-{sleeper.pid}'
-    dead = tmp_path / f'hermes-update-ui-{_dead_pid()}'
+    live = tmp_path / f'loki-update-ui-{sleeper.pid}'
+    dead = tmp_path / f'loki-update-ui-{_dead_pid()}'
     live.mkdir(); dead.mkdir()
     home = tmp_path / 'home'; home.mkdir()
     result = subprocess.run(
         ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT), '-SelfTestUi', '-NoUi'],
-        cwd=tmp_path, env={**os.environ, 'HERMES_HOME': str(home), 'TEMP': str(tmp_path),
-                           'HERMES_SELFTEST_HOLD_SECONDS': '0'},
+        cwd=tmp_path, env={**os.environ, 'LOKI_HOME': str(home), 'TEMP': str(tmp_path),
+                           'LOKI_SELFTEST_HOLD_SECONDS': '0'},
         capture_output=True, text=True, timeout=120,
         check=False,
     )
@@ -324,7 +324,7 @@ def test_script_killed_right_after_spawning_the_update_leaves_a_live_marker(tmp_
         ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(SCRIPT),
          '-InstallRoot', str(install), '-NoUi'],
         cwd=tmp_path, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-        env={**os.environ, 'HERMES_HOME': str(home), 'HERMES_RUNTIME_DIR': str(tmp_path / 'empty-store'),
+        env={**os.environ, 'LOKI_HOME': str(home), 'LOKI_RUNTIME_DIR': str(tmp_path / 'empty-store'),
              'HANDOFF_HOLD': str(hold)},
     )
     child_pid_file = Path(str(hold) + '.pid')

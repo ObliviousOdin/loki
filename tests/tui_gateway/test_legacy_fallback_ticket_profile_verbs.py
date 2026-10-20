@@ -14,7 +14,10 @@ import pytest
 
 @pytest.fixture
 def homes(tmp_path, monkeypatch):
+    from tests.hermes_cli.anon_portal import install_portal
     from tui_gateway import server
+
+    install_portal(monkeypatch, tmp_path)  # Shared fake service; ticket-specific homes remain below.
     launch = tmp_path / 'root'
     bee = launch / 'profiles' / 'bee'
     bee.mkdir(parents=True)

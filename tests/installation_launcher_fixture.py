@@ -17,11 +17,11 @@ def publish_fixture_launcher(root: Path, main_source: str) -> Path:
     # are real. The interpreter is external to the checkout, like PM's store.
     (root / "hermes_bootstrap.py").write_text("", encoding="utf-8")
     (root / "pm").mkdir(exist_ok=True)
-    for relative in ("hermes_constants.py", "hermes_cli/_launchers.py", "pm/environments.py"):
+    for relative in ("loki_identity.py", "hermes_constants.py", "hermes_cli/_launchers.py", "pm/environments.py"):
         shutil.copyfile(repository / relative, root / relative)
-    out = root / ".hermes" / "bin"
+    out = root / ".loki" / "bin"
     out.mkdir(parents=True)
-    launcher = mint_launcher("hermes", root, out, Path(sys.executable), None)
+    launcher = mint_launcher("loki", root, out, Path(sys.executable), None)
     assert launcher is not None
     assert not (root / "venv").exists()
     return launcher

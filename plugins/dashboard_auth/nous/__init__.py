@@ -135,17 +135,17 @@ def _settings() -> dict:
     portal_url = resolve_env_or_cfg("HERMES_DASHBOARD_PORTAL_URL", section.get("portal_url", "")) or _DEFAULT_PORTAL_URL
     if not client_id:
         raise SkipRegistration(
-            "HERMES_DASHBOARD_OAUTH_CLIENT_ID is not set (and dashboard.oauth.client_id "
-            "in config.yaml is empty). The Nous Portal provisions this env var (shape "
-            "'agent:{instance_id}') when it deploys a Hermes Agent instance — set it to "
-            "your provisioned client id (either as an env var or under "
-            "dashboard.oauth.client_id in config.yaml), or pass --insecure to skip the "
-            "OAuth gate entirely.")
+            "LOKI_DASHBOARD_OAUTH_CLIENT_ID is not set (and dashboard.oauth.client_id "
+            "in config.yaml is empty). Configure an explicitly provisioned, authorized "
+            "'agent:{instance_id}' client for your chosen Nous Portal. Upstream hosted "
+            "provisioning is not included with Loki. Set the env var or "
+            "dashboard.oauth.client_id in config.yaml, or deliberately pass --insecure "
+            "to skip this OAuth gate.")
     if not client_id.startswith("agent:"):
         raise SkipRegistration(
-            f"HERMES_DASHBOARD_OAUTH_CLIENT_ID={client_id!r} doesn't match the contract "
-            f"shape 'agent:{{instance_id}}'. The Nous Portal provisions this value at deploy "
-            f"time; check your Fly app's secrets or override with the value from the Portal admin UI.",
+            f"LOKI_DASHBOARD_OAUTH_CLIENT_ID={client_id!r} doesn't match the contract "
+            f"shape 'agent:{{instance_id}}'. Configure your explicitly authorized client "
+            f"for the chosen Nous Portal; upstream hosted provisioning is not included with Loki.",
             level="warning")
     return {"client_id": client_id, "portal_url": portal_url,
             # Clock-skew tolerance for access-token exp/nbf/iat (config.yaml only; default 60s, 0 = strict).

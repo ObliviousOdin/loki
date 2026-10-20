@@ -1,4 +1,4 @@
-"""A new or rerun install of the official repository lands on the latest stable release.
+"""Loki previews default to main; an explicit stable channel retains upstream release selection.
 
 `hermes update` already follows stable for an official checkout that never chose a channel;
 the installer has to put a fresh install there too, or new users start on main's tip. The
@@ -11,7 +11,7 @@ import subprocess
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-OFFICIAL = "https://github.com/NousResearch/hermes-agent.git"
+OFFICIAL = "https://github.com/ObliviousOdin/loki.git"
 
 pytestmark = pytest.mark.platforms("posix")
 
@@ -37,12 +37,17 @@ def _git(cwd, *args, env=None):
     (True, "tip", ["--channel", "stable"], True, "tip"),
     (True, "before", [], True, "release"),
 ])
-def test_install_lands_on_the_latest_stable_release(tmp_path, side, start, args, tagged, lands):
+@pytest.mark.parametrize("default_channel", [None, "stable"])
+def test_preview_default_and_explicit_stable_preserve_release_selection(tmp_path, side, start, args, tagged, lands, default_channel):
+    if default_channel is None and not args:
+        lands = "tip"
     origin, home, bin_dir = tmp_path / "origin", tmp_path / "home", tmp_path / "bin"
-    install = home / ".hermes" / "hermes-agent"
+    install = home / ".loki" / "hermes-agent"
     for d in (origin, home, bin_dir):
         d.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    (origin / "pyproject.toml").write_text('[project]\nname = "obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(origin, "add", "pyproject.toml")
     _git(origin, "commit", "-q", "--allow-empty", "-m", "before")
     if side:
         _git(origin, "checkout", "-q", "-b", "release/1.2")
@@ -60,6 +65,8 @@ def test_install_lands_on_the_latest_stable_release(tmp_path, side, start, args,
     (bin_dir / "curl").chmod(0o755)
     env = {"PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}", "HOME": str(home), "NO_COLOR": "1",
            "GIT_CONFIG_NOSYSTEM": "1"}
+    if default_channel:
+        env["LOKI_INSTALL_CHANNEL"] = default_channel
     if start:
         install.parent.mkdir(parents=True)
         _git(tmp_path, "clone", "-q", OFFICIAL, str(install), env=env)
@@ -67,10 +74,17 @@ def test_install_lands_on_the_latest_stable_release(tmp_path, side, start, args,
 
     result = subprocess.run(
         ["bash", str(ROOT / "scripts" / "install.sh"), "--stage", "repository", "--dir", str(install),
-         "--hermes-home", str(home / ".hermes"), "--non-interactive", *args],
+         "--loki-home", str(home / ".loki"), "--non-interactive", *args],
         check=False, capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=120, env=env,
     )
 
+    if default_channel == "stable" and not tagged:
+        assert result.returncode != 0, result.stdout + result.stderr
+        if start:
+            assert _git(install, "rev-parse", "HEAD") == commits[start]
+        else:
+            assert not install.exists()
+        return
     if lands is None:
         assert result.returncode != 0 and not install.exists(), result.stdout + result.stderr
         return

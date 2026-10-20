@@ -11,6 +11,8 @@ existing Codex CLI tokens via `hermes auth openai-codex`. The old
 "Codex CLI shared file" discovery tests were removed with that change.
 """
 
+from tests.loki_auth_fixture import configure_auth
+
 import base64
 import json
 import time
@@ -114,8 +116,9 @@ def claude_code_only_env(tmp_path, monkeypatch):
     return hermes_home
 
 
-def test_claude_code_file_detected_by_model_picker(claude_code_only_env):
+def test_claude_code_file_detected_by_model_picker(claude_code_only_env, monkeypatch):
     """anthropic should appear when credentials only exist in ~/.claude/.credentials.json."""
+    configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
     from hermes_cli.model_switch import list_authenticated_providers
 
     providers = list_authenticated_providers(

@@ -19,15 +19,13 @@ def _atomic_write_json(path: Path, data: dict) -> bool:
 
 
 def migrate_honcho_profile_host(old_name: str, new_name: str, new_dir: Path) -> None:
-    """Rename Honcho host blocks for a renamed profile without changing peers."""
+    """Rename only Loki's Honcho host blocks, preserving foreign hosts and peers."""
     from hermes_cli.profiles import _get_default_hermes_home
 
-    old_host = f"hermes_{old_name}"
-    legacy_old_host = f"hermes.{old_name}"
-    new_host = f"hermes_{new_name}"
-    candidates = [
-        new_dir / "honcho.json", _get_default_hermes_home() / "honcho.json", Path.home() / ".honcho" / "config.json"
-    ]
+    old_host = f"loki_{old_name}"
+    legacy_old_host = f"loki.{old_name}"
+    new_host = f"loki_{new_name}"
+    candidates = [new_dir / "honcho.json", _get_default_hermes_home() / "honcho.json"]
     seen: set[Path] = set()
     for path in candidates:
         try:
@@ -51,8 +49,10 @@ def migrate_honcho_profile_host(old_name: str, new_name: str, new_dir: Path) -> 
             print(f"⚠ Honcho host block not migrated: {new_host} already exists in {path}")
             continue
         block = hosts[source_host]
-        if isinstance(block, dict) and "aiPeer" not in block:
-            block["aiPeer"] = old_name  # source_host is ``hermes_<old>`` or legacy ``hermes.<old>``
+        if isinstance(block, dict):
+            for field in ("aiPeer", "workspace"):
+                if not block.get(field) and not raw.get(field):
+                    block[field] = old_host  # Freeze the provider's resolved pre-rename identity.
         hosts[new_host] = hosts.pop(source_host)
         if _atomic_write_json(path, raw):
             print(f"✓ Honcho host updated: {source_host} → {new_host}")

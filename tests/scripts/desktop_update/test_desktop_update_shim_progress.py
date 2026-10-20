@@ -35,7 +35,7 @@ requires_posix_handoff = pytest.mark.skipif(
 @pytest.fixture
 def progress(tmp_path):
     """The real loopback server, over a status file the test drives."""
-    status = tmp_path / "hermes-update-status"
+    status = tmp_path / "loki-update-status"
     proc = subprocess.Popen(
         [
             sys.executable,
@@ -90,7 +90,7 @@ def test_every_state_carries_a_clock(progress):
         ("running", ""),
         ("running", "Installing the new app"),
         ("done", ""),
-        ("manual", "Reopen Hermes to finish."),
+        ("manual", "Reopen Loki to finish."),
         ("error", "Update failed."),
     ]:
         progress.publish(state, message)
@@ -122,7 +122,7 @@ FAKE_HERMES = """#!/usr/bin/env bash
 case "$*" in *--help*) echo "--keep-stash"; exit 0 ;; esac
 n="$(cat "$HERMES_TEST_CALLS" 2>/dev/null || echo 0)"; n=$((n + 1))
 printf '%s' "$n" > "$HERMES_TEST_CALLS"
-for f in "$TMPDIR"/hermes-update-status.[0-9]*; do
+for f in "$TMPDIR"/loki-update-status.[0-9]*; do
   case "$f" in *.tmp) continue ;; esac
   cp "$f" "$HERMES_TEST_CAPTURE.$n" 2>/dev/null
 done
@@ -134,7 +134,7 @@ def _run_handoff(tmp_path, exits: dict[int, int]) -> list[dict]:
     """Run the real hand-off end to end; return the stage seen at each call."""
     install_root = tmp_path / "hermes-agent"
     (install_root / "venv" / "bin").mkdir(parents=True)
-    hermes = install_root / "venv" / "bin" / "hermes"
+    hermes = install_root / "venv" / "bin" / "loki"
     hermes.write_text(FAKE_HERMES)
     hermes.chmod(0o755)
 
@@ -146,11 +146,11 @@ def _run_handoff(tmp_path, exits: dict[int, int]) -> list[dict]:
     env = {
         **os.environ,
         "TMPDIR": str(tmp_path),
-        "HERMES_TEST_CAPTURE": str(capture),
-        "HERMES_TEST_CALLS": str(calls),
-        "HERMES_TEST_EXITS": str(tmp_path / "exits"),
+        "LOKI_TEST_CAPTURE": str(capture),
+        "LOKI_TEST_CALLS": str(calls),
+        "LOKI_TEST_EXITS": str(tmp_path / "exits"),
     }
-    env.pop("HERMES_HOME", None)  # Exercise the legacy install-parent fallback.
+    env.pop("LOKI_HOME", None)  # Exercise the legacy install-parent fallback.
     # The hand-off daemonizes and the launcher exits immediately; the result
     # file is the orchestrator's own completion signal.
     subprocess.run(

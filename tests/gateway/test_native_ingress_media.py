@@ -8,6 +8,8 @@ import time
 
 import pytest
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 
 def _peer(tmp_path, mode):
     repo = Path(__file__).resolve().parents[2]
@@ -17,7 +19,7 @@ def _peer(tmp_path, mode):
     env = {key: os.environ[key] for key in ('PATH', 'SYSTEMROOT', 'LANG', 'TZ') if key in os.environ}
     env.update(HOME=str(home), USERPROFILE=str(home), HERMES_HOME=str(state),
                PYTHONPATH=str(repo), PYTHONUNBUFFERED='1')
-    return [sys.executable, str(Path(__file__).parent / 'fixtures' / 'native_ingress_media_peer.py'), mode], env, repo, state
+    return [sys.executable, str(Path(__file__).parent / 'fixtures' / 'native_ingress_media_peer.py'), mode], bind_fixture_child_env(env), repo, state
 
 
 @pytest.mark.platforms("linux")

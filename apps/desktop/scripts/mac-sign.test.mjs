@@ -9,6 +9,8 @@ import { pathToFileURL } from 'node:url'
 import { Arch, MacPackager } from 'app-builder-lib'
 import { MacTargetHelper } from 'app-builder-lib/internal'
 import { test, vi } from 'vitest'
+import { createMacSigner } from './mac-sign.mjs'
+import { isMachO } from './sign-nested-chromium.mjs'
 
 const require = createRequire(import.meta.url)
 const config = require('../electron-builder.config.cjs')
@@ -65,8 +67,17 @@ function rehashInSubprocess(f) {
 }
 
 async function signThroughBuilder(f) {
+  // Preview production config disables signing. Exercise retained signing
+  // capability only with this explicit, test-owned policy and fake identity.
+  const sign = createMacSigner({
+    entitlements: path.join(desktop, 'electron/entitlements.mac.plist'),
+    entitlementsInherit: path.join(desktop, 'electron/entitlements.mac.inherit.plist'),
+    hardenedRuntime: true,
+    ignore: file => !fs.lstatSync(file).isDirectory() && !isMachO(file)
+  })
+  const signingConfig = { ...config, mac: { ...config.mac, sign } }
   const packager = {
-    config,
+    config: signingConfig,
     appInfo: { type: 'module' },
     info: { getWorkspaceRoot: async () => repo },
     buildResourcesDir: path.join(desktop, 'build'),
@@ -76,11 +87,11 @@ async function signThroughBuilder(f) {
   }
   packager.helper = new MacTargetHelper(packager)
   const identity = { name: 'Developer ID Application: Test Fixture (ABC123)' }
-  const declared = typeof config.mac.sign === 'object' ? config.mac.sign : undefined
+  const declared = typeof signingConfig.mac.sign === 'object' ? signingConfig.mac.sign : undefined
   const opts = await packager.helper.buildSignOptions(
     f.app, identity, declared, path.join(f.root, 'fixture.keychain-db'), Arch.arm64, 'mac')
   // This is the builder's real dispatch, not a test-only invocation of a factory.
-  await MacPackager.prototype.doSign.call(packager, opts, config.mac.sign, identity)
+  await MacPackager.prototype.doSign.call(packager, opts, signingConfig.mac.sign, identity)
 }
 
 function armEnvironment(f) {

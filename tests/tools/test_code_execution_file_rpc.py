@@ -42,7 +42,7 @@ def test_generated_file_rpc_kwargs_correlation_and_authority(tmp_path, monkeypat
     monkeypatch.setattr("tempfile.gettempdir", lambda: str(tmp_path))
     namespace = {}
     exec(generate_hermes_tools_module([], transport="file"), namespace)
-    assert namespace["_RPC_DIR"] == str(tmp_path / "hermes_rpc")
+    assert namespace["_RPC_DIR"] == str(tmp_path / "loki_rpc")
     assert "terminal" not in namespace
     monkeypatch.setenv("HERMES_RPC_DIR", str(rpc))
     monkeypatch.setenv("HERMES_RPC_TOKEN", "right-token")

@@ -23,7 +23,7 @@ class TestGatewayPidState:
 
         payload = json.loads((tmp_path / "gateway.pid").read_text())
         assert payload["pid"] == os.getpid()
-        assert payload["kind"] == "hermes-gateway"
+        assert payload["kind"] == "loki-gateway"
         assert isinstance(payload["argv"], list)
         assert payload["argv"]
 
@@ -73,7 +73,7 @@ class TestGatewayPidState:
         def _write_record(pid: int, start_time: int) -> None:
             record = {
                 "pid": pid,
-                "kind": "hermes-gateway",
+                "kind": "loki-gateway",
                 "argv": ["python", "-m", "hermes_cli.main", "gateway"],
                 "start_time": start_time,
             }
@@ -106,7 +106,7 @@ class TestGatewayPidState:
         pid_path = tmp_path / "gateway.pid"
         pid_path.write_text(json.dumps({
             "pid": 99999,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway"],
             "start_time": 123,
         }))
@@ -118,7 +118,7 @@ class TestGatewayPidState:
             "_build_pid_record",
             lambda: {
                 "pid": os.getpid(),
-                "kind": "hermes-gateway",
+                "kind": "loki-gateway",
                 "argv": ["python", "-m", "hermes_cli.main", "gateway"],
                 "start_time": 123,
             },
@@ -179,7 +179,7 @@ class TestGatewayPidState:
         gateway's gateway.pid/gateway.lock (#125610, #123109)."""
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         record = {
-            "pid": 4242, "kind": "hermes-gateway", "start_time": 123,
+            "pid": 4242, "kind": "loki-gateway", "start_time": 123,
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "hermes_home": str(tmp_path.resolve()),
         }
@@ -203,7 +203,7 @@ class TestGatewayPidState:
         on refusal (#89315); the HELD gateway.lock is the holder's and stays (#125610)."""
         monkeypatch.setenv("HERMES_HOME", str(tmp_path))
         record = {
-            "pid": 4242, "kind": "hermes-gateway", "start_time": 123,
+            "pid": 4242, "kind": "loki-gateway", "start_time": 123,
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "hermes_home": str((tmp_path / "other-home").resolve()),
         }
@@ -233,7 +233,7 @@ class TestScopedGatewayPidQuery:
         profile_dir.mkdir(parents=True)
         record = {
             "pid": 4242,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "--profile", "wiki"],
             "start_time": 123,
             "hermes_home": str(profile_dir.resolve()),
@@ -361,7 +361,7 @@ class TestGatewayRuntimeStatus:
         state_path.write_text(json.dumps({
             "pid": 99999,
             "start_time": 1000.0,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "platforms": {},
             "updated_at": "2025-01-01T00:00:00Z",
         }))
@@ -379,7 +379,7 @@ class TestGatewayRuntimeStatus:
 
         Per-profile Docker supervision: ``coder``'s gateway died leaving a
         ``gateway_state=running`` record at PID 139.  The OS then recycled 139
-        onto the live *default* gateway (``hermes gateway run``).  The recorded
+        onto the live *default* gateway (``loki gateway run``).  The recorded
         ``start_time`` is absent (older state file), so the start-time PID-reuse
         guard does not catch it.  Without the profile scope the live command
         line still ``looks_like_gateway`` and ``coder`` is wrongly reported up.
@@ -387,8 +387,8 @@ class TestGatewayRuntimeStatus:
         payload = {
             "pid": 139,
             "gateway_state": "running",
-            "kind": "hermes-gateway",
-            "argv": ["hermes", "gateway", "run"],
+            "kind": "loki-gateway",
+            "argv": ["loki", "gateway", "run"],
         }
         coder_home = Path("/opt/data/profiles/coder")
 
@@ -396,7 +396,7 @@ class TestGatewayRuntimeStatus:
         monkeypatch.setattr(status, "_get_process_start_time", lambda pid: None)
         # PID 139 is now the live DEFAULT gateway (bare, no -p coder).
         monkeypatch.setattr(
-            status, "_read_process_cmdline", lambda pid: "hermes gateway run --replace"
+            status, "_read_process_cmdline", lambda pid: "loki gateway run --replace"
         )
 
         assert (
@@ -410,8 +410,8 @@ class TestGatewayRuntimeStatus:
         payload = {
             "pid": 139,
             "gateway_state": "running",
-            "kind": "hermes-gateway",
-            "argv": ["hermes", "gateway", "run"],
+            "kind": "loki-gateway",
+            "argv": ["loki", "gateway", "run"],
             "start_time": 1000,
         }
         coder_home = Path("/opt/data/profiles/coder")
@@ -419,9 +419,9 @@ class TestGatewayRuntimeStatus:
         monkeypatch.setattr(status, "_pid_exists", lambda pid: True)
         monkeypatch.setattr(status, "_get_process_start_time", lambda pid: 1000)
         for cmdline in (
-            "hermes -p coder gateway run --replace",
-            "/opt/hermes/.venv/bin/hermes --profile coder gateway run --replace",
-            "hermes_home=/opt/data/profiles/coder hermes gateway run --replace",
+            "loki -p coder gateway run --replace",
+            "/opt/hermes/.venv/bin/loki --profile coder gateway run --replace",
+            "hermes_home=/opt/data/profiles/coder loki gateway run --replace",
         ):
             monkeypatch.setattr(status, "_read_process_cmdline", lambda pid, c=cmdline: c)
             assert (
@@ -436,18 +436,18 @@ class TestGatewayRuntimeStatus:
         (#100817), while a foreign ``-p coder`` keeps being rejected."""
         default_home = Path("/opt/hermes-data")
         for cmdline in (
-            "hermes --profile default gateway run --replace --external-supervisor",
-            "/opt/hermes/.venv/bin/hermes -p default gateway run",
+            "loki --profile default gateway run --replace --external-supervisor",
+            "/opt/hermes/.venv/bin/loki -p default gateway run",
         ):
             assert status._command_line_belongs_to_profile(cmdline, default_home) is True, cmdline
-        assert status._command_line_belongs_to_profile("hermes -p coder gateway run", default_home) is False
+        assert status._command_line_belongs_to_profile("loki -p coder gateway run", default_home) is False
 
     def test_command_line_belongs_to_profile_normalizes_separators(self):
         """A Windows argv renders HERMES_HOME with backslashes while the
         profile's Path may carry forward slashes (and, on Windows, vice
         versa).  The separator difference must not defeat the match."""
         home = Path("c:/opt/data/profiles/coder")
-        cmdline = r"hermes_home=c:\opt\data\profiles\coder hermes gateway run --replace"
+        cmdline = r"hermes_home=c:\opt\data\profiles\coder loki gateway run --replace"
         assert status._command_line_belongs_to_profile(cmdline, home) is True
 
     def test_command_line_belongs_to_profile_rejects_sibling_homes(self):
@@ -457,15 +457,15 @@ class TestGatewayRuntimeStatus:
         (#115031). An exact or absent assignment still matches."""
         home = Path("/fixture/profiles/ops")
         for cmdline in (
-            "HERMES_HOME=/fixture/profiles/ops2 hermes gateway run",
-            "HERMES_HOME=/fixture/profiles/ops-backup hermes gateway run",
-            "HERMES_HOME=/fixture/profiles/ops/2 hermes gateway run",
+            "HERMES_HOME=/fixture/profiles/ops2 loki gateway run",
+            "HERMES_HOME=/fixture/profiles/ops-backup loki gateway run",
+            "HERMES_HOME=/fixture/profiles/ops/2 loki gateway run",
         ):
             assert not status._command_line_belongs_to_profile(cmdline, home), cmdline
         default_home = Path("/opt/hermes-data")
-        assert not status._command_line_belongs_to_profile("HERMES_HOME=/opt/hermes-data2 hermes gateway run", default_home)
-        assert status._command_line_belongs_to_profile("HERMES_HOME=/opt/hermes-data hermes gateway run", default_home)
-        assert status._command_line_belongs_to_profile("hermes gateway run", default_home)
+        assert not status._command_line_belongs_to_profile("HERMES_HOME=/opt/hermes-data2 loki gateway run", default_home)
+        assert status._command_line_belongs_to_profile("HERMES_HOME=/opt/hermes-data loki gateway run", default_home)
+        assert status._command_line_belongs_to_profile("loki gateway run", default_home)
 
     def test_command_line_belongs_to_profile_matches_own_home_spellings_only(self):
         """Token-bounded value AND name: quoted values (ps/wmic re-quoting) and a trailing separator
@@ -473,19 +473,19 @@ class TestGatewayRuntimeStatus:
         embeds the name inside another token and is not an assignment."""
         home = Path("/opt/data/profiles/coder with space")
         assert status._command_line_belongs_to_profile(
-            'hermes_home="/opt/data/profiles/coder with space" hermes gateway run', home)
+            'hermes_home="/opt/data/profiles/coder with space" loki gateway run', home)
         # /proc and psutil hand argv back space-joined, so an unquoted value with a space is cut at
         # the space by the token parser; the whole-home literal match must still claim it.
         assert status._command_line_belongs_to_profile(
-            "HERMES_HOME=/opt/data/profiles/coder with space hermes gateway run", home)
+            "HERMES_HOME=/opt/data/profiles/coder with space loki gateway run", home)
         assert status._command_line_belongs_to_profile(
-            r"HERMES_HOME=C:\Users\John Doe\.hermes hermes gateway run", Path(r"C:\Users\John Doe\.hermes"))
+            r"HERMES_HOME=C:\Users\John Doe\.hermes loki gateway run", Path(r"C:\Users\John Doe\.hermes"))
         assert not status._command_line_belongs_to_profile(
-            "HERMES_HOME=/opt/data/profiles/coder with spaces hermes gateway run", home)
+            "HERMES_HOME=/opt/data/profiles/coder with spaces loki gateway run", home)
         home = Path("/fixture/profiles/ops")
-        assert status._command_line_belongs_to_profile("HERMES_HOME=/fixture/profiles/ops/ hermes gateway run", home)
-        assert status._command_line_belongs_to_profile("HERMES_HOME=/opt/hermes-data/ hermes gateway run", Path("/opt/hermes-data"))
-        assert not status._command_line_belongs_to_profile("FOO=hermes_home=/fixture/profiles/ops hermes gateway run", home)
+        assert status._command_line_belongs_to_profile("HERMES_HOME=/fixture/profiles/ops/ loki gateway run", home)
+        assert status._command_line_belongs_to_profile("HERMES_HOME=/opt/hermes-data/ loki gateway run", Path("/opt/hermes-data"))
+        assert not status._command_line_belongs_to_profile("FOO=hermes_home=/fixture/profiles/ops loki gateway run", home)
 
 
     def test_write_runtime_status_explicit_none_clears_stale_fields(self, tmp_path, monkeypatch):
@@ -790,7 +790,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps({
             "pid": 99999,
             "start_time": 123,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
         }))
 
         # Post-#21561 the liveness probe routes through
@@ -817,7 +817,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps({
             "pid": 873,
             "start_time": None,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["/Users/user/.hermes/hermes-agent/hermes_cli/main.py", "gateway", "run", "--replace"],
         }))
 
@@ -854,7 +854,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps({
             "pid": os.getpid(),
             "start_time": None,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["hermes_cli/main.py", "--profile", "milena", "gateway", "run", "--replace"],
             "scope": "discord-bot-token",
         }))
@@ -886,7 +886,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps({
             "pid": os.getpid(),
             "start_time": None,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
         }))
         monkeypatch.setattr(status, "_get_process_start_time", lambda pid: 987654321)
 
@@ -909,7 +909,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps({
             "pid": os.getpid(),
             "start_time": 111,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["hermes_cli/main.py", "gateway", "run", "--replace"],
             "scope": "discord-bot-token",
         }))
@@ -937,7 +937,7 @@ class TestScopedLocks:
         stale_record = {
             "pid": 99999,
             "start_time": 123,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
         }
         lock_path.write_text(json.dumps(stale_record))
         monkeypatch.setattr(status, "_pid_exists", lambda pid: False)
@@ -945,7 +945,7 @@ class TestScopedLocks:
         winner_record = {
             "pid": 424242,
             "start_time": 456,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "scope": "telegram-bot-token",
         }
         real_replace = os.replace
@@ -976,7 +976,7 @@ class TestScopedLocks:
         lock_path.write_text(json.dumps({
             "pid": 99999,
             "start_time": 123,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
         }))
 
         # Post-#21561: simulate "PID gone" via _pid_exists returning False.
@@ -1000,12 +1000,12 @@ class TestScopedLocks:
         target_lock.write_text(json.dumps({
             "pid": 111,
             "start_time": 222,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
         }))
         other_lock.write_text(json.dumps({
             "pid": 999,
             "start_time": 333,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
         }))
 
         removed = release_all_scoped_locks(
@@ -1227,7 +1227,7 @@ class TestScopedLockTakeover:
         target_home.mkdir(parents=True, exist_ok=True)
         record = {
             "pid": pid,
-            "kind": "hermes-gateway",
+            "kind": "loki-gateway",
             "argv": ["python", "-m", "hermes_cli.main", "gateway", "run"],
             "start_time": start_time,
             "hermes_home": str(target_home),
@@ -1330,7 +1330,7 @@ class TestPlannedStopMarker:
         ``_get_process_start_time`` returns None on macOS / native Windows
         (no ``/proc/<pid>/stat``). The planned-stop watcher only runs there,
         so if the authoritative consume required a non-None start_time match
-        it would always return False — and ``hermes gateway stop`` would be
+        it would always return False — and ``loki gateway stop`` would be
         misclassified as an unexpected ``UNKNOWN`` exit, exit 1, and revived
         by the service manager (the very crash loop #34597 set out to fix).
         With start_time unavailable on BOTH sides we fall back to PID
@@ -1750,7 +1750,7 @@ def test_strict_gateway_identity_raises_on_malformed_active_metadata(
 def test_strict_gateway_identity_rejects_reused_pid(tmp_path, monkeypatch):
     pid_path = tmp_path / "gateway.pid"
     lock_path = tmp_path / "gateway.lock"
-    record = {"pid": 123, "start_time": 10.0, "kind": "hermes-gateway"}
+    record = {"pid": 123, "start_time": 10.0, "kind": "loki-gateway"}
     pid_path.write_text(json.dumps(record), encoding="utf-8")
     lock_path.write_text(json.dumps(record), encoding="utf-8")
     monkeypatch.setattr(status, "_get_gateway_lock_path", lambda _path=None: lock_path)
@@ -1768,7 +1768,7 @@ def test_strict_gateway_identity_adopts_held_lock_when_pid_file_is_gone(tmp_path
     gateway.pid, and raising there aborted every following `hermes update` (#123430)."""
     pid_path = tmp_path / "gateway.pid"
     lock_path = tmp_path / "gateway.lock"
-    record = {"pid": 123, "start_time": 10.0, "kind": "hermes-gateway",
+    record = {"pid": 123, "start_time": 10.0, "kind": "loki-gateway",
               "argv": ["python", "-m", "hermes_cli.main", "gateway", "run", "--replace"]}
     lock_path.write_text(json.dumps(record), encoding="utf-8")
     monkeypatch.setattr(status, "_get_gateway_lock_path", lambda _path=None: lock_path)
@@ -1803,7 +1803,7 @@ def test_pid_record_names_the_entry_point_under_an_inline_launcher(tmp_path, mon
 def test_retained_gateway_state_keeps_watchdog_degraded_like_startup_failed():
     """A watchdog-stamped ``degraded`` of a dead process is a current failure under the same rule as
     ``startup_failed`` (#113372): kept while the operator wants the gateway running, ``stopped`` once
-    ``hermes gateway stop`` records the intent. The startup-time ``degraded`` (retryable platforms, no
+    ``loki gateway stop`` records the intent. The startup-time ``degraded`` (retryable platforms, no
     watchdog exit_reason) of a dead process is just ``stopped``."""
     watchdog = {"gateway_state": "degraded", "exit_reason": "loop_liveness_watchdog"}
     assert status.retained_gateway_state(watchdog) == "degraded"

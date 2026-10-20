@@ -22,7 +22,7 @@ from tools.budget_config import DEFAULT_PREVIEW_SIZE_CHARS, BudgetConfig, DEFAUL
 logger = logging.getLogger(__name__)
 PERSISTED_OUTPUT_TAG = "<persisted-output>"
 PERSISTED_OUTPUT_CLOSING_TAG = "</persisted-output>"
-STORAGE_DIR = os.path.join(tempfile.gettempdir(), "hermes-results")
+STORAGE_DIR = os.path.join(tempfile.gettempdir(), "loki-results")
 SPILLOVER_SUBDIR = "cache/spillover"
 # Fallback spillover age only (unreadable config); the real default is the session
 # retention window — see _spillover_retention_hours().
@@ -66,7 +66,7 @@ def _spillover_retention_hours() -> int:
 
 # How a spill archive is named inside transcript text: every pointer form — the host path,
 # the ``~``-relative translation, the in-container mounted path — carries the ``spillover/<name>``
-# segment. Sandbox-fallback pointers (``…/hermes-results/<name>``) do not, so their host-side
+# segment. Sandbox-fallback pointers (``…/loki-results/<name>``) do not, so their host-side
 # original stays unreferenced and is reclaimed by the orphan sweep, never by ownership.
 # Either separator: Windows host paths are backslashed (JSON-escaped as ``\\`` inside structured content).
 _SPILLOVER_NAME_RE = re.compile(r"spillover(?:/|\\+)([A-Za-z0-9_.-]+)")
@@ -74,7 +74,7 @@ _SPILLOVER_NAME_RE = re.compile(r"spillover(?:/|\\+)([A-Za-z0-9_.-]+)")
 SPILLOVER_SQL_FILTER = "(instr(content, 'spillover') > 0 OR instr(api_content, 'spillover') > 0)"
 
 
-_ARCHIVE_PATH_RE = re.compile(r"(?:^|[/\\])(?:spillover|hermes-results)[/\\][^/\\]+$")
+_ARCHIVE_PATH_RE = re.compile(r"(?:^|[/\\])(?:spillover|loki-results|hermes-results)[/\\][^/\\]+$")
 
 
 def expired_archive_fields(path: str) -> dict:
@@ -257,7 +257,7 @@ def _resolve_storage_dir(env) -> str:
             temp_dir = get_temp_dir()
         except Exception as exc:
             logger.debug("Could not resolve env temp dir: %s", exc)
-    return f"{temp_dir.rstrip('/') or '/'}/hermes-results" if temp_dir else STORAGE_DIR
+    return f"{temp_dir.rstrip('/') or '/'}/loki-results" if temp_dir else STORAGE_DIR
 
 
 def _safe_result_filename(tool_use_id: str) -> str:

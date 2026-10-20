@@ -639,11 +639,11 @@ class TestDeleteProfile:
         # Typed partial success: the filesystem delete completed, the identity did not, and the
         # payload carries what a surfacing caller needs to report it and retry.
         assert ei.value.profile == "gone"
-        assert ei.value.retry_command == "hermes profile purge-identity gone"
+        assert ei.value.retry_command == "loki profile purge-identity gone"
         assert not ei.value.path.exists()
         assert isinstance(ei.value, RuntimeError)  # the CLI handler catches RuntimeError
 
-        assert "hermes profile purge-identity gone" in capsys.readouterr().err
+        assert "loki profile purge-identity gone" in capsys.readouterr().err
         check = SessionDB(tmp_path / ".hermes" / "state.db")
         try:
             # The CLI left the identity alone rather than racing the live owner.
@@ -724,10 +724,10 @@ class TestDeleteProfile:
         procs = [
             # Shebang-exec'd shim bound to coder → matched despite argv[0]
             # being the python interpreter, not "hermes".
-            FakeProc(201, ["/usr/bin/python3", "/Users/x/.local/bin/hermes", "--profile", "coder", "serve",
+            FakeProc(201, ["/usr/bin/python3", "/Users/x/.local/bin/loki", "--profile", "coder", "serve",
                             "--host", "127.0.0.1", "--port", "0"]),
             # Same shape but a different profile → skipped.
-            FakeProc(202, ["/usr/bin/python3", "/Users/x/.local/bin/hermes", "--profile", "other", "serve"]),
+            FakeProc(202, ["/usr/bin/python3", "/Users/x/.local/bin/loki", "--profile", "other", "serve"]),
             # Non-hermes script run by python3 → skipped.
             FakeProc(203, ["/usr/bin/python3", "/Users/x/some_script.py", "--profile", "coder", "serve"]),
         ]
@@ -815,9 +815,9 @@ class TestDeleteProfile:
 
         self_pid = os.getpid()
         procs = [
-            FakeProc(401, ["/usr/bin/python3", "/Users/x/.local/bin/hermes-agent",
+            FakeProc(401, ["/usr/bin/python3", "/Users/x/.local/bin/loki-agent",
                             "--profile", "coder", "serve"]),
-            FakeProc(402, ["/usr/bin/python3", "/Users/x/.local/bin/hermes-acp",
+            FakeProc(402, ["/usr/bin/python3", "/Users/x/.local/bin/loki-acp",
                             "--profile", "coder", "serve"]),
         ]
 
@@ -1025,7 +1025,7 @@ class TestAliasCollision:
         wrapper_dir = profile_env / ".local" / "bin"
         wrapper_dir.mkdir(parents=True, exist_ok=True)
         bat_path = wrapper_dir / "mybot.bat"
-        bat_path.write_text("@echo off\r\nhermes -p mybot %*\r\n", encoding="utf-8")
+        bat_path.write_text("@echo off\r\nloki -p mybot %*\r\n", encoding="utf-8")
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(
                 returncode=0, stdout=str(bat_path),
@@ -1164,7 +1164,7 @@ class TestRenameProfile:
         honcho_path = tmp_path / ".hermes" / "honcho.json"
         honcho_path.write_text(json.dumps({
             "hosts": {
-                "hermes.ssi_health": {
+                "loki.ssi_health": {
                     "recallMode": "hybrid",
                     "writeFrequency": "async",
                     "sessionStrategy": "per-session",
@@ -1181,9 +1181,9 @@ class TestRenameProfile:
             rename_profile("ssi_health", "heimdall")
 
         cfg = json.loads(honcho_path.read_text(encoding="utf-8-sig"))
-        assert "hermes.ssi_health" not in cfg["hosts"]
-        assert cfg["hosts"]["hermes_heimdall"]["aiPeer"] == "ssi_health"
-        assert cfg["hosts"]["hermes_heimdall"]["peerName"] == "user-peer"
+        assert "loki.ssi_health" not in cfg["hosts"]
+        assert cfg["hosts"]["loki_heimdall"]["aiPeer"] == "ssi_health"
+        assert cfg["hosts"]["loki_heimdall"]["peerName"] == "user-peer"
 
     def test_multiplexed_rename_unroutes_old_then_hot_serves_new(self, profile_env):
         """Under a live multiplexer the old name is tombstoned + unrouted BEFORE the directory
@@ -1321,7 +1321,7 @@ class TestRenameProfile:
              patch("hermes_cli.profiles._notify_multiplexer"), \
              patch("gateway.control_socket.migrate_gateway_profile_identity", return_value=None):
             rename_profile("oldname", "newname")
-        assert "hermes profile migrate-identity oldname newname" in capsys.readouterr().err
+        assert "loki profile migrate-identity oldname newname" in capsys.readouterr().err
 
         # Gateway restarted/stopped → the retry command repairs both stores.
         with patch("hermes_cli.profiles._live_default_multiplexer", return_value=False):
@@ -1626,8 +1626,8 @@ class TestEdgeCases:
             json.dumps(
                 {
                     "pid": live_pid,
-                    "kind": "hermes-gateway",
-                    "argv": ["hermes", "gateway", "run"],
+                    "kind": "loki-gateway",
+                    "argv": ["loki", "gateway", "run"],
                     "start_time": gw_status._get_process_start_time(live_pid),
                     "gateway_state": "running",
                     "active_agents": 0,
@@ -1645,7 +1645,7 @@ class TestEdgeCases:
         # runs the gateway with no profile flag).
         with patch("gateway.status.get_running_pid", return_value=None), patch(
             "gateway.status._read_process_cmdline",
-            return_value="hermes gateway run --replace",
+            return_value="loki gateway run --replace",
         ):
             assert _check_gateway_running(default_home) is True
 

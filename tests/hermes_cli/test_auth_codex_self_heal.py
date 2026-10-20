@@ -10,6 +10,8 @@ surfacing a hard 401 — but ONLY for relogin-required failures, never for trans
 ones (e.g. 429 quota, where the stored token is still valid).
 """
 
+from tests.loki_auth_fixture import configure_auth
+
 import base64
 import json
 import time
@@ -25,6 +27,7 @@ STALE = {"access_token": "stale-access", "refresh_token": "stale-refresh"}
 
 def test_self_heals_on_stale_refresh_token(monkeypatch):
     """invalid_grant (relogin-required) → reimport from ~/.codex and persist it."""
+    configure_auth(monkeypatch, clients=("openai-codex",), adopt_external_logins=True)
     saved = {}
     fresh = {
         "access_token": "fresh-access",
@@ -65,6 +68,7 @@ def test_self_heals_on_stale_refresh_token(monkeypatch):
 
 def test_self_heals_missing_singleton_access_token_from_codex_cli(tmp_path, monkeypatch):
     """Exact cron failure path: Hermes auth has refresh_token but missing access_token."""
+    configure_auth(monkeypatch, clients=("openai-codex",), adopt_external_logins=True)
     hermes_home = tmp_path / "hermes"
     codex_home = tmp_path / "codex"
     hermes_home.mkdir()
@@ -104,6 +108,7 @@ def test_opt_out_never_adopts_codex_cli_login(tmp_path, monkeypatch):
     """``auth.adopt_external_logins: false`` (#113023): the Codex CLI pair is a single-use refresh-token
     family the user did not hand to Hermes. Both automatic recovery paths must leave it (and Hermes' own
     auth.json) untouched and surface the real error instead."""
+    configure_auth(monkeypatch, clients=("openai-codex",))
     hermes_home = tmp_path / "hermes"
     codex_home = tmp_path / "codex"
     hermes_home.mkdir()
@@ -154,6 +159,7 @@ def _seed_homes(tmp_path, monkeypatch, hermes_tokens, cli_tokens):
 def test_recovery_refuses_codex_cli_login_from_another_workspace(tmp_path, monkeypatch, caplog):
     """#73667: a Codex Desktop/CLI login into ANOTHER ChatGPT workspace must not silently replace the
     Hermes credential it is supposed to repair — the store stays byte-identical and the log says why."""
+    configure_auth(monkeypatch, clients=("openai-codex",), adopt_external_logins=True)
     personal, team = _codex_jwt("acct-personal"), _codex_jwt("acct-team")
     auth_file = _seed_homes(tmp_path, monkeypatch, {"access_token": personal},
                             {"access_token": team, "refresh_token": "rt-team"})
@@ -170,6 +176,7 @@ def test_recovery_refuses_codex_cli_login_from_another_workspace(tmp_path, monke
 def test_recovery_does_not_overwrite_concurrent_reauth(tmp_path, monkeypatch):
     """#73667 (review): an explicit re-auth landing between the failed read and the recovery save must
     win — the save is a compare-and-swap on the observed access_token, not a blind overwrite."""
+    configure_auth(monkeypatch, clients=("openai-codex",), adopt_external_logins=True)
     personal, reauthed = _codex_jwt("acct-personal"), _codex_jwt("acct-personal", sub="user-1-fresh")
     auth_file = _seed_homes(tmp_path, monkeypatch, {"access_token": personal},
                             {"access_token": _codex_jwt("acct-personal"), "refresh_token": "rt-cli"})

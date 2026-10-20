@@ -19,7 +19,8 @@ from pathlib import Path
 from typing import Any, Optional
 
 from agent.reasoning_effort import EFFORT_LADDER
-from hermes_cli.version_info import get_version_info
+from hermes_cli.version_info import get_version_info as get_version_info
+from loki_identity import CLIENT_USER_AGENT
 from providers import register_provider
 from providers.base import ProviderProfile, _profile_user_agent
 
@@ -294,7 +295,7 @@ router = RouterProfile(
     env_vars=("RAMP_ROUTER_API_KEY", "ROUTER_API_KEY", "RAMP_ROUTER_BASE_URL"), base_url=_base_url(),
     auth_type="api_key",
     # Router attributes coding-agent clients by UA prefix; its WAF rejects default UAs.
-    default_headers={"User-Agent": f"Hermes-Agent/{get_version_info().base_version}"},
+    default_headers={"User-Agent": CLIENT_USER_AGENT},
     supports_vision=True, default_aux_model="gpt-5.4-mini",
     fallback_models=(),  # account-scoped IDs; the picker uses fetch_models()
 )

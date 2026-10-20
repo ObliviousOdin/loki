@@ -53,7 +53,7 @@ def _git(repo: Path, *args: str) -> str:
 
 
 def _stage(origin: Path, home: Path, *extra: str, **env_extra: str) -> tuple[subprocess.CompletedProcess, dict]:
-    env = dict(os.environ, HERMES_REPO_URL=str(origin), HERMES_HOME=str(home), **env_extra)
+    env = dict(os.environ, LOKI_REPO_URL=str(origin), LOKI_HOME=str(home), **env_extra)
     result = subprocess.run([_powershell(), "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(INSTALLER),
                              "-Stage", "repository", "-Json", *extra],
                             env=env, capture_output=True, text=True, timeout=180, check=False)
@@ -67,6 +67,8 @@ def test_rerun_parks_local_work_and_pins_only_branch_commits(tmp_path):
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
     (origin / "README").write_text("one", encoding="utf-8")
+    (origin / "pyproject.toml").write_text('[project]\nname = "obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(origin, "add", "pyproject.toml")
     _git(origin, "add", "README")
     _git(origin, "commit", "-qm", "one")
     home = tmp_path / "home"
@@ -97,6 +99,8 @@ def _pin_fixture(tmp_path: Path) -> tuple[Path, str, str]:
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
     (origin / "README").write_text("one", encoding="utf-8")
+    (origin / "pyproject.toml").write_text('[project]\nname = "obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(origin, "add", "pyproject.toml")
     _git(origin, "add", "README")
     _git(origin, "commit", "-qm", "one")
     pin = _git(origin, "rev-parse", "HEAD")

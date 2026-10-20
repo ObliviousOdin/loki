@@ -11,7 +11,7 @@
 # the first run populated the folder ("exists and is not a Hermes git
 # checkout"), and `git stash --include-untracked` would sweep the toolchain
 # into the stash. The installer now refuses the combination up front, before
-# any download, unless HERMES_RUNTIME_DIR parks the store elsewhere.
+# any download, unless LOKI_RUNTIME_DIR parks the store elsewhere.
 #
 # HOW THIS RUNS THE CODE: by executing install.ps1 as a real subprocess with
 # crafted -HermesHome / -InstallDir arguments. -ShowResolvedPaths is a
@@ -52,13 +52,13 @@ function Invoke-ResolvedPaths {
 
     $psExe = (Get-Process -Id $PID).Path
     $outFile = [System.IO.Path]::GetTempFileName()
-    $savedRuntimeDir = [Environment]::GetEnvironmentVariable('HERMES_RUNTIME_DIR')
+    $savedRuntimeDir = [Environment]::GetEnvironmentVariable('LOKI_RUNTIME_DIR')
     $savedHermesHome = [Environment]::GetEnvironmentVariable('HERMES_HOME')
     try {
         if ($null -eq $savedRuntimeDir) {
-            Remove-Item Env:HERMES_RUNTIME_DIR -ErrorAction SilentlyContinue
+            Remove-Item Env:LOKI_RUNTIME_DIR -ErrorAction SilentlyContinue
         } else {
-            $env:HERMES_RUNTIME_DIR = $savedRuntimeDir
+            $env:LOKI_RUNTIME_DIR = $savedRuntimeDir
         }
         if ($null -eq $savedHermesHome) {
             Remove-Item Env:HERMES_HOME -ErrorAction SilentlyContinue
@@ -81,9 +81,9 @@ function Invoke-ResolvedPaths {
         return @{ ExitCode = $exitCode; Stdout = $stdout; All = ($raw -join "`n") }
     } finally {
         if ($null -eq $savedRuntimeDir) {
-            Remove-Item Env:HERMES_RUNTIME_DIR -ErrorAction SilentlyContinue
+            Remove-Item Env:LOKI_RUNTIME_DIR -ErrorAction SilentlyContinue
         } else {
-            $env:HERMES_RUNTIME_DIR = $savedRuntimeDir
+            $env:LOKI_RUNTIME_DIR = $savedRuntimeDir
         }
         if ($null -eq $savedHermesHome) {
             Remove-Item Env:HERMES_HOME -ErrorAction SilentlyContinue
@@ -121,19 +121,19 @@ try {
         Assert-True ("$($paths.install_dir)" -eq $dir1) 'install_dir echoes the requested -InstallDir'
     }
 
-    # 4. HERMES_RUNTIME_DIR outside the checkout lifts the refusal: the store
+    # 4. LOKI_RUNTIME_DIR outside the checkout lifts the refusal: the store
     #    no longer lands inside InstallDir, so the configuration is legitimate.
     $storeElsewhere = Join-Path $base 'store'
-    $saved = $env:HERMES_RUNTIME_DIR
+    $saved = $env:LOKI_RUNTIME_DIR
     try {
-        $env:HERMES_RUNTIME_DIR = $storeElsewhere
+        $env:LOKI_RUNTIME_DIR = $storeElsewhere
         $r = Invoke-ResolvedPaths @('-HermesHome', $home1, '-InstallDir', $home1)
-        Assert-True ($r.ExitCode -eq 0) "HERMES_RUNTIME_DIR outside lifts the refusal (exit $($r.ExitCode))"
+        Assert-True ($r.ExitCode -eq 0) "LOKI_RUNTIME_DIR outside lifts the refusal (exit $($r.ExitCode))"
     } finally {
         if ($null -eq $saved) {
-            Remove-Item Env:HERMES_RUNTIME_DIR -ErrorAction SilentlyContinue
+            Remove-Item Env:LOKI_RUNTIME_DIR -ErrorAction SilentlyContinue
         } else {
-            $env:HERMES_RUNTIME_DIR = $saved
+            $env:LOKI_RUNTIME_DIR = $saved
         }
     }
 

@@ -8,6 +8,8 @@ a second POST returns ``invalid_grant``).
 """
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import io
 import json
 import os
@@ -277,7 +279,8 @@ def test_strip_helper_fails_closed_when_store_identity_check_errors(fleet, monke
     assert (copied / "auth.json").read_text() == before
 
 
-def test_first_profile_rotation_does_not_strand_root_or_siblings(fleet):
+def test_first_profile_rotation_does_not_strand_root_or_siblings(fleet, monkeypatch):
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.credential_pool import load_pool
 
     forge = _profile(fleet, "forge")
@@ -298,7 +301,8 @@ def test_first_profile_rotation_does_not_strand_root_or_siblings(fleet):
     assert fleet["rows"](atlas) is None and fleet["rows"](forge) is None
 
 
-def test_agent_init_resolver_sees_sibling_rotation(fleet):
+def test_agent_init_resolver_sees_sibling_rotation(fleet, monkeypatch):
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.anthropic_credentials import resolve_anthropic_token
     from agent.credential_pool import load_pool
 
@@ -321,9 +325,10 @@ def test_borrowing_profile_load_pool_does_not_materialize_local_copy(fleet):
     assert fleet["rows"](fresh) is None
 
 
-def test_borrower_prune_never_deletes_root_singleton_grant(fleet, tmp_path):
+def test_borrower_prune_never_deletes_root_singleton_grant(fleet, tmp_path, monkeypatch):
     """Root's hermes_pkce row is seeded from ROOT's .anthropic_oauth.json; a
     profile without that file must not prune (and write-through-delete) it."""
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.credential_pool import load_pool
 
     root = fleet["root"]
@@ -473,7 +478,8 @@ def test_auth_add_never_reports_added_for_a_row_the_store_did_not_keep(fleet, mo
     assert "Added" not in capsys.readouterr().out
 
 
-def test_classic_mode_persist_is_unchanged(fleet):
+def test_classic_mode_persist_is_unchanged(fleet, monkeypatch):
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.credential_pool import load_pool
 
     fleet["use"](fleet["root"])
@@ -512,8 +518,9 @@ def _fork(fleet, name, *, rotated_to=None):
     return pdir
 
 
-def test_heal_consolidates_existing_forks_to_the_live_copy(fleet, caplog):
+def test_heal_consolidates_existing_forks_to_the_live_copy(fleet, caplog, monkeypatch):
     """root + atlas hold spent RT0; forge already rotated to RT1 on old code."""
+    configure_auth(monkeypatch, clients=("anthropic",))
     import logging
     from agent.credential_pool import load_pool
 
@@ -567,9 +574,10 @@ def test_heal_is_idempotent_and_logs_once(fleet, caplog):
     assert sum("consolidated forked" in r.message for r in caplog.records) == 1
 
 
-def test_heal_never_deletes_the_only_surviving_copy(fleet):
+def test_heal_never_deletes_the_only_surviving_copy(fleet, monkeypatch):
     """Root lost its grant (user ran `hermes auth remove` at root); the profile's
     copy is the only one left — and an independent second account stays put."""
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.credential_pool import load_pool
 
     kid = _fork(fleet, "kid", rotated_to=1)
@@ -692,9 +700,10 @@ def test_heal_leaves_a_different_account_alone(fleet):
     assert json.loads((fleet["root"] / "auth.json").read_text())["credential_pool"]["xai-oauth"][0]["refresh_token"] == "xr-alice"
 
 
-def test_heal_pkce_singleton_shape_commits_live_pair_to_root_singleton(fleet):
+def test_heal_pkce_singleton_shape_commits_live_pair_to_root_singleton(fleet, monkeypatch):
     """`hermes auth` PKCE shape: root + profile each have .anthropic_oauth.json +
     a hermes_pkce-seeded row; the profile's copy is the rotated (live) one."""
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.credential_pool import load_pool
 
     root = fleet["root"]
@@ -935,7 +944,8 @@ def test_persisted_mark_still_re_heals_when_the_root_store_gains_a_grant(fleet):
 # ── G. token generation is the authority boundary (#120815) ─────────────
 
 @pytest.mark.parametrize("borrowed", [False, True], ids=["owned-rows", "borrowed-root-rows"])
-def test_stale_terminal_verdict_cannot_kill_peer_token_generation(fleet, borrowed):
+def test_stale_terminal_verdict_cannot_kill_peer_token_generation(fleet, borrowed, monkeypatch):
+    configure_auth(monkeypatch, clients=("anthropic",))
     from agent.credential_pool import STATUS_DEAD, STATUS_EXHAUSTED, load_pool
 
     fleet["use"](_profile(fleet, "stale-dead") if borrowed else fleet["root"])

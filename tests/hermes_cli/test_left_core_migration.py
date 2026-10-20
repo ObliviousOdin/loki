@@ -410,7 +410,7 @@ def test_old_langfuse_plugin_key_keeps_naming_the_catalog_plugin(tmp_path, monke
     for name in ("observability/langfuse", "langfuse"):
         message = _unknown_plugin_message(name)
         assert "moved out of core into the 'langfuse' plugin" in message
-        assert "hermes plugins install langfuse" in message
+        assert "loki plugins install langfuse" in message
     assert "moved out of core" not in _unknown_plugin_message("nonexistent")
 
     plugin_dir = home / "plugins" / "langfuse"

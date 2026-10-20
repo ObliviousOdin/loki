@@ -1,4 +1,6 @@
 """Private native grants authenticate HTTP, never another purpose or profile."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 from contextlib import contextmanager
 import json
@@ -39,7 +41,7 @@ def daemon(tmp_path):
                PYTHONPATH=str(root), PYTHONUNBUFFERED='1',
                HERMES_DASHBOARD_SESSION_TOKEN='normal-http-owner')
     with (tmp_path / 'gateway.log').open('w+') as log:
-        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=env,
+        process = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=root, env=bind_fixture_child_env(env),
                                    stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             deadline = time.monotonic() + 40

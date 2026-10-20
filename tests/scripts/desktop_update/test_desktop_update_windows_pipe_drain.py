@@ -109,10 +109,10 @@ def test_update_step_survives_pipe_leak_flood_and_live_child_stall(
         # Keep the test quick. The grace is what the fix bounds; the hold is
         # how long the leaking grandchild lives. hold >> grace is what makes a
         # regression measurable rather than lucky.
-        "HERMES_UPDATE_PIPE_DRAIN_SECONDS": "3",
+        "LOKI_UPDATE_PIPE_DRAIN_SECONDS": "3",
         # Cold PowerShell children can take more than three seconds to emit.
-        "HERMES_UPDATE_STEP_IDLE_SECONDS": "15",
-        "HERMES_SELFTEST_HOLD_SECONDS": "45",
+        "LOKI_UPDATE_STEP_IDLE_SECONDS": "15",
+        "LOKI_SELFTEST_HOLD_SECONDS": "45",
     }
 
     result = subprocess.run(

@@ -9,9 +9,9 @@ body:
         Thanks for reporting a bug! Please fill out the sections below so we can reproduce and fix it quickly.
 
         **Before submitting**, please:
-        - [ ] Search [existing issues](https://github.com/NousResearch/hermes-agent/issues) to avoid duplicates
-        - [ ] Update to the latest version (`hermes update`) and confirm the bug still exists
-        - [ ] Run `hermes debug share` and paste the links below (see Debug Report section)
+        - [ ] Search [existing issues](https://github.com/ObliviousOdin/loki/issues) to avoid duplicates
+        - [ ] Update to the latest version (`loki update`) and confirm the bug still exists
+        - [ ] Run `loki debug share --local` and review the report before sharing an excerpt below
 
   - type: textarea
     id: description
@@ -29,7 +29,7 @@ body:
       label: Steps to Reproduce
       description: Minimal steps to trigger the bug. The more specific, the faster we can fix it.
       placeholder: |
-        1. Run `hermes chat`
+        1. Run `loki chat`
         2. Send the message "..."
         3. Agent calls tool X
         4. Error appears: ...
@@ -56,7 +56,7 @@ body:
     id: component
     attributes:
       label: Affected Component
-      description: Which part of Hermes is affected?
+      description: Which part of Loki is affected?
       multiple: true
       options:
         - CLI (interactive chat)
@@ -65,7 +65,7 @@ body:
         - Tools (terminal, file ops, web, code execution, etc.)
         - Skills (skill loading, skill hub, skill guard)
         - Agent Core (conversation loop, context compression, memory)
-        - Configuration (config.yaml, .env, hermes setup)
+        - Configuration (config.yaml, .env, loki setup)
         - Other
     validations:
       required: true
@@ -88,16 +88,10 @@ body:
     attributes:
       label: Debug Report
       description: |
-        Run `hermes debug share` from your terminal and paste the links it prints here.
-        This uploads your system info, config, and recent logs to a paste service automatically.
-
-        If you're in an interactive chat session, you can also use the `/debug` slash command — it does the same thing.
-
-        If the upload fails, run `hermes debug share --local` and paste the output directly.
+        Run `loki debug share --local` to view the report locally.
+        Review it, remove credentials and private session data, then include only the excerpt needed to reproduce this issue.
       placeholder: |
-        Report   https://paste.rs/abc123
-        agent.log   https://paste.rs/def456
-        gateway.log   https://paste.rs/ghi789
+        Relevant diagnostic excerpt, with private information removed
       render: shell
     validations:
       required: true
@@ -119,11 +113,11 @@ body:
       placeholder: "3.11.9"
 
   - type: input
-    id: hermes-version
+    id: loki-version
     attributes:
-      label: Hermes Version
-      description: Output of `hermes version`
-      placeholder: "2.1.0"
+      label: Loki Version
+      description: Output of `loki --version`
+      placeholder: "0.1.0a1"
 
   - type: textarea
     id: logs
@@ -131,7 +125,7 @@ body:
       label: Additional Logs / Traceback (optional)
       description: |
         The debug report above covers most logs. Use this field for any extra error output, 
-        tracebacks, or screenshots not captured by `hermes debug share`.
+        tracebacks, or screenshots not captured by `loki debug share`.
       render: shell
 
   - type: textarea

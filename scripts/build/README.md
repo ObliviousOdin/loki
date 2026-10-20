@@ -152,7 +152,10 @@ node scripts/build/freshness.mjs --source /work/source --product tui --out /work
 
 The result is a JSON boolean. Missing receipts, changed inputs (including supplied
 inputs outside source), missing prepared trees, or damaged outputs are stale.
-Receipts describe a source build, not a portable dependency cache; immutable
+Receipts describe a source build, not a portable dependency cache. They deliberately
+retain absolute prepared-input paths for local validation. Agent assembly, native
+desktop packaging and Nix frontend installation omit only the root `hermes-build.json`
+from shipped copies; their runtime files and attribution remain intact. Immutable
 distributions use their existing prebuilt launch path instead. They replace the
 old Python per-profile hashes and TUI mtime lists, not PM's dependency receipts.
 
@@ -351,7 +354,7 @@ All supplied filesystem input paths must be absolute and exist. `repo` and
 | `env` | No | Additional environment values in the reference-placement command map |
 
 Recognized resource names are `skills`, `optional-skills`, `plugins`, `locales`,
-and `optional-mcps`. Distribution adapters supply the required resources.
+`optional-mcps`, and `plugin-catalog`. Distribution adapters supply the required resources.
 The generic assembler does not infer a missing resource mapping. TUI inputs
 require `dist/entry.js` and `package.json`. Web inputs require `index.html`.
 

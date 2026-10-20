@@ -1,9 +1,12 @@
-# Hermes Agent - Development Guide
+# Loki Development Guide
 
-For AI coding assistants and developers working on hermes-agent. This root file is a hub: what
-applies everywhere, then a routing table. Each area's `AGENTS.md` loads automatically when you work
-in that directory; read it before editing there. `python scripts/check` caps this file at 12k chars
-and every root-to-area chain at 30k, so it loads whole on 128k+ models: long form goes in the guide.
+Loki is an independent Hermes fork. Command: `loki`; public overrides:
+`LOKI_HOME`/`LOKI_RUNTIME_DIR`. See `docs/loki/MAINTENANCE.md` for fork boundaries.
+Internal module, schema and protocol names remain compatible.
+
+Root rules apply everywhere. Read the area's `AGENTS.md` before editing there.
+`python scripts/check` caps this file at 12k chars and each root-to-area chain at
+30k; long-form background belongs in the developer guide.
 
 **Never give up on the right solution.**
 
@@ -50,7 +53,7 @@ isolation is often the design (profiles are islands on purpose), an absence can 
 and a fix that cannot point to the line where the bug manifests has an unverified premise.
 
 **Security:** `SECURITY.md` is the scope authority. A §3.1 finding goes private (GitHub Security
-Advisories or security@nousresearch.com), never into a public issue, PR, commit or comment; §3.2
+Advisories through the private channel in `SECURITY.md`), never into a public issue, PR, commit or comment; §3.2
 hardening is ordinary public work. Name the §2 boundary crossed, with a repro on `main`.
 
 **Footprint ladder** (take the highest rung that solves it): extend existing code → CLI command +
@@ -95,7 +98,7 @@ hermes-agent/
 └── tests/                # Pytest suite, mirrors the source tree
 ```
 
-**User state:** `~/.hermes/config.yaml` (settings), `.env` (secrets only), `logs/` (`hermes logs`);
+**User state:** `~/.loki/config.yaml` (settings), `.env` (secrets only), `logs/` (`hermes logs`);
 all profile-aware via `get_hermes_home()`.
 
 ### Facade + siblings layout

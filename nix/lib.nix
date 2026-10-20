@@ -106,7 +106,7 @@ let
   # Python source: everything except JS/TS/docs/infra directories.
   pythonSrc = lib.cleanSourceWith {
     src = repoRoot;
-    name = "hermes-python-source";
+    name = "loki-python-source";
     filter =
       path: type:
       let
@@ -136,7 +136,7 @@ let
             # Nix build definitions (Python build doesn't need these)
             "nix"
             # Skills are shipped via HERMES_BUNDLED_SKILLS /
-            # HERMES_OPTIONAL_SKILLS (see hermes-agent.nix), not via the
+            # HERMES_OPTIONAL_SKILLS (see loki.nix), not via the
             # wheel's data_files — setup.py's _data_file_tree returns []
             # for a missing dir, so the wheel builds fine without them.
             # This keeps SKILL.md edits from rebuilding the Python venv.
@@ -148,6 +148,8 @@ let
             # keeps catalog edits from rebuilding the Python venv.
             "locales"
             "optional-mcps"
+            # Plugin pins are immutable resource data, bound independently of the wheel.
+            "plugin-catalog"
           ];
         excludedFiles = [
           # JS root manifests

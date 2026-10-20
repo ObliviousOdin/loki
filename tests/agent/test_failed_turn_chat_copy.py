@@ -92,12 +92,12 @@ def test_oauth_rejection_chat_text_names_the_provider_slug_and_the_failing_profi
         provider="openai-codex", model="gpt-5.6-sol", agent=_Recorder(),
     )
     text = result["final_response"]
-    assert "`hermes -p codex auth add openai-codex --type oauth`" in text
+    assert "`loki -p codex auth add openai-codex --type oauth`" in text
     assert "<provider>" not in text
     assert "token_revoked" in text  # the raw error survives for the judge to quote
     # The CLI 💡 hint names the same command; it no longer sends the user to a bare `hermes auth`.
     cli_hint = "\n".join(hints)
-    assert "`hermes -p codex auth add openai-codex --type oauth`" in cli_hint, cli_hint
+    assert "`loki -p codex auth add openai-codex --type oauth`" in cli_hint, cli_hint
     assert "`hermes auth`" not in cli_hint, cli_hint
 
 

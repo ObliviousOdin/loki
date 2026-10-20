@@ -21,9 +21,9 @@ def temp_pyproject(tmp_path, monkeypatch):
         version = "0.0.0"
 
         [project.scripts]
-        hermes = "hermes_cli.main:main"
-        hermes-agent = "run_agent:main"
-        hermes-acp = "acp_adapter.entry:main"
+        loki = "hermes_cli.main:main"
+        loki-agent = "run_agent:main"
+        loki-acp = "acp_adapter.entry:main"
     """
         )
     )
@@ -48,5 +48,5 @@ class TestHermesExeShims:
     ):
         names = {path.name for path in main_install_repair._hermes_exe_shims(fake_scripts_dir)}
 
-        assert {"hermes.exe", "hermes-agent.exe", "hermes-acp.exe"} <= names
-        assert "hermes-gateway.exe" in names
+        assert {"loki.exe", "loki-agent.exe", "loki-acp.exe"} <= names
+        assert "loki-gateway.exe" in names

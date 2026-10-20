@@ -119,7 +119,7 @@ function ContentsRow({
     ? copy.agentTargetRemote(profile.label)
     : copy.agentTargetLocal(
         profile.label,
-        profile.value === 'default' ? '~/.hermes/plugins/' : `~/.hermes/profiles/${profile.value}/plugins/`
+        profile.value === 'default' ? '~/.loki/plugins/' : `~/.loki/profiles/${profile.value}/plugins/`
       )
 
   const lines = [

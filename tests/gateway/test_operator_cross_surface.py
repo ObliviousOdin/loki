@@ -7,6 +7,8 @@ import sys
 
 import pytest
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 
 @pytest.mark.platforms("linux")
 @pytest.mark.parametrize('creator', ['native', 'dashboard'])
@@ -19,6 +21,7 @@ def test_operator_cross_surface_real_auth_fifo_and_attribution(tmp_path, creator
     env = {key: os.environ[key] for key in ('PATH', 'LANG', 'TZ') if key in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home),
                PYTHONPATH=str(root), PYTHONUNBUFFERED='1')
+    env = bind_fixture_child_env(env)
     result = subprocess.run(
         [sys.executable, str(root / 'tests/gateway/fixtures/operator_cross_surface_peer.py'), creator],
         cwd=root, env=env, capture_output=True, text=True, timeout=150, check=False)

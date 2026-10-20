@@ -357,7 +357,7 @@ async def test_host_values_apply_only_over_a_gateway_proven_local_attach(tmp_pat
     from tools.environments.local import _make_run_env
     home = _home(tmp_path, 'platform_toolsets: {cli: []}\nmodel: {default: m}\n')  # no configured provider
     repo = tmp_path / 'repo'
-    (repo / '.hermes' / 'plugins' / 'mine').mkdir(parents=True)
+    (repo / '.loki' / 'plugins' / 'mine').mkdir(parents=True)
     for name in ('gateway', 'client'):
         (home / f'{name}.json').write_text(json.dumps([{'role': 'user', 'content': name}]))
     monkeypatch.setenv('HERMES_PREFILL_MESSAGES_FILE', str(home / 'gateway.json'))

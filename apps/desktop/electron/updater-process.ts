@@ -38,10 +38,10 @@ export function resolveInstallationLauncher(
   isWindows: boolean = process.platform === 'win32',
   hermesHome: string = process.env.HERMES_HOME ?? ''
 ): string | null {
-  const names: string[] = isWindows ? ['hermes.exe', 'hermes.cmd'] : ['hermes']
+  const names: string[] = isWindows ? ['loki.exe', 'loki.cmd'] : ['loki']
 
   for (const name of names) {
-    const candidate: string = path.join(updateRoot, '.hermes', 'bin', name)
+    const candidate: string = path.join(updateRoot, '.loki', 'bin', name)
 
     if (stagedFileExists(candidate)) {
       return candidate
@@ -78,7 +78,7 @@ const CMD_UNSAFE_PATH: RegExp = /["%&|<>^\r\n]/
 
 /** Published user-bin launchers, at fixed locations: a GUI launch's PATH may omit them. */
 function userBinLaunchers(isWindows: boolean, hermesHome: string, extraDirs: string[] = []): string[] {
-  const names: string[] = isWindows ? ['hermes.exe', 'hermes.cmd'] : ['hermes']
+  const names: string[] = isWindows ? ['loki.exe', 'loki.cmd'] : ['loki']
   const defaultHome: string = platformDefaultHermesHome(os.homedir(), process.env, isWindows ? 'win32' : 'linux')
 
   const dirs: string[] = isWindows
@@ -712,7 +712,7 @@ export interface ObserveUpdaterHandoffDeps {
  */
 export function describeUpdaterHandoffFailure(outcome: Pick<UpdaterHandoffOutcome, 'message'>): string {
   const lead =
-    "The updater couldn't start, so nothing was changed and Hermes keeps running as before. " +
+    "The updater couldn't start, so nothing was changed and Loki keeps running as before. " +
     'Try again; if it keeps failing, open the logs and send them to support.'
 
   return outcome.message ? `${lead}\n\nDetails: ${outcome.message}` : lead

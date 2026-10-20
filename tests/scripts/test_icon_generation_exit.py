@@ -92,10 +92,10 @@ def test_write_status_includes_every_target(tmp_path, monkeypatch, capsys, failu
 @pytest.mark.parametrize("platform", ["", "mac-"])
 @pytest.mark.parametrize("appearance,girl", [("light", "black"), ("dark", "white")])
 @pytest.mark.parametrize("colors", [None, ("#f5cc32", "#443808"), ("#e34850", "#4a1117")])
-def test_icon_portrait_sits_on_the_plain_tile_inside_the_outer_silhouette(monkeypatch, platform, appearance, girl, colors):
+def test_icon_art_is_fitted_without_distortion_inside_the_outer_silhouette(monkeypatch, platform, appearance, girl, colors):
     """The tile keeps the background's own geometry and fill with no stroke
-    (the ring is disabled), the portrait is clipped to that outline and its
-    lowest nodes are dragged past the bottom edge so the clip crops her."""
+    (the ring is disabled), and the artwork fits its box without the upstream
+    portrait-specific deformation. The outer clip still contains the badge."""
     monkeypatch.setitem(sys.modules, "resvg_py", ModuleType("resvg_py"))
     source = Path(__file__).resolve().parents[2]
     spec = importlib.util.spec_from_file_location("icon_geometry_under_test", source / "scripts/generate_icons.py")
@@ -122,27 +122,28 @@ def test_icon_portrait_sits_on_the_plain_tile_inside_the_outer_silhouette(monkey
     assert clip is not None
     assert tuple(float(clip.attrib[key]) for key in ("x", "y", "width", "height", "rx")) == geometry
     group = result[-1]
-    portrait = group[-1]
+    portrait = group[0]
     portraits = [child for child in group if child.tag == f"{{{ns['svg']}}}svg"]
     assert portraits == [portrait], "extend the existing contour, not a duplicate strip"
-    # The commit badge rides inside the same clip, so its anti-aliased edge can
-    # never add alpha outside the plate (visible at targetsize-16..30).
-    assert [child.tag for child in group[:-1]] == [f"{{{ns['svg']}}}g"]
+    # The badge paints last for legible glyphs, inside the same outer clip so
+    # its anti-aliased edge never adds alpha outside the plate.
+    assert [child.tag for child in group] == [f"{{{ns['svg']}}}svg", f"{{{ns['svg']}}}g"]
     assert portrait.get("preserveAspectRatio") == "xMidYMax meet"
     assert tuple(float(portrait.attrib[key]) for key in ("x", "y", "width", "height")) == module.GIRL_BOXES[name]
     clip_path = result.find("svg:defs/svg:clipPath", ns)
     assert clip_path is not None
     assert group.get("clip-path") == f"url(#{clip_path.attrib['id']})"
-    assert portrait.get("overflow") == "visible"
+    assert portrait.get("overflow") is None
     assert len(result.findall(".//svg:path", ns)) == 2  # one badge and one portrait
-    # The dragged bottom node lands below the tile: the clip, not a gap, ends her.
-    _x, y, width, height, _ = geometry
+    # Loki artwork remains fully visible and is not dragged below its fitted box.
+    _x, y, _width, height, _ = geometry
     _, by, bw, bh = art.bboxes[girl]
     box_y, box_h = module.GIRL_BOXES[name][1], module.GIRL_BOXES[name][3]
     scale = min(module.GIRL_BOXES[name][2] / bw, box_h / bh)
     lowest_raw_y = max(float(v) for v in re.findall(r"[-+]?\d*\.?\d+", portrait[0].attrib["d"])[1::2])
     lowest_tile_y = box_y + box_h - bh * scale + (lowest_raw_y - by) * scale  # xMidYMax: bottom-aligned
-    assert lowest_tile_y == pytest.approx(y + height + width * module.EDGE_OVERSHOOT)
+    assert lowest_tile_y == pytest.approx(box_y + box_h)
+    assert lowest_tile_y <= y + height
 
 
 def test_bottom_node_drag_preserves_upper_geometry_and_path_transform(monkeypatch):

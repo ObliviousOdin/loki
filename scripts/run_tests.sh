@@ -77,8 +77,8 @@ fi
 # ── Live-gateway plugin (computed before we drop env) ───────────────────────
 EXTRA_PYTHONPATH=""
 EXTRA_PYTEST_PLUGINS=""
-if [ -f "$HOME/.hermes/pytest_live_guard.py" ]; then
-  EXTRA_PYTHONPATH="$HOME/.hermes"
+if [ -f "$HOME/.loki/pytest_live_guard.py" ]; then
+  EXTRA_PYTHONPATH="$HOME/.loki"
   EXTRA_PYTEST_PLUGINS="pytest_live_guard"
 fi
 

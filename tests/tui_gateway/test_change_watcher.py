@@ -506,7 +506,7 @@ def test_skill_installed_from_another_terminal_broadcasts_skills_changed(watcher
 
 def test_a_skill_installed_in_another_sessions_repo_broadcasts_skills_changed(watcher_home, monkeypatch, tmp_path):
     """The gateway runs in repo A; a session's catalog resolved under repo B (its workspace, via the
-    session cwd). Installing a skill in B's ``.hermes/skills`` must still notify viewers: the watcher
+    session cwd). Installing a skill in B's ``.loki/skills`` must still notify viewers: the watcher
     signs every scope a session resolved commands in, not only the launch repo."""
     import json
     import agent.skill_commands as sc
@@ -521,7 +521,7 @@ def test_a_skill_installed_in_another_sessions_repo_broadcasts_skills_changed(wa
     repo_a, repo_b = tmp_path / "repo-a", tmp_path / "repo-b"
     for repo in (repo_a, repo_b):
         (repo / ".git").mkdir(parents=True)
-        (repo / ".hermes" / "skills").mkdir(parents=True)
+        (repo / ".loki" / "skills").mkdir(parents=True)
     (home / "config.yaml").write_text(json.dumps({"skills": {"trusted_project_dirs": [str(repo_a), str(repo_b)]}}))
     monkeypatch.chdir(repo_a)
     st.clear_skills_cache()
@@ -533,7 +533,7 @@ def test_a_skill_installed_in_another_sessions_repo_broadcasts_skills_changed(wa
     server._broadcast_watched_changes(now=0.0)
     assert not [e for e in events if e[0] == "skills.changed"]
 
-    skill = repo_b / ".hermes" / "skills" / "workspace-only"
+    skill = repo_b / ".loki" / "skills" / "workspace-only"
     skill.mkdir()
     (skill / "SKILL.md").write_text("---\nname: workspace-only\ndescription: d\n---\nbody\n")
     server._broadcast_watched_changes(now=10.0)

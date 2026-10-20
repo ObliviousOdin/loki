@@ -74,6 +74,7 @@ def runtime():
 
 
 def _config(**shared):
+    shared.setdefault("endpoint", "https://metrics.example.test/ingest")
     return {"telemetry": {"shared_metrics": shared}}
 
 
@@ -108,6 +109,13 @@ class TestOptIn:
         runtime._export()
         runtime._join_send_thread(timeout=1)
         assert capture_sender["passes"] == []
+
+    def test_send_requires_an_explicit_destination(self, runtime, monkeypatch, capture_sender):
+        _set_config(monkeypatch, {"telemetry": {"shared_metrics": {"enabled": True, "send": True}}})
+        runtime._export()
+        runtime._join_send_thread(timeout=2)
+        assert capture_sender["passes"] == []
+        assert capture_sender["endpoints"] == []
 
     def test_sends_when_both_are_on(self, runtime, monkeypatch, capture_sender):
         _set_config(monkeypatch, _config(enabled=True, send=True))
@@ -430,5 +438,5 @@ class TestFailureIsolation:
         runtime._export()
         assert runtime._send_thread is not None
         released.set()
-        runtime._join_send_thread()
+        runtime._join_send_thread(timeout=2)
         assert finished == [True], "shutdown returned while a send was in flight"

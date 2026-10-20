@@ -435,10 +435,10 @@ _VERSION_COMPARATOR_RE = re.compile(r"^\s*(>=|<=|==|!=|>|<)\s*(.+?)\s*$")
 
 
 def running_hermes_version() -> str:
-    """Base release version of the Hermes code that is running."""
-    from hermes_cli.version_info import get_version_info
+    """Plugin SDK version of Loki's pinned Hermes source, independent of product branding."""
+    from loki_identity import UPSTREAM_SDK_VERSION
 
-    return get_version_info().base_version
+    return UPSTREAM_SDK_VERSION
 
 
 _VERSION_SEGMENT_RE = re.compile(r"^\d+")

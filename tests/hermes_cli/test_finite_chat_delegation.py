@@ -126,6 +126,8 @@ def test_finite_chat_joins_parallel_children_before_final_response(tmp_path, mod
                HERMES_MANAGED_DIR=str(tmp_path / "managed"), TERMINAL_CWD=str(tmp_path),
                OPENAI_BASE_URL=url, OPENAI_API_KEY="local-test-only", PYTHONPATH=str(REPO_ROOT),
                PYTHONDONTWRITEBYTECODE="1", LANG="C.UTF-8")
+    from tests.loki_child_fixture import bind_fixture_child_env
+    env = bind_fixture_child_env(env)
     mode_flags = {"quiet": ["-Q"], "oneshot": ["--oneshot"], "redirected": [],
                   "resumed": ["-Q"]}
     command = [
@@ -172,7 +174,7 @@ def test_finite_chat_joins_parallel_children_before_final_response(tmp_path, mod
                 saved = db.execute("SELECT target_session_id,request_id,payload_json FROM session_admissions").fetchone()
                 # Inline children never leave a detached-result receipt for a later viewer.
                 assert db.execute("SELECT count(*) FROM async_delegations").fetchone() == (0,)
-            assert admissions == [("terminal",)], admissions
+            assert admissions == [("terminal",)], (admissions, result.returncode, result.stdout, result.stderr)
             asyncio.run(check_receipt(desc, saved))
     finally:
         server.shutdown()

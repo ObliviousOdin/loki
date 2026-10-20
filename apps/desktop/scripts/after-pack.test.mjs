@@ -9,6 +9,11 @@ import os from 'node:os'
 import path from 'node:path'
 import { Platform, PlatformPackager } from 'app-builder-lib'
 import { expect, it, vi } from 'vitest'
+import { sealMacPreview } from './mac-preview-seal.mjs'
+
+// These locale fixtures are not executable bundles. The local seal has its
+// own real macOS nested-bundle verification and tamper-rejection test.
+vi.mock('./mac-preview-seal.mjs', () => ({ sealMacPreview: vi.fn() }))
 
 const require = createRequire(import.meta.url)
 const desktopRoot = path.resolve(import.meta.dirname, '..')
@@ -58,6 +63,11 @@ it('restores app localizations from the filtered framework without copying local
     }
     await writeFile(path.join(framework, 'not-a-directory.lproj'), 'not a locale')
     await mkdir(path.join(framework, 'other'), { recursive: true })
+    vi.mocked(sealMacPreview).mockImplementationOnce(async context => {
+      expect(context).toBe(ctx)
+      expect(await readFile(path.join(resources, 'icon.icns'))).toEqual(await readFile(path.join(desktopRoot, 'assets/icon.icns')))
+      expect(await readdir(resources)).toContain('nb.lproj')
+    })
     await configuredHook(ctx)
     await configuredHook(ctx)
     expect((await readdir(resources)).filter(name => name.endsWith('.lproj')).sort())

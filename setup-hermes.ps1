@@ -1,5 +1,5 @@
 # ============================================================================
-# Hermes Agent Setup Script (Windows) — THE dev-environment entry point.
+# Loki Setup Script (Windows) — THE dev-environment entry point.
 # ============================================================================
 # Sets up the pm-managed development environment from a fresh clone:
 #   1. Stage the pinned uv from pm/lock.json (sha256-verified, into the pm
@@ -14,9 +14,18 @@
 # invoke pm.cli directly and do not select it. -TestExtras overrides coverage.
 param([switch]$RuntimeOnly, [string]$TestExtras = '')
 $ErrorActionPreference = 'Stop'
+if ($env:__LOKI_ENV_BOUND -ne '1') {
+    Get-ChildItem Env: | Where-Object { $_.Name -like 'HERMES_*' -or $_.Name -like '__HERMES_*' } | ForEach-Object { Remove-Item "Env:$($_.Name)" }
+    Get-ChildItem Env: | Where-Object { $_.Name -like 'LOKI_*' } | ForEach-Object { Set-Item "Env:HERMES_$($_.Name.Substring(5))" $_.Value }
+    $env:HERMES_HOME = if ($env:LOKI_HOME) { $env:LOKI_HOME } else { Join-Path $env:LOCALAPPDATA 'loki' }
+    $env:__LOKI_ENV_BOUND = '1'
+}
+
+$env:UV_CACHE_DIR = Join-Path $env:HERMES_HOME "cache/bootstrap-uv"
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $env:HERMES_HOME "cache/bootstrap-python"
 
 Write-Host ''
-Write-Host 'Hermes Agent Setup' -ForegroundColor Cyan
+Write-Host 'Loki Setup' -ForegroundColor Cyan
 Write-Host ''
 
 $repo = $PSScriptRoot
@@ -40,7 +49,7 @@ if (-not $artifact) { throw "no uv artifact for $target" }
 $pyPin = $lock.packages.python
 $pyVersion = if ($pyPin) { ($pyPin.version -split '\+')[0] -replace '^(\d+\.\d+).*', '$1' } else { '3.11' }
 
-$store = if ($env:HERMES_RUNTIME_DIR) { $env:HERMES_RUNTIME_DIR } else { Join-Path $HOME '.hermes/tools' }
+$store = if ($env:HERMES_RUNTIME_DIR) { $env:HERMES_RUNTIME_DIR } else { Join-Path $env:HERMES_HOME 'tools' }
 $entry = Join-Path $store "uv-$($uvPin.version)-$target"
 $uv = Join-Path $entry 'uv.exe'
 
@@ -122,7 +131,7 @@ if (-not (Test-Path $envFile)) {
 # ---------------------------------------------------------------------------
 # Seed bundled skills into ~/.hermes/skills/
 # ---------------------------------------------------------------------------
-$skillsDir = if ($env:HERMES_HOME) { Join-Path $env:HERMES_HOME 'skills' } else { Join-Path $HOME '.hermes/skills' }
+$skillsDir = if ($env:HERMES_HOME) { Join-Path $env:HERMES_HOME 'skills' } else { Join-Path $env:HERMES_HOME 'skills' }
 New-Item -ItemType Directory -Force -Path $skillsDir | Out-Null
 $sync = Join-Path $repo 'tools/skills_sync.py'
 $venvPy = Join-Path $repo 'venv/Scripts/python.exe'
@@ -143,14 +152,14 @@ Write-Host '  1. Activate the dev environment (venv-style, in THIS session):'
 Write-Host '     .\activate.ps1'
 Write-Host ''
 Write-Host '  2. Run the setup wizard to configure API keys:'
-Write-Host '     hermes setup'
+Write-Host '     loki setup'
 Write-Host ''
 Write-Host '  3. Start chatting:'
-Write-Host '     hermes'
+Write-Host '     loki'
 Write-Host ''
 Write-Host 'Other commands:'
-Write-Host '  hermes pm install     # Re-run the tool + dependency install'
-Write-Host '  hermes status         # Check configuration'
-Write-Host '  hermes doctor         # Diagnose issues'
+Write-Host '  loki pm install     # Re-run the tool + dependency install'
+Write-Host '  loki status         # Check configuration'
+Write-Host '  loki doctor         # Diagnose issues'
 Write-Host '  deactivate            # Undo the activation (restore PATH etc.)'
 Write-Host ''

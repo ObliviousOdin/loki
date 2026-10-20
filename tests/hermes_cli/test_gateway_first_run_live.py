@@ -1,4 +1,6 @@
 """First-run guidance on the real CLI without a configured executor."""
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import os
 from pathlib import Path
 import subprocess
@@ -18,11 +20,11 @@ def test_headless_first_run_exits_with_setup_guidance_before_gateway(tmp_path, a
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home),
                PYTHONPATH=str(root), PYTHONUNBUFFERED="1")
     result = subprocess.run(
-        [sys.executable, "-m", "hermes_cli.main", *argv], cwd=tmp_path, env=env,
+        [sys.executable, "-m", "hermes_cli.main", *argv], cwd=tmp_path, env=bind_fixture_child_env(env),
         stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=40, check=False
     )
     assert result.returncode == 1, (result.stdout, result.stderr)
-    assert "hermes config set model.provider custom" in result.stdout
+    assert "loki config set model.provider custom" in result.stdout
     assert "Run setup now?" not in result.stdout
     assert "Session:" not in result.stderr
     assert not (home / "gateway.pid").exists()

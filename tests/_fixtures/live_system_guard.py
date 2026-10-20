@@ -11,6 +11,25 @@ import pytest
 PROJECT_ROOT = Path(__file__).parent.parent.parent
 
 
+def _guarded_gateway_spawn_intent(command):
+    """Protect both products even though Loki's runtime matcher rejects foreign entries."""
+    import shlex
+    from gateway.status import gateway_spawn_intent_subcommand
+
+    intent = gateway_spawn_intent_subcommand(command)
+    if intent is not None:
+        return intent
+    try:
+        tokens = shlex.split(command, posix=False)
+    except ValueError:
+        return None
+    aliases = {"hermes": "loki", "hermes.exe": "loki.exe",
+               "hermes-gateway": "loki-gateway", "hermes-gateway.exe": "loki-gateway.exe"}
+    normalized = [aliases.get(token.strip("\"'").replace("\\", "/").rsplit("/", 1)[-1].lower(), token)
+                  for token in tokens]
+    return gateway_spawn_intent_subcommand(" ".join(normalized))
+
+
 # ── Live-system guard ──────────────────────────────────────────────────────
 #
 # Several test files exercise the gateway-restart / kill code paths
@@ -414,14 +433,13 @@ def _live_system_guard(request, monkeypatch):
         # webhook port. 2026-09-03: 39 such orphans lived 6 days after a
         # sibling refactor moved the spawn seam and left tests patching the
         # facade. The canonical matcher, never an argv substring.
-        from gateway.status import gateway_spawn_intent_subcommand
         # A gateway launched INSIDE a container (`docker exec … hermes gateway start`) cannot
         # reach the host's systemd unit or webhook port; tests/docker/ exists to exercise it.
         in_container = _first_token_basename(cmd_str) in _CONTAINER_RUNTIMES
         if (
             not lookalike_ok
             and not in_container
-            and gateway_spawn_intent_subcommand(cmd_str) in ("run", "start", "restart")
+            and _guarded_gateway_spawn_intent(cmd_str) in ("run", "start", "restart")
             and not _sandboxed_gateway_child(cmd_str, (kwargs or {}).get("env"))
         ):
             raise RuntimeError(

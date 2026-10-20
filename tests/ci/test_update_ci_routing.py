@@ -37,6 +37,7 @@ from tests.ci import _gha_expr as gha
 from tests.ci import workflow_steps
 
 _REPO = Path(__file__).resolve().parents[2]
+_UPSTREAM_REPOSITORY = "NousResearch/hermes-agent"
 _CLASSIFIER = _REPO / "scripts" / "ci" / "classify_changes.py"
 _spec = importlib.util.spec_from_file_location("classify_changes_routing", _CLASSIFIER)
 assert _spec is not None and _spec.loader is not None
@@ -110,7 +111,7 @@ def _detect_outputs(lanes: dict[str, bool], event_name: str = "workflow_dispatch
     classify = next(s for s in detect["steps"] if s.get("id") == "classify")
     assert classify["uses"] == "./.github/actions/detect-changes"
     steps = {"classify": {"outputs": action_out}}
-    ctx = {"steps": steps, "github": {"event_name": event_name}, "inputs": {}}
+    ctx = {"steps": steps, "github": {"event_name": event_name, "repository": _UPSTREAM_REPOSITORY}, "inputs": {}}
     steps["gate-lanes"] = {"outputs": workflow_steps.outputs(gate, ctx)}
     return {k: gha.render(v, ctx) for k, v in detect["outputs"].items()}
 
@@ -122,7 +123,8 @@ def _inputs_for(called: str, given: dict[str, Any]) -> dict[str, Any]:
     return {name: given.get(name, spec.get("default")) for name, spec in declared.items()}
 
 
-def _run_workflow(rel: str, *, inputs: dict[str, Any], detect: dict[str, Any] | None = None) -> dict:
+def _run_workflow(rel: str, *, inputs: dict[str, Any], detect: dict[str, Any] | None = None,
+                  repository: str = _UPSTREAM_REPOSITORY) -> dict:
     """Which jobs of ``rel`` run on a pull request, recursing into called workflows.
 
     Returns ``{job: {"inputs": ..., "jobs": <child result>}}`` for every job that runs.
@@ -149,7 +151,9 @@ def _run_workflow(rel: str, *, inputs: dict[str, Any], detect: dict[str, Any] | 
             all_ran = all(n in ran for n in needs)
             ctx = {
                 "inputs": inputs,
-                "github": {"event_name": "pull_request", "ref_type": "branch"},
+                # These inherited workflow contracts replay their owning repository.
+                # Loki's separate CI must never activate the inherited jobs.
+                "github": {"event_name": "pull_request", "ref_type": "branch", "repository": repository},
                 "needs": {n: {"outputs": (ran.get(n) or {}).get("outputs", {}),
                               "result": "success" if n in ran else "skipped"} for n in needs},
                 "__status__": {"always": True, "success": all_ran, "failure": False, "cancelled": False},
@@ -170,7 +174,7 @@ def _run_workflow(rel: str, *, inputs: dict[str, Any], detect: dict[str, Any] | 
                 called = uses[2:]
                 given = {k: gha.render(v, ctx) for k, v in (body.get("with") or {}).items()}
                 entry["inputs"] = _inputs_for(called, given)
-                entry["jobs"] = _run_workflow(called, inputs=entry["inputs"])
+                entry["jobs"] = _run_workflow(called, inputs=entry["inputs"], repository=repository)
             ran[name] = entry
         assert progressed, f"{rel}: unresolvable needs among {pending}"
     return ran
@@ -265,6 +269,15 @@ def test_replay_evaluator_follows_actions_semantics():
     assert gha.render("${{ inputs.missing && '1' || '' }}", ctx) == ""
     with pytest.raises(gha.Unsupported):
         gha.condition("hashFiles('x') != ''", ctx)  # unmodelled: fail, never guess
+
+
+def test_inherited_workflow_replay_refuses_loki_repository():
+    # The supplied detect row is a fixture output, not an executed job. Even
+    # with every lane selected it must not activate inherited jobs in Loki.
+    detect = {name: "true" for name in _yaml(".github/workflows/ci.yaml")["jobs"]["detect"]["outputs"]}
+    run = _run_workflow(".github/workflows/ci.yaml", inputs={}, detect=detect,
+                        repository="ObliviousOdin/loki")
+    assert set(run) == {"detect"}
 
 
 @pytest.mark.parametrize("combo", list(itertools.product((False, True), repeat=len(_GATED))),

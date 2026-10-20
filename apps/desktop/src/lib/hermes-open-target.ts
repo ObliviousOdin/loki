@@ -73,7 +73,7 @@ export function normalizeHermesOpenString(raw: string): string | null {
     return null
   }
 
-  if (trimmed.startsWith('hermes://') || trimmed.startsWith(`${HERMES_PROTOCOL}//`)) {
+  if (trimmed.startsWith('loki://') || trimmed.startsWith(`${HERMES_PROTOCOL}//`)) {
     try {
       const url = new URL(trimmed)
       const host = url.hostname || ''

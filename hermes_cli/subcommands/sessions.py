@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Callable
 
+from hermes_cli.loki_branding import literal_help
 from hermes_cli.subcommands._shared import add_json_flag, add_yes_flag
 
 
@@ -55,8 +56,8 @@ def build_sessions_parser(subparsers, *, cmd_sessions: Callable) -> None:
         ("--cwd", dict(help="Only match sessions whose working directory is under this path")),
         ("--min-messages", dict(type=int, help="Only match sessions with >= N messages")),
         ("--max-messages", dict(type=int, help="Only match sessions with <= N messages")),
-        ("--model", dict(help="Only match sessions whose model name contains this substring "
-            "(e.g. 'sonnet', 'gpt-5', 'hermes')")),
+        ("--model", dict(help=literal_help("Only match sessions whose model name contains this substring "
+            "(e.g. 'sonnet', 'gpt-5', 'hermes')"))),
         ("--provider", dict(help="Only match sessions billed through this provider "
             "(e.g. openrouter, anthropic, nous)")),
         ("--user", dict(help="Only match sessions from this user ID")),

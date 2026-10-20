@@ -104,5 +104,5 @@ def get_active_provider() -> ComputerUseProvider:
         state = "could not be loaded (see the log)" if find_provider_dir(name) else "is not installed"
         raise LookupError(
             f"computer_use.backend is {name!r}, but that computer-use provider {state} (available: {available}). "
-            "Install it under ~/.hermes/plugins/<name>/ or pick a backend with `hermes tools`.")
+            "Install it in the active Loki profile's plugins/<name>/ directory or pick a backend with `loki tools`.")
     return provider

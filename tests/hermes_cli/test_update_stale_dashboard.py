@@ -110,7 +110,7 @@ def test_update_cleanup_spares_backend_owned_by_valid_ssh_lock(tmp_path, monkeyp
         assert pid in exclude_pids
         return []
 
-    # ``restart_managed`` first probes for a managed hermes-dashboard unit; unstubbed, that
+    # ``restart_managed`` first probes for a managed loki-dashboard unit; unstubbed, that
     # probe found the developer's real unit and restarted it.
     calls: list[list[str]] = []
 
@@ -238,22 +238,25 @@ class TestKillStaleDashboardPosix:
 
         def fake_run(args, *a, **kw):
             calls.append(list(args))
-            if args == ["systemctl", "--user", "list-unit-files", "hermes-dashboard.service", "--no-legend", "--no-pager"]:
-                return MagicMock(returncode=0, stdout="hermes-dashboard.service enabled enabled\n", stderr="")
-            if args == ["systemctl", "--user", "is-active", "hermes-dashboard.service"]:
+            if args == ["systemctl", "--user", "list-unit-files", "loki-dashboard.service", "--no-legend", "--no-pager"]:
+                return MagicMock(returncode=0, stdout="loki-dashboard.service enabled enabled\n", stderr="")
+            if args == ["systemctl", "--user", "show", "loki-dashboard.service", "--property=MainPID", "--value"]:
+                return MagicMock(returncode=0, stdout="4242\n", stderr="")
+            if args == ["systemctl", "--user", "is-active", "loki-dashboard.service"]:
                 return MagicMock(returncode=0, stdout="active\n", stderr="")
-            if args == ["systemctl", "--user", "is-enabled", "hermes-dashboard.service"]:
+            if args == ["systemctl", "--user", "is-enabled", "loki-dashboard.service"]:
                 return MagicMock(returncode=0, stdout="enabled\n", stderr="")
-            if args == ["systemctl", "--user", "restart", "hermes-dashboard.service"]:
+            if args == ["systemctl", "--user", "restart", "loki-dashboard.service"]:
                 return MagicMock(returncode=0, stdout="", stderr="")
             raise AssertionError(f"unexpected subprocess.run call: {args}")
 
         with patch("subprocess.run", side_effect=fake_run), \
              patch("hermes_cli.main_dashboard._find_stale_dashboard_pids", return_value=[]), \
+             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=os.environ["HERMES_HOME"]), \
              patch("os.kill") as kill:
             _kill_stale_dashboard_processes(restart_managed=True)
 
-        assert ["systemctl", "--user", "restart", "hermes-dashboard.service"] in calls
+        assert ["systemctl", "--user", "restart", "loki-dashboard.service"] in calls
         assert all(call[:1] != ["sudo"] and call[:2] == ["systemctl", "--user"] for call in calls)
         kill.assert_not_called()
 
@@ -333,16 +336,17 @@ class TestSupervisedBackendRestart:
         with patch.object(main_dashboard, "_restart_managed_dashboard_service", return_value=False), \
              patch.object(live, "_find_stale_dashboard_pids", return_value=[4321]), \
              patch.object(main_dashboard, "_get_pid_cgroup_path",
-                          return_value="/system.slice/hermes-serve.service"), \
+                          return_value="/system.slice/loki-serve.service"), \
              patch.object(main_dashboard, "_get_systemd_service_for_pid",
-                          return_value="hermes-serve.service"), \
+                          return_value="loki-serve.service"), \
              patch.object(main_dashboard, "_try_restart_systemd_service", return_value=True) as restart, \
+             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=os.environ["HERMES_HOME"]), \
              patch("os.kill", side_effect=fake_kill), \
              patch("time.sleep"):
             _kill_stale_dashboard_processes(restart_managed=True)
 
         restart.assert_called_once_with(
-            "hermes-serve.service", "/system.slice/hermes-serve.service"
+            "loki-serve.service", "/system.slice/loki-serve.service", ownership_home=os.environ["HERMES_HOME"]
         )
         # Supervised restart succeeded — no manual hint.
         assert "when you're ready" not in capsys.readouterr().out
@@ -357,14 +361,14 @@ class TestSupervisedBackendRestart:
         with patch.object(main_dashboard, "_restart_managed_dashboard_service", return_value=False), \
              patch.object(live, "_find_stale_dashboard_pids", return_value=[4321]), \
              patch.object(main_dashboard, "_get_pid_cgroup_path",
-                          return_value="/system.slice/hermes-serve.service"), \
+                          return_value="/system.slice/loki-serve.service"), \
              patch.object(main_dashboard, "_get_systemd_service_for_pid",
-                          return_value="hermes-serve.service"), \
+                          return_value="loki-serve.service"), \
              patch.object(main_dashboard, "_try_restart_systemd_service") as restart, \
              patch("os.kill") as kill, \
              patch("time.sleep"):
             result = _kill_stale_dashboard_processes(
-                restart_managed=True, already_restarted_units={"hermes-serve"}
+                restart_managed=True, already_restarted_units={"loki-serve"}
             )
 
         kill.assert_not_called()
@@ -397,7 +401,7 @@ class TestSupervisedBackendRestart:
              patch.object(main_dashboard, "_pid_unified_cgroup_entries", lambda pid: iter([unit_cgroup])), \
              patch.object(main_dashboard, "_run_probe", side_effect=fake_probe), \
              patch.object(main_dashboard, "_dashboard_cmdline_for_pid", return_value=argv), \
-             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=None), \
+             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=os.environ["HERMES_HOME"]), \
              patch.object(live, "_respawn_dashboard_processes", return_value=[]) as respawn, \
              patch("os.kill", side_effect=fake_kill), \
              patch("time.sleep"):
@@ -457,7 +461,7 @@ class TestManualBackendRespawn:
              patch.object(main_dashboard, "_get_pid_cgroup_path", return_value=None), \
              patch.object(main_dashboard, "_get_systemd_service_for_pid", return_value=None), \
              patch.object(main_dashboard, "_dashboard_cmdline_for_pid", return_value=argv), \
-             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=None), \
+             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=os.environ["HERMES_HOME"]), \
              patch.object(live, "_respawn_dashboard_processes", return_value=[]) as respawn, \
              patch("os.kill", side_effect=fake_kill), \
              patch("time.sleep"):
@@ -485,7 +489,7 @@ class TestManualBackendRespawn:
              patch.object(main_dashboard, "_get_pid_cgroup_path", return_value=None), \
              patch.object(main_dashboard, "_get_systemd_service_for_pid", return_value=None), \
              patch.object(main_dashboard, "_dashboard_cmdline_for_pid", return_value=argv), \
-             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=None), \
+             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=os.environ["HERMES_HOME"]), \
              patch.object(live, "_respawn_dashboard_processes") as respawn, \
              patch("os.kill", side_effect=fake_kill), \
              patch("time.sleep"):
@@ -892,7 +896,7 @@ class TestLaunchdSupervisedBackends:
              patch.object(main_dashboard, "_loaded_launchd_backend_jobs", return_value=jobs), \
              patch.object(main_dashboard, "_restart_launchd_job", return_value=restart_ok) as restart, \
              patch("hermes_cli.dashboard_procs._process_ancestors", return_value=[]), \
-             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=None), \
+             patch("hermes_cli.dashboard_procs._hermes_home_for_pid", return_value=os.environ["HERMES_HOME"]), \
              patch.object(live, "_respawn_dashboard_processes", return_value=[]) as respawn, \
              patch("os.kill", side_effect=self._fake_kill), \
              patch("time.sleep"):
@@ -906,23 +910,23 @@ class TestLaunchdSupervisedBackends:
         is kickstarted; an argv respawn would recreate the port conflict. A failed kickstart counts
         the PID as unrecovered and prints the manual command; a loaded job with a different argv
         and PID leaves the manual-backend respawn untouched (control)."""
-        job = ("system", "ai.hermes.dashboard", list(self.ARGV), None)
+        job = ("system", "com.obliviousodin.loki.dashboard", list(self.ARGV), None)
         result, restart, respawn = self._run(9102, [job])
         respawn.assert_not_called()
-        restart.assert_called_once_with("system", "ai.hermes.dashboard", None)
+        restart.assert_called_once_with("system", "com.obliviousodin.loki.dashboard", None, ownership_home=os.environ["HERMES_HOME"])
         assert result["killed"] == [9102] and result["unrecovered"] == []
         assert "when you're ready" not in capsys.readouterr().out
 
-        result, restart, respawn = self._run(9103, [("gui/501", "ai.hermes.dashboard", list(self.ARGV), 9103)],
+        result, restart, respawn = self._run(9103, [("gui/501", "com.obliviousodin.loki.dashboard", list(self.ARGV), 9103)],
                                              restart_ok=False)
         respawn.assert_not_called()
         assert result["unrecovered"] == [9103]
-        assert "run: launchctl kickstart -k gui/501/ai.hermes.dashboard" in capsys.readouterr().out
+        assert "run: launchctl kickstart -k gui/501/com.obliviousodin.loki.dashboard" in capsys.readouterr().out
 
         # A LaunchDaemon lives in the system domain: kickstart needs root, so a non-root hint says sudo.
         with patch("hermes_cli.dashboard_procs.os.geteuid", return_value=501, create=True):  # windows-footgun: ok — patch target string, create=True
-            self._run(9105, [("system", "ai.hermes.serve", list(self.ARGV), None)], restart_ok=False)
-        assert "run: sudo launchctl kickstart -k system/ai.hermes.serve" in capsys.readouterr().out
+            self._run(9105, [("system", "com.obliviousodin.loki.serve", list(self.ARGV), None)], restart_ok=False)
+        assert "run: sudo launchctl kickstart -k system/com.obliviousodin.loki.serve" in capsys.readouterr().out
 
         other = ("gui/501", "ai.hermes.other", ["hermes", "dashboard", "--port", "8300"], 777)
         result, restart, respawn = self._run(9104, [other])
@@ -938,17 +942,17 @@ class TestLaunchdSupervisedBackends:
         backend_argv = ["/opt/hermes/venv/bin/python", "-m", "hermes_cli.main", "dashboard", "--port", "9119"]
         serve_argv = ["/opt/hermes/venv/bin/python", "-m", "hermes_cli.main", "serve", "--port", "8642"]
         jobs = [
-            (f"user/{uid}", "ai.hermes.dashboard", backend_argv, 4242),
-            ("system", "ai.hermes.serve", serve_argv, None),
+            (f"user/{uid}", "com.obliviousodin.loki.dashboard", backend_argv, 4242),
+            ("system", "com.obliviousodin.loki.serve", serve_argv, None),
         ]
 
         owning = main_dashboard._launchd_job_owning_backend
-        assert owning(4242, ["something", "else"], jobs) == (f"user/{uid}", "ai.hermes.dashboard", 4242)
-        assert owning(9999, ["python"], jobs, ancestors=[4242, 1]) == (f"user/{uid}", "ai.hermes.dashboard", 4242)
-        assert owning(9999, serve_argv, jobs) == ("system", "ai.hermes.serve", None)
+        assert owning(4242, ["something", "else"], jobs) == (f"user/{uid}", "com.obliviousodin.loki.dashboard", 4242)
+        assert owning(9999, ["python"], jobs, ancestors=[4242, 1]) == (f"user/{uid}", "com.obliviousodin.loki.dashboard", 4242)
+        assert owning(9999, serve_argv, jobs) == ("system", "com.obliviousodin.loki.serve", None)
         # An earlier detached respawn runs the plist argv plus the ``--no-open`` the respawn path
         # appends; it must still be attributed to the job, or every update respawns it again.
-        assert owning(9999, backend_argv + ["--no-open"], jobs) == (f"user/{uid}", "ai.hermes.dashboard", 4242)
+        assert owning(9999, backend_argv + ["--no-open"], jobs) == (f"user/{uid}", "com.obliviousodin.loki.dashboard", 4242)
         assert owning(9999, serve_argv[:-1] + ["8643"], jobs) is None
         assert owning(9999, None, jobs) is None
         assert owning(4242, None, []) is None

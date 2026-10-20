@@ -27,7 +27,7 @@ _ORPHAN_RESCUE_REF_MAX_AGE_DAYS = 30
 _GIT_TEXT_KW = dict(capture_output=True, text=True, encoding="utf-8", errors="replace",
                    creationflags=windows_hide_flags())
 _BAR = "=" * 68
-_UPSTREAM_ADD_CMD = "git remote add upstream https://github.com/NousResearch/hermes-agent.git"
+_UPSTREAM_ADD_CMD = "git remote add upstream https://github.com/ObliviousOdin/loki.git"
 
 
 def _git_ok(git_cmd, args, cwd, **kw) -> bool:
@@ -249,7 +249,7 @@ def _print_parked_branch_skip_warning(git_cmd: list[str], cwd: Path, current_bra
     print(
         f"\n  To resolve, inspect the branch and switch back yourself:\n"
         f"    git -C {cwd} status\n"
-        f"    git -C {cwd} checkout {target_branch} && hermes update\n"
+        f"    git -C {cwd} checkout {target_branch} && loki update\n"
         f"  (commit or stash your work on the branch first if you want to keep it)\n{_BAR}"
     )
 
@@ -270,12 +270,12 @@ def _print_parked_branch_kept_notice(current_branch: str, target_branch: str, un
 
 
 OFFICIAL_REPO_URLS = {
-    "https://github.com/NousResearch/hermes-agent.git",
-    "git@github.com:NousResearch/hermes-agent.git",
-    "https://github.com/NousResearch/hermes-agent",
-    "git@github.com:NousResearch/hermes-agent",
+    "https://github.com/ObliviousOdin/loki.git",
+    "git@github.com:ObliviousOdin/loki.git",
+    "https://github.com/ObliviousOdin/loki",
+    "git@github.com:ObliviousOdin/loki",
 }
-OFFICIAL_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
+OFFICIAL_REPO_URL = "https://github.com/ObliviousOdin/loki.git"
 SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
 
@@ -339,8 +339,8 @@ def _offer_upstream_remote(git_cmd: list[str], cwd: Path, *, assume_yes: bool, i
     ``--yes`` means "don't block", not "mutate my remotes", so a non-interactive skip is NOT persisted."""
     from hermes_cli.update_cmd import _add_upstream_remote, _mark_skip_upstream_prompt
     print(
-        "\nℹ Your fork is not tracking the official Hermes repository.\n"
-        "  This means you may miss updates from NousResearch/hermes-agent.\n"
+        "\nℹ Your fork is not tracking the official Loki repository.\n"
+        "  This means you may miss updates from ObliviousOdin/loki.\n"
     )
     if assume_yes or (input_fn is None and not (sys.stdin.isatty() and sys.stdout.isatty())):
         print(f"  Skipping upstream setup (non-interactive run).\n  Add it later with: {_UPSTREAM_ADD_CMD}")
@@ -361,7 +361,7 @@ def _offer_upstream_remote(git_cmd: list[str], cwd: Path, *, assume_yes: bool, i
     if not _add_upstream_remote(git_cmd, cwd):
         print("  ✗ Failed to add upstream remote. Skipping upstream sync.")
         return False
-    print("  ✓ Added upstream: https://github.com/NousResearch/hermes-agent.git")
+    print("  ✓ Added upstream: https://github.com/ObliviousOdin/loki.git")
     return True
 
 
@@ -520,7 +520,7 @@ _FETCH_FAILURE_RULES = (
     # key (or lack of one) was the cause (#82169).
     (lambda s: "Permission denied (publickey)" in s or "Host key verification failed" in s,
      "✗ SSH authentication failed — check your SSH key is added to GitHub, or switch"
-     " `origin` to HTTPS: `git remote set-url origin https://github.com/NousResearch/hermes-agent.git`."),
+     " `origin` to HTTPS: `git remote set-url origin https://github.com/ObliviousOdin/loki.git`."),
 )
 
 
@@ -565,6 +565,13 @@ def _git_is_trampoline(git_cmd: list) -> bool:
     return _probe_fork_bomb(git_cmd) is True
 
 
+def _git_for_windows_candidates(roots) -> list[Path]:
+    """Native executables beneath vendor roots; never the outer bin/cmd wrappers."""
+    return [root / arch / relative for root in roots
+            for arch in ("clangarm64", "ucrt64", "mingw64", "mingw32")
+            for relative in ("libexec/git-core/git.exe", "bin/git.exe")]
+
+
 def _portable_git_candidates() -> list:
     """PortableGit candidates: shared root first (where the managed tree actually lives, not the
     profile-scoped HERMES_HOME), then profile home as a fallback for custom layouts.
@@ -576,12 +583,13 @@ def _portable_git_candidates() -> list:
     from hermes_constants import get_default_hermes_root, get_hermes_home
     candidates = []
     with suppress(Exception):
-        candidates += [root / "git" / "mingw64" / "libexec" / "git-core" / "git.exe" for root in (get_default_hermes_root(), Path(get_hermes_home()))]
+        candidates += _git_for_windows_candidates(
+            [root / "git" for root in (get_default_hermes_root(), Path(get_hermes_home()))])
     return candidates
 
 
 def _locate_real_git() -> Optional[Path]:
-    """Find a real Git-for-Windows ``git-core/git.exe`` (standard locations + managed PortableGit) that runs
+    """Find a native Git-for-Windows executable (standard locations + managed PortableGit) that runs
     without the trampoline guard. None when nothing suits — callers keep the broken command and let the
     fetch-failure ZIP fallback handle it. A failed probe (None) disqualifies a candidate like a guard hit.
 
@@ -589,11 +597,9 @@ def _locate_real_git() -> Optional[Path]:
     re-exec git-core, while the real binary at ``mingw64\\libexec\\git-core\\git.exe`` (≈4.4MB) works when
     invoked directly (#87876).
     """
-    candidates = [
-        Path(base) / "Git" / arch / "libexec" / "git-core" / "git.exe"
-        for base in (r"C:\Program Files", r"C:\Program Files (x86)")
-        for arch in ("clangarm64", "mingw64", "mingw32")
-    ] + _portable_git_candidates()
+    candidates = _git_for_windows_candidates(
+        [Path(base) / "Git" for base in (r"C:\Program Files", r"C:\Program Files (x86)")]
+    ) + _portable_git_candidates()
     return next((c for c in candidates if c.exists() and _probe_fork_bomb([str(c)]) is False), None)
 
 

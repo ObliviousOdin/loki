@@ -350,7 +350,7 @@ class TestPythonDependenciesSeam:
             mgr.discover_and_load()
         assert mgr._plugins["pipful"].enabled
         assert "definitely-not-a-real-package-64165" in caplog.text
-        assert "hermes pm repair" in caplog.text
+        assert "loki pm repair" in caplog.text
         assert calls == []
 
     def test_satisfied_pip_dep_is_quiet(self, hermes_home, caplog):
@@ -396,15 +396,15 @@ class TestCtxHasPlugin:
 
 
 class TestRequiresHermes:
-    def test_gate_reads_the_running_code_version_not_dist_metadata(self, monkeypatch):
-        """Compatibility gates use the running code's base release version."""
+    def test_gate_uses_pinned_sdk_version_instead_of_loki_release_label(self, monkeypatch):
+        """The fork's release sequence is independent of the inherited plugin SDK."""
         from hermes_cli import plugins_manifest
         monkeypatch.setattr(
             "hermes_cli.version_info.get_version_info",
-            lambda: SimpleNamespace(base_version="0.21.4"),
+            lambda: SimpleNamespace(base_version="0.1.0a1"),
         )
-        assert plugins_manifest.running_hermes_version() == "0.21.4"
         assert plugins_manifest.version_satisfies(">=0.21.4", plugins_manifest.running_hermes_version())
+        assert not plugins_manifest.version_satisfies(">=0.23.0", plugins_manifest.running_hermes_version())
 
     @pytest.mark.parametrize("spec, current, expected", [
         (">=99.0.0rc1", "0.21.4", False),   # rc target used to parse as None -> clause silently dropped
@@ -586,3 +586,19 @@ class TestDirectoryPluginKeepsIdentityOverEntryPoint:
         rows = [r for r in _discover_all_plugins() if r[0] == "twin"]
         assert [r[3] for r in rows] == ["user"]
         assert str(rows[0][4]).endswith("plugins/twin")
+
+
+def test_loki_project_discovery_ignores_hermes_project_root(tmp_path, monkeypatch):
+    from hermes_cli.plugins_discovery import collect_directory_manifests
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv('HERMES_HOME', str(tmp_path / 'home'))
+    monkeypatch.setenv('HERMES_ENABLE_PROJECT_PLUGINS', '1')
+    for directory, name in (('.hermes', 'foreign-hermes-plugin'), ('.loki', 'owned-loki-plugin')):
+        plugin = tmp_path / directory / 'plugins' / name
+        plugin.mkdir(parents=True)
+        (plugin / 'plugin.yaml').write_text(
+            f'name: {name}\nversion: 1.0.0\ndescription: project isolation fixture\n', encoding='utf-8')
+    names = {manifest.name for manifest in collect_directory_manifests()}
+    assert 'owned-loki-plugin' in names
+    assert 'foreign-hermes-plugin' not in names

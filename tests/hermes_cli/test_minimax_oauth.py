@@ -10,6 +10,8 @@ Covers:
 """
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import base64
 import hashlib
 import json
@@ -689,6 +691,7 @@ def test_aux_refresh_preserves_active_provider(tmp_path, monkeypatch):
 def test_minimax_oauth_login_sets_active_provider(tmp_path, monkeypatch):
     """``_minimax_oauth_login`` is the one path that legitimately makes
     minimax-oauth the active provider (the user just chose it)."""
+    configure_auth(monkeypatch, clients=("minimax-oauth",))
     from hermes_cli import auth_minimax
 
     monkeypatch.setenv("HERMES_HOME", str(tmp_path))

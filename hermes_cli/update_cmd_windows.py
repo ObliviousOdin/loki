@@ -267,7 +267,7 @@ def _hermes_holder_subcommand(cmdline: str) -> str | None:
     def _is_entry(i: int, token: str) -> bool:
         low = token.lower().strip("\"'").replace("\\", "/")
         return (low.endswith("hermes_cli.main") and i > 0 and tokens[i - 1] == "-m") or (
-            low.rsplit("/", 1)[-1] in ("hermes", "hermes.exe")) or low.endswith("hermes_cli/main.py")
+            low.rsplit("/", 1)[-1] in ("loki", "loki.exe", "hermes", "hermes.exe")) or low.endswith("hermes_cli/main.py")
 
     entry_idx = next((i for i, token in enumerate(tokens) if _is_entry(i, token)), None)
     if entry_idx is None:
@@ -392,7 +392,7 @@ def _refuse_gateway_ancestor_tree_kill(pids: list[int], *, gateway_mode: bool) -
         "✗ Refusing to stop the gateway process tree because this updater "
         f"is running inside it (gateway PID(s): {', '.join(str(pid) for pid in ancestors)}).\n"
         "  On Windows, taskkill /T would terminate the updater before the update can run.\n"
-        "  From a chat platform, use `/update` instead.\n  Otherwise, run `hermes update` from a separate terminal."
+        "  From a chat platform, use `/update` instead.\n  Otherwise, run `loki update` from a separate terminal."
     )
     return True
 
@@ -419,11 +419,11 @@ def _serve_relaunch_commands(entries: list[dict]) -> list[list[str]]:
     """Rebuild launch commands for stopped serves from ledger host/port/profile — never argv parsing
     (joined argv cannot round-trip Windows paths with spaces). Entries without a port are skipped."""
     from hermes_cli.update_cmd import _m
-    hermes = "hermes"
+    hermes = "loki"
     with suppress(Exception):
         scripts_dir = _m()._venv_scripts_dir()
         if scripts_dir is not None:
-            hermes = next((str(scripts_dir / n) for n in ("hermes.exe", "hermes") if (scripts_dir / n).is_file()), hermes)
+            hermes = next((str(scripts_dir / n) for n in ("loki.exe", "loki") if (scripts_dir / n).is_file()), hermes)
     commands: list[list[str]] = []
     for entry in entries:
         port = entry.get("port")
@@ -455,7 +455,7 @@ def _relaunch_stopped_serves(token: dict) -> None:
         print("  ⟲ Relaunching stopped serve/dashboard backend(s)")
         failed = _m()._respawn_dashboard_processes(commands)
     if skipped or failed:
-        print("  ⚠ Some stopped backends could not be relaunched automatically; restart them manually (hermes serve --host <ip> --port <port>).")
+        print("  ⚠ Some stopped backends could not be relaunched automatically; restart them manually (loki serve --host <ip> --port <port>).")
     _record_update_step(
         "serve_relaunch", not failed and not skipped,
         f"relaunched={len(commands) - len(failed)} failed={len(failed)} skipped={skipped}",
@@ -1063,7 +1063,7 @@ def _stop_windows_gateways(running_pids, profile_processes, service_gateway_pids
     if unmapped_pids:
         print(f"  → Stopped {len(unmapped_pids)} gateway process(es) without profile mapping")
         if any(not u.get("argv") for u in unmapped):  # no recoverable cmdline (psutil missing, denied, gone)
-            print("    Restart manually after update: hermes gateway run")
+            print("    Restart manually after update: loki gateway run")
     return profiles
 
 
@@ -1530,7 +1530,7 @@ def _verify_relaunched_gateways_alive(token: dict, profiles: dict, unmapped: lis
         print(
             "\n  ⚠ Windows gateway restart could not be verified for: " + ", ".join(unready) + "\n"
             "    (The respawned gateway may have been killed by a parent Job Object during updater teardown, #48820.)\n"
-            "    Recover with: hermes gateway restart"
+            "    Recover with: loki gateway restart"
         )
         raise RuntimeError("Windows gateway relaunch after update was not verified alive: " + ", ".join(unready))
 
@@ -1567,7 +1567,7 @@ def _resume_unless_torn(token: dict) -> None:
             # dependencies. The durable record keeps the obligation for the next launch, which
             # runs after the interrupted-pull restore and the dependency sync.
             print(f"  ⚠ Paused gateway(s) left stopped: {why}.\n"
-                  "    The next `hermes` command (or `hermes update`) restarts them.")
+                  "    The next `loki` command (or `loki update`) restarts them.")
             token["resume_needed"] = False
             token["resume_deferred"] = why
             pause_record.sync(token)

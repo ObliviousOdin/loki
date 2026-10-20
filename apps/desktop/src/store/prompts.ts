@@ -371,7 +371,7 @@ export async function answerApproval(
   }
 
   if (!gateway) {
-    throw new Error('Hermes gateway is not connected')
+    throw new Error('Loki gateway is not connected')
   }
 
   const params = {

@@ -9,6 +9,8 @@ values for `agent.*`, `display.*`, `timezone`, and `security.*` keys.
 
 from __future__ import annotations
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 import os
 import subprocess
 import sys
@@ -86,7 +88,7 @@ def _run_gateway_import(
 
     result = subprocess.run(
         [sys.executable, "-c", script],
-        env=env,
+        env=bind_fixture_child_env(env),
         capture_output=True,
         text=True,
         timeout=60,
@@ -127,7 +129,7 @@ def _write_env(home: Path, entries: dict[str, str]) -> None:
 
 @pytest.fixture
 def hermes_home(tmp_path: Path) -> Path:
-    home = tmp_path / ".hermes"
+    home = tmp_path / ".loki"
     home.mkdir()
     return home
 

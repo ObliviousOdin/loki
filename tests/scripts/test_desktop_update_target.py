@@ -41,7 +41,8 @@ if __name__ == '__main__':
 """
 
 
-def _run_handoff(tmp_path, target, *, windows=False, inherited_home=True, modern=False, code=0, userbin_only=False, foreign=False):
+def _run_handoff(tmp_path, target, *, windows=False, inherited_home=True, modern=False, code=0, userbin_only=False, foreign=False,
+                 foreign_home=None):
     install = tmp_path / "checkout with spaces"
     if windows and not modern:
         subprocess.run(
@@ -75,13 +76,18 @@ def _run_handoff(tmp_path, target, *, windows=False, inherited_home=True, modern
     env.pop("PYTHONPATH", None)
     env.pop("PYTHONHOME", None)
     env.pop("HERMES_HOME", None)
+    env.pop("LOKI_HOME", None)
+    env.pop("__LOKI_ENV_BOUND", None)
     if inherited_home:
-        env["HERMES_HOME"] = str(home)
+        env["LOKI_HOME"] = str(home)
     if modern:
         env["HANDOFF_EXIT"] = str(code)
         if foreign:
             env["HANDOFF_FOREIGN"] = str(tmp_path)
-        env["HERMES_RUNTIME_DIR"] = str(tmp_path / "empty-store")
+        env["LOKI_RUNTIME_DIR"] = str(tmp_path / "empty-store")
+    if foreign_home is not None:
+        env["HERMES_HOME"] = str(foreign_home)
+        env["HERMES_RUNTIME_DIR"] = str(foreign_home / "foreign-tools")
     if windows:
         # The disposable runtime has only the fixture CLI; verification is outside
         # this transport contract and runs its own harmless fixture implementation.
@@ -105,7 +111,7 @@ def _run_handoff(tmp_path, target, *, windows=False, inherited_home=True, modern
             bin_dir = install / "venv" / "bin"
             bin_dir.mkdir(parents=True)
             (bin_dir / "python3").symlink_to(sys.executable)
-            hermes = bin_dir / "hermes"
+            hermes = bin_dir / "loki"
             hermes.write_text(
                 f'#!/usr/bin/env bash\nexec {shlex.quote(sys.executable)} -m hermes_cli.main "$@"\n',
                 encoding="utf-8",
@@ -267,5 +273,5 @@ def test_earlier_pm_userbin_publication_requires_exact_source_identity(tmp_path,
     result, calls, _home, install = _run_handoff(tmp_path, [], modern=True, userbin_only=True, foreign=foreign)
     assert result.returncode == (3 if foreign else 0), result.stdout + result.stderr
     assert len(calls) == (0 if foreign else 1)
-    assert not (install / '.hermes/bin/hermes').exists()
+    assert not (install / '.loki/bin/loki').exists()
     assert not (install / 'venv').exists()

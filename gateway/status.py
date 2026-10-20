@@ -37,7 +37,7 @@ if sys.platform == "win32":
 else:
     import fcntl
 
-_GATEWAY_KIND = "hermes-gateway"
+_GATEWAY_KIND = "loki-gateway"
 _RUNTIME_STATUS_FILE = "gateway_state.json"
 _LOCKS_DIRNAME = "gateway-locks"
 _IS_WINDOWS = sys.platform == "win32"
@@ -334,7 +334,7 @@ def _get_lock_dir() -> Path:
     # lock dir CWD-relative, so two serves started from different directories shared no singleton.
     state_home_env = os.getenv("XDG_STATE_HOME") or ""
     state_home = Path(state_home_env) if os.path.isabs(state_home_env) else Path.home() / ".local" / "state"
-    return state_home / "hermes" / _LOCKS_DIRNAME
+    return state_home / "loki" / _LOCKS_DIRNAME
 
 
 def _utc_now_iso() -> str:
@@ -585,11 +585,11 @@ def _gateway_command_subcommand(command: str | None) -> str | None:
     # (e.g. the Discord bot-token lock). See #22418.
     if any(b == "desktop-gateway.py" for b in basenames):
         return "run"
-    if any(b in ("hermes-gateway", "hermes-gateway.exe") for b in basenames):
+    if any(b in ("loki-gateway", "loki-gateway.exe") for b in basenames):
         return "run"
     joined = " ".join(tokens)
     if "hermes_cli.main" not in joined and "hermes_cli/main.py" not in joined and not any(
-        b in ("hermes", "hermes.exe") for b in basenames
+        b in ("loki", "loki.exe") for b in basenames
     ):
         return None
     # Drop --profile X / -p X / --profile=X / -p=X (consumes a VALUE of "gateway" too).

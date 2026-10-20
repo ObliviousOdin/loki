@@ -62,6 +62,7 @@ function fixture() {
   put(join(app, 'electron/preload.ts'), 'globalThis.fixturePreload = "compiled preload"')
   put(join(app, 'electron/preview-guest-preload-entry.ts'), 'globalThis.fixtureGuestPreload = "compiled guest preload"')
   cpSync(join(repo, 'apps/desktop/product-identity.cjs'), join(app, 'product-identity.cjs'))
+  cpSync(join(repo, 'apps/desktop/preview-identity.cjs'), join(app, 'preview-identity.cjs'))
   cpSync(join(repo, 'apps/desktop/electron/native'), join(app, 'electron/native'), { recursive: true })
   // product-identity.cjs resolves the channel request through the in-tree
   // packaging helper (and its content-types table) by relative path.
@@ -121,15 +122,20 @@ test('desktop compiler consumes explicit immutable inputs, replaces variants, an
   expect(files(join(input.out, 'node_modules/node-pty')).some(([name]) => name.endsWith('.node'))).toBe(true)
   const run = () => JSON.parse(execFileSync(process.execPath, [join(input.out, 'electron-main.mjs')], { cwd: tmpdir(), encoding: 'utf8' }))
   expect(run().identity.light).toBe(true)
-  put(input.stamp, JSON.stringify({ schemaVersion: 1, payload: 'bundled', updateMechanism: 'microsoft-store', commit: 'b'.repeat(40), tag: null }))
+  put(input.stamp, JSON.stringify({ schemaVersion: 1, payload: 'bundled', updateMechanism: 'external', commit: 'b'.repeat(40), tag: null }))
   // Ambient variant/tag must not override explicit stamp inputs or cached CJS identity.
   execFileSync(process.execPath, [join(repo, 'scripts/build/desktop.mjs'), ...Object.entries(input).flatMap(([key, value]) => [`--${key === 'nativeDeps' ? 'native-deps' : key}`, value])], {
     cwd: tmpdir(), env: { ...process.env, PATH: '', HERMES_DESKTOP_VARIANT: 'light', HERMES_PAYLOAD_TAG: 'v1.0.0+canary.20260911T000000Z' }, stdio: 'pipe',
   })
-  expect(run().identity.store).toBe(true)
+  expect(run().identity.store).toBe(false)
   expect(run().identity.light).toBe(false)
   expect(run().stamp.commit).toBe('b'.repeat(40))
   const built = files(input.out)
+  const allowedStamp = readFileSync(input.stamp, 'utf8')
+  put(input.stamp, JSON.stringify({ ...JSON.parse(allowedStamp), updateMechanism: 'microsoft-store' }))
+  await expect(buildDesktop(input)).rejects.toThrow(/Loki-owned Partner Center identity/)
+  expect(files(input.out)).toEqual(built)
+  put(input.stamp, allowedStamp)
   put(join(input.source, 'apps/desktop/electron/main.ts'), 'THIS IS NOT TYPESCRIPT !!!')
   await expect(buildDesktop(input)).rejects.toThrow()
   expect(files(input.out)).toEqual(built)

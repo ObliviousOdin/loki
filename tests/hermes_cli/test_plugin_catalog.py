@@ -133,8 +133,9 @@ def test_live_catalog_falls_back_to_in_tree_and_unions_removals(tmp_path, monkey
     if stale:
         assert [e.name for e in entries] == [e.name for e in pc.load_catalog()]
     else:
-        assert [e.name for e in entries] == ["live-only"]
+        assert [e.name for e in entries] == ["live-only", "honcho"]
         assert entries[0].description == "café"
+        assert entries[1].to_dict() == pc.get_catalog_entry("honcho").to_dict()
     assert bool(requests) is stale
     assert pc.find_removed("pulled-live").reason == "cve"
     cache.write_text("{", encoding="utf-8-sig")

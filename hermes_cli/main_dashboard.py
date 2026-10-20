@@ -79,7 +79,26 @@ def _dashboard_probe_host(host: str | None) -> str:
     return normalized
 
 
-_DASHBOARD_SYSTEMD_UNIT = "hermes-dashboard.service"
+_DASHBOARD_SYSTEMD_UNIT = "loki-dashboard.service"
+
+
+def _foreign_backend_service(name: str) -> bool:
+    """Never adopt a Hermes/Fabric supervisor, even if it inherited Loki's home."""
+    if name.startswith("com.obliviousodin.loki.") or re.fullmatch(
+        r"loki-(?:gateway|serve|dashboard)(?:-[a-z0-9][a-z0-9_-]{0,63})?(?:\.service)?", name,
+    ):
+        return False  # Profile names such as "fabric" are valid inside Loki's namespace.
+    return bool(re.search(r"(?:^|[._-])(?:hermes|fabric)(?:[._-]|$)", name, re.IGNORECASE))
+
+
+def _backend_service_home_owned(home: str | None, scope_home: str | None = None) -> bool:
+    """Custom supervisor names need the same home proof as ordinary Loki backends."""
+    from hermes_cli.update_fleet_scope import home_in_update_scope
+    try:
+        scope = {Path(scope_home).expanduser().resolve()} if scope_home else None
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return home_in_update_scope(home, scope)
 
 _SYSTEMCTL_ERRORS = (FileNotFoundError, subprocess.TimeoutExpired, OSError)
 
@@ -90,14 +109,16 @@ def _run_probe(cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess:
         cmd, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout, check=False)
 
 
-def _restart_managed_dashboard_service(reason: str, unit: str = _DASHBOARD_SYSTEMD_UNIT) -> bool:
+def _restart_managed_dashboard_service(
+    reason: str, unit: str = _DASHBOARD_SYSTEMD_UNIT, *, scope_home: str | None = None,
+) -> bool:
     """Restart a systemd-managed dashboard instead of raw-killing its PID.
 
     True when a unit was found and handled (success or printed failure) — which
     deliberately stops the caller's ``os.kill`` fallback: systemd treats a direct
     SIGTERM as a clean stop, so ``Restart=on-failure`` won't bring it back.
     """
-    if sys.platform == "win32":
+    if sys.platform == "win32" or _foreign_backend_service(unit):
         return False
 
     def _systemctl(*args: str, timeout: int = 10) -> subprocess.CompletedProcess:
@@ -121,6 +142,17 @@ def _restart_managed_dashboard_service(reason: str, unit: str = _DASHBOARD_SYSTE
             break
 
     if scope is None:
+        return False
+
+    # A name alone does not identify this install. Read the live unit's MainPID
+    # and its home before any restart, including an explicitly supplied custom unit.
+    from hermes_cli.dashboard_procs import _hermes_home_for_pid
+    try:
+        main_pid = _systemctl(*scope, "show", unit, "--property=MainPID", "--value")
+        pid = int((main_pid.stdout or "").strip()) if main_pid.returncode == 0 else 0
+    except (*_SYSTEMCTL_ERRORS, ValueError):
+        return False
+    if pid <= 0 or not _backend_service_home_owned(_hermes_home_for_pid(pid), scope_home):
         return False
 
     try:
@@ -231,11 +263,15 @@ def _get_pid_cgroup_path(pid: int) -> str | None:
     return next(_pid_unified_cgroup_entries(pid), None)
 
 
-def _try_restart_systemd_service(svc_name: str, cgroup_path: str | None = None) -> bool:
+def _try_restart_systemd_service(
+    svc_name: str, cgroup_path: str | None = None, *, ownership_home: str | None = None,
+) -> bool:
     """Restart *svc_name* via systemctl (``--user`` for user-scope units). True on success.
 
     Unknown scope tries system first, then user.
     """
+    if _foreign_backend_service(svc_name) or not _backend_service_home_owned(ownership_home):
+        return False
     scope = _extract_scope_from_cgroup(cgroup_path) if cgroup_path else None
     system_cmd = ["systemctl", "restart", svc_name]
     user_cmd = ["systemctl", "--user", "restart", svc_name]
@@ -335,12 +371,17 @@ def _launchd_job_owning_backend(
     return None
 
 
-def _restart_launchd_job(domain: str, label: str, old_pid: int | None, *, timeout: float = 15.0) -> bool:
+def _restart_launchd_job(
+    domain: str, label: str, old_pid: int | None, *, timeout: float = 15.0,
+    ownership_home: str | None = None,
+) -> bool:
     """Bring a launchd-supervised backend back after its process was stopped: ``launchctl kickstart
     <domain>/<label>`` (no ``-k`` — a KeepAlive job may already have respawned it, and a kill would
     take that fresh process down), then require launchd to report a live PID other than *old_pid*
     within *timeout*. A kickstart that returns 0 only means "restart requested"; a job that is loaded
     but never comes back on a fresh PID is a failure the operator must hear about."""
+    if _foreign_backend_service(label) or not _backend_service_home_owned(ownership_home):
+        return False
     from hermes_cli.gateway import _wait_for_launchd_service_pid
     try:
         if _run_probe(["launchctl", "kickstart", f"{domain}/{label}"], timeout=30).returncode != 0:
@@ -581,10 +622,10 @@ def _report_dashboard_status() -> int:
         live.append((pid, command, mode))
 
     if not live:
-        print("No hermes dashboard or serve processes running.")
+        print("No loki dashboard or serve processes running.")
         return 0
 
-    print(f"{len(live)} hermes dashboard/serve process(es) running:")
+    print(f"{len(live)} loki dashboard/serve process(es) running:")
     for pid, command, mode in live:
         print(f"    PID {pid} [{mode}]: {command}")
     return len(live)
@@ -640,7 +681,7 @@ def _maybe_setup_dashboard_auth_interactively(args) -> None:
     print()
     print("  How do you want to authenticate the dashboard?")
     print("    [1] Username & password (quickest; for a trusted LAN / VPN)")
-    print("    [2] OAuth via Nous Portal (run `hermes dashboard register`)\n    [3] Cancel\n")
+    print("    [2] OAuth with your own authorized client (see `loki dashboard register`)\n    [3] Cancel\n")
 
     try:
         choice = input("  Choice [1]: ").strip() or "1"
@@ -652,9 +693,10 @@ def _maybe_setup_dashboard_auth_interactively(args) -> None:
         print(
             "  Run this on the host where the dashboard lives, then start "
             "the dashboard again:\n"
-            "    hermes dashboard register\n"
-            "  It provisions a Nous Portal OAuth client and writes "
-            "HERMES_DASHBOARD_OAUTH_CLIENT_ID into ~/.hermes/.env for you.\n"
+            "    loki dashboard register\n"
+            "  First configure an OAuth registration service/client authorized "
+            "for this Loki project. Upstream hosted OAuth clients are not included.\n"
+            "  Registration settings are saved in this Loki profile's .env.\n"
             "  Docs: https://hermes-agent.nousresearch.com/docs/"
             "user-guide/features/web-dashboard#authentication-gated-mode"
         )
@@ -736,7 +778,7 @@ def _read_ssh_session_token_file(path: str) -> str:
     # validation there, NOT get_hermes_home(): a non-default profile or a Docker
     # /opt/data root re-homes get_hermes_home() and would reject every token.
     # See #69551.
-    token_root = Path.home() / ".hermes" / "desktop-ssh"
+    token_root = Path.home() / ".loki" / "desktop-ssh"
     try:
         relative = Path(path).relative_to(token_root)
     except ValueError as exc:
@@ -917,8 +959,8 @@ def _attach_to_host_backend(args, headless_backend: bool) -> None:
 
     if not headless_backend and not identity.get("servesSpa"):
         print(f"Refusing to start: this host is already served by {hr.describe(record)}, "
-              "which is a headless `hermes serve` backend with no dashboard UI.")
-        print("  Stop it and run `hermes dashboard`, or use --isolated for a dedicated server.")
+              "which is a headless `loki serve` backend with no dashboard UI.")
+        print("  Stop it and run `loki dashboard`, or use --isolated for a dedicated server.")
         sys.exit(GATEWAY_FATAL_CONFIG_EXIT_CODE)
 
     try:

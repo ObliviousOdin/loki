@@ -11,6 +11,19 @@ afterEach(() => {
 })
 
 describe('TUI i18n catalog', () => {
+  it('names Loki at startup across locale packs', () => {
+    for (const catalog of [en, catalogFromPack({
+      'status.summoning': 'summoning hermes…',
+      'chatBits.branding.tagFull': 'Nous Research · Messenger of the Digital Gods',
+      'chatBits.branding.tagMid': 'Messenger of the Digital Gods'
+    })]) {
+      expect(catalog.status.summoning).toBe('summoning Loki…')
+      expect(catalog.chatBits.branding.tagFull).toBe('Loki · Personal AI agent')
+      expect(catalog.chatBits.branding.tagMid).toBe('Loki')
+      expect(catalog.help.commands.quit).toBe('exit Loki')
+    }
+  })
+
   it('siblings own disjoint top-level namespaces', () => {
     const seen = new Map<string, number>()
 

@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli import _early_recovery as er
 from hermes_cli import update_cmd
 
@@ -57,6 +59,8 @@ def checkout(tmp_path, monkeypatch):
     origin = tmp_path / "origin"
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    write_loki_source(origin)
+    _git(origin, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _git(origin, "config", "user.email", "t@example.invalid")
     _git(origin, "config", "user.name", "t")
     files = {"utils.py": "OLD = 1\n", "other.py": "a = 1\n", "gone.py": "x = 1\n", "cut.py": "c = 1\n",
@@ -277,6 +281,8 @@ def test_concurrent_launches_take_turns_and_all_rerun_from_the_restored_tree(tmp
     origin = tmp_path / "origin"
     origin.mkdir()
     _git(origin, "init", "-q", "-b", "main")
+    write_loki_source(origin)
+    _git(origin, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     _git(origin, "config", "user.email", "t@example.invalid")
     _git(origin, "config", "user.name", "t")
     names = [f"m{i}.py" for i in range(300)]  # enough work that the launches overlap

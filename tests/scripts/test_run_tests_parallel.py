@@ -50,6 +50,55 @@ def _probe_root(tmp_path):
     return root
 
 
+def test_owned_pytest_child_binds_private_home_before_collection(tmp_path):
+    """A real probe imports bootstrap/logging before any suite conftest can run."""
+    root = _probe_root(tmp_path)
+    user = tmp_path / "user"
+    for name in (".loki", ".hermes"):
+        (user / name).mkdir(parents=True)
+        (user / name / "untouched").write_text(name, encoding="utf-8")
+    receipt = tmp_path / "receipt.json"
+    project = Path(__file__).resolve().parents[2]
+    probe = tmp_path / "outside-suite" / "test_bootstrap.py"
+    probe.parent.mkdir()
+    probe.write_text(textwrap.dedent(f"""
+        import json, os, sys
+        from pathlib import Path
+        sys.path.insert(0, {str(project)!r})
+        import hermes_bootstrap
+        from hermes_constants import get_process_hermes_home
+        from hermes_logging import setup_logging
+        own = Path(os.environ['TMPDIR']) / 'loki-home'
+        logs = setup_logging()
+        facts = {{'public': os.environ['LOKI_HOME'], 'internal': os.environ['HERMES_HOME'],
+                  'bound': os.environ.get('__LOKI_ENV_BOUND'),
+                  'sandbox': os.environ.get('HERMES_TEST_SANDBOX_HOME'),
+                  'resolved': str(get_process_hermes_home()), 'logs': str(logs),
+                  'guard_bypass': os.environ.get('HERMES_STATE_DB_GUARD_BYPASS')}}
+        Path({str(receipt)!r}).write_text(json.dumps(facts), encoding='utf-8')
+        def test_private_home():
+            assert facts['public'] == facts['internal'] == facts['resolved'] == str(own)
+            assert logs == own / 'logs' and logs.is_dir()
+            assert facts['bound'] == '1' and not facts['guard_bypass']
+            assert facts['sandbox'] == str(own)
+    """), encoding="utf-8")
+    environment = {**os.environ, "HOME": str(user), "USERPROFILE": str(user),
+                   "LOKI_HOME": str(user / ".loki"), "HERMES_HOME": str(user / ".hermes"),
+                   "HERMES_TEST_SANDBOX_HOME": str(user / ".hermes")}
+    environment.pop("HERMES_STATE_DB_GUARD_BYPASS", None)
+    result = subprocess.run([sys.executable, str(root / "scripts/run_tests_parallel.py"),
+                             str(probe), "-j", "1", "--file-timeout", "60"],
+                            env=environment, capture_output=True, text=True, timeout=90, check=False)
+    assert result.returncode == 0, result.stdout + result.stderr
+    facts = json.loads(receipt.read_text(encoding="utf-8"))
+    assert facts["public"] != environment["LOKI_HOME"]
+    assert facts["internal"] != environment["HERMES_HOME"]
+    assert facts["sandbox"] != environment["HERMES_TEST_SANDBOX_HOME"]
+    for name in (".loki", ".hermes"):
+        assert sorted(p.name for p in (user / name).iterdir()) == ["untouched"]
+        assert (user / name / "untouched").read_text(encoding="utf-8") == name
+
+
 def _pid_alive(pid: int) -> bool:
     """POSIX: send signal 0 to probe whether ``pid`` is still alive.
 

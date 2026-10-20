@@ -96,8 +96,8 @@ class TestMetadata:
         schema = provider.get_setup_schema()
         assert schema["env_vars"] == []
         assert schema["post_setup"] == "openai_codex"
-        assert "hermes auth add openai-codex" in schema["post_setup_hint"]
-        assert "hermes auth codex`" not in schema["post_setup_hint"]
+        assert "loki auth add openai-codex" in schema["post_setup_hint"]
+        assert "loki auth codex`" not in schema["post_setup_hint"]
 
 
 # ── Availability ────────────────────────────────────────────────────────────
@@ -144,7 +144,7 @@ class TestGenerate:
         assert provider.generate("a cat")["success"] is True
         (request,) = codex_backend["requests"]
         assert str(request.url) == "https://chatgpt.com/backend-api/codex/images/generations"
-        assert request.headers["originator"] == "hermes-agent"
+        assert request.headers["originator"] == "loki-agent"
 
     def test_profile_scope_routes_each_request_without_borrowing_process_override(
         self, provider, codex_backend, monkeypatch,

@@ -3,6 +3,8 @@ native send (image/video/voice/file)."""
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import asyncio
 import base64
 import hashlib
@@ -188,7 +190,7 @@ class WeComMediaMixin:
             raise RuntimeError("httpx is required for WeCom media download")
         client = self._http_client or create_ssrf_safe_async_client(timeout=30.0, follow_redirects=True, event_hooks={"response": [_ssrf_redirect_guard]})
         try:
-            async with client.stream("GET", url, headers={"User-Agent": "HermesAgent/1.0", "Accept": "*/*"}) as response:
+            async with client.stream("GET", url, headers={"User-Agent": CLIENT_USER_AGENT, "Accept": "*/*"}) as response:
                 response.raise_for_status()
                 headers = {key.lower(): value for key, value in response.headers.items()}
                 content_length = headers.get("content-length")

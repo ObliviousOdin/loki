@@ -24,7 +24,8 @@ def _origin(path: Path, content: str = "one") -> Path:
     path.mkdir()
     _git(path, "init", "-q", "-b", "main")
     (path / "README").write_text(content)
-    _git(path, "add", "README")
+    (path / "pyproject.toml").write_text('[project]\nname="obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(path, "add", "README", "pyproject.toml")
     _git(path, "commit", "-qm", content)
     return path
 
@@ -37,14 +38,14 @@ def _commit(repo: Path, content: str) -> str:
 
 def _run(tmp_path: Path, body: str, *, env: dict | None = None, **kwargs) -> subprocess.CompletedProcess:
     script = f"source {shlex.quote(INSTALL_SH.as_posix())} --manifest\nsleep() {{ :; }}\n{body}\n"
-    full_env = dict(os.environ, HOME=tmp_path.as_posix(), HERMES_HOME=(tmp_path / "home").as_posix(),
-                    HERMES_INSTALL_DIR=(tmp_path / "install").as_posix(), **(env or {}))
+    full_env = dict(os.environ, HOME=tmp_path.as_posix(), LOKI_HOME=(tmp_path / "home").as_posix(),
+                    LOKI_INSTALL_DIR=(tmp_path / "install").as_posix(), **(env or {}))
     return subprocess.run(["bash", "-c", script], env=full_env, capture_output=True, text=True, timeout=60, **kwargs)  # noqa: PLW1510 -- forwarding wrapper: callers pass subprocess kwargs via **kwargs (check may arrive through it); an explicit check=False would raise TypeError
 
 
 def _stage(tmp_path: Path, origin: Path, *, commit: str = "", extra_env: dict | None = None,
            prelude: str = "") -> subprocess.CompletedProcess:
-    env = {"HERMES_REPO_URL": origin.as_posix(), **(extra_env or {})}
+    env = {"LOKI_REPO_URL": origin.as_posix(), **(extra_env or {})}
     return _run(tmp_path, f"{prelude}\nINSTALL_COMMIT={shlex.quote(commit)}\nstage_repository", env=env)
 
 
@@ -151,6 +152,7 @@ def test_commitless_checkout_is_moved_aside_and_recloned(tmp_path):
     install = tmp_path / "install"
     install.mkdir()
     _git(install, "init", "-q")
+    (install / "pyproject.toml").write_text('[project]\nname="obliviousodin-loki-agent"\n', encoding="utf-8")
     (install / "keep").write_text("user file")
     result = _stage(tmp_path, origin)
     assert result.returncode == 0, result.stdout + result.stderr

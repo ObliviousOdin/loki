@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any
 
 from agent import i18n_layers
+from agent.i18n_branding import brand_bundled_catalog
 from agent.i18n_languages import language_options
 
 logger = logging.getLogger(__name__)
@@ -134,7 +135,7 @@ def _load_bundled(lang: str) -> dict[str, str]:
         logger.debug("i18n catalog missing for %s at %s", lang, path)
         return {}
     try:
-        return i18n_layers.parse_locale_file(path)
+        return brand_bundled_catalog(i18n_layers.parse_locale_file(path))
     except Exception as exc:
         logger.warning("Failed to load i18n catalog %s: %s", path, exc)
         return {}

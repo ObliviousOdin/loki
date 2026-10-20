@@ -2946,7 +2946,7 @@ def _resolve_hermes_bin() -> Optional[list[str]]:
     except Exception:
         pass
     import shutil
-    hermes_bin = shutil.which("hermes")
+    hermes_bin = shutil.which("loki")
     if hermes_bin:
         return [hermes_bin]
     return None

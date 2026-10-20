@@ -117,10 +117,10 @@ def _child_launchd_label_env(environ: Mapping[str, str] | None = None) -> dict[s
     app-coalition labels are meaningless as a job identity.
     """
     env = os.environ if environ is None else environ
-    for variable in ("XPC_SERVICE_NAME", _LAUNCHD_LABEL_ENV):
+    for variable in ("XPC_SERVICE_NAME", "LOKI_LAUNCHD_LABEL", _LAUNCHD_LABEL_ENV):
         label = str(env.get(variable, "") or "").strip()
-        if label.startswith("ai.hermes"):
-            return {_LAUNCHD_LABEL_ENV: label}
+        if label == "com.obliviousodin.loki.gateway" or label.startswith("com.obliviousodin.loki.gateway-"):
+            return {_LAUNCHD_LABEL_ENV: label, "LOKI_LAUNCHD_LABEL": label}
     return {}
 
 

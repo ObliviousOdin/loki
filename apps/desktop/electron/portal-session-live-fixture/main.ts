@@ -12,8 +12,25 @@ import { createPortalSession } from '../portal-session'
 app.setPath('userData', join(process.argv[2], 'user-data'))
 app.on('window-all-closed', () => {})
 
+let phase = 'app-readiness'
+
+const reportPhase = (value: string) => {
+  phase = value
+  console.log(`PORTAL_SESSION_LIVE_PHASE ${phase}`)
+}
+
+// Exit this fixture before execFile's 45s timeout so a stalled renderer leaves
+// its last synthetic phase in the failure output, without orphaning the app.
+const watchdog = setTimeout(() => {
+  console.error(`PORTAL_SESSION_LIVE_STALLED ${phase}`)
+  app.exit(1)
+}, 40_000)
+
+watchdog.unref()
+
 async function run() {
   await app.whenReady()
+  reportPhase('app-ready')
   const jar = session.fromPartition('persist:portal-test')
   let provider: 'privy' | 'nas' = 'privy'
   let mode: 'login' | 'renew' | 'reject' = 'login'
@@ -77,6 +94,7 @@ async function run() {
   })
 
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  reportPhase('loopback-server-ready')
   const base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
 
   const portal = createPortalSession({
@@ -92,6 +110,7 @@ async function run() {
     // Real interactive completion must wait past refresh-only state, for both
     // providers, and NAS login must survive removal of all Privy cookies.
     for (const next of ['privy', 'nas'] as const) {
+      reportPhase(`${next}:interactive-login`)
       provider = next
       mode = 'login'
       await jar.clearStorageData()
@@ -110,11 +129,13 @@ async function run() {
       })
 
       await requested
+      reportPhase(`${next}:login-requested`)
       assert.equal(await portal.hasLivePortalSession(), true)
       assert.equal(await portal.hasPortalAccessToken(), false)
       assert.equal(completed, false)
       releaseLogin()
       await login
+      reportPhase(`${next}:login-completed`)
       assert.equal(await portal.hasPortalAccessToken(), true)
       assert.equal((await jar.fetch(`${base}/api/agents`)).status, 200)
 
@@ -122,6 +143,7 @@ async function run() {
       await jar.cookies.remove(base, accessName())
       mode = 'renew'
       const before = refreshes
+      reportPhase(`${next}:concurrent-renewal`)
 
       const [first, second] = await Promise.all([
         portal.renewPortalAccessSilently(),
@@ -132,6 +154,7 @@ async function run() {
       assert.equal(second, true)
       assert.equal(refreshes, before + 1)
       assert.equal((await jar.fetch(`${base}/api/agents`)).status, 200)
+      reportPhase(`${next}:renewal-completed`)
     }
 
     // Dual-mint, followed by both provider transitions, with no cached identity.
@@ -139,6 +162,7 @@ async function run() {
     assert.equal(await portal.hasPortalAccessToken(), true)
 
     for (const next of ['privy', 'nas', 'privy'] as const) {
+      reportPhase(`provider-transition:${next}`)
       provider = next
       mode = 'renew'
       assert.equal(await portal.renewPortalAccessSilently({ force: true }), true)
@@ -146,6 +170,7 @@ async function run() {
     }
 
     // A server-rejected cookie must not short-circuit renewal as successful.
+    reportPhase('rejected-access-renewal')
     mode = 'reject'
     await jar.cookies.set({ url: base, name: accessName(), value: 'rejected', httpOnly: true })
     assert.equal((await jar.fetch(`${base}/api/agents`)).status, 401)
@@ -155,6 +180,7 @@ async function run() {
     // The same rejected cookie must not close the interactive login before the
     // portal issues a new one; a forced renewal requested while an unforced one
     // is short-circuiting must still drive the portal.
+    reportPhase('rejected-access-interactive-login')
     mode = 'login'
     loginGate = new Promise(resolve => {
       releaseLogin = resolve
@@ -173,14 +199,17 @@ async function run() {
     // A premature completion destroys the window before its page can reach
     // /complete, so race the two instead of waiting on the request alone.
     await Promise.race([requestedAgain, loginAgain])
+    reportPhase('rejected-access-login-requested')
     assert.equal(await portal.hasPortalAccessToken(), true)
     assert.equal(completedAgain, false)
     releaseLogin()
     await loginAgain
+    reportPhase('rejected-access-login-completed')
     assert.equal((await jar.fetch(`${base}/api/agents`)).status, 200)
 
     mode = 'renew'
     const beforeForced = refreshes
+    reportPhase('forced-concurrent-renewal')
 
     const [unforced, forced] = await Promise.all([
       portal.renewPortalAccessSilently(),
@@ -192,11 +221,14 @@ async function run() {
     assert.equal(refreshes, beforeForced + 1)
 
     await jar.clearStorageData()
+    reportPhase('unsupported-provider')
     await jar.cookies.set({ url: base, name: 'next-auth-provider', value: 'workos' })
     assert.equal(await portal.hasLivePortalSession(), false)
     assert.equal(await portal.renewPortalAccessSilently(), false)
     console.log('PORTAL_SESSION_LIVE_OK')
   } finally {
+    reportPhase('fixture-cleanup')
+
     for (const window of BrowserWindow.getAllWindows()) {
       window.destroy()
     }
@@ -207,8 +239,12 @@ async function run() {
 }
 
 void run().then(
-  () => app.exit(0),
+  () => {
+    clearTimeout(watchdog)
+    app.exit(0)
+  },
   error => {
+    clearTimeout(watchdog)
     console.error(error)
     app.exit(1)
   }

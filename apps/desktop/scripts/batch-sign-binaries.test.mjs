@@ -119,7 +119,11 @@ test('customSign delegates only the msix package and root product exe to the Azu
       win: { ...builderConfig.win, executableName: 'hermes-collision' }
     }
   })
+  assert.equal(builderConfig.win.sign, null)
   await info.validateConfig()
+  assert.equal(info.config.mac.sign, null, 'preview signing must remain explicitly disabled after native schema validation')
+  assert.equal(info.config.win.sign, false, 'native schema normalization must preserve disabled Windows signing')
+  assert.equal(info.config.publish, null, 'preview builds must not select an inherited publishing provider')
   const packager = new WinPackager(info)
   const msix = path.join(tmpTree(), 'HermesBundled-0.28.0-win-x64.msix')
   assert.equal(await customSign({ path: msix }, packager, deps), true)

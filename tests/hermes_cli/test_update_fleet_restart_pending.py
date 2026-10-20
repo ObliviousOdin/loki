@@ -21,6 +21,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import loki_git_batch
+
 from hermes_cli import main as hermes_main
 from hermes_cli import main_web_build
 from hermes_cli import main_install_repair
@@ -39,6 +41,8 @@ def _make_up_to_date_side_effect(sha="abc123"):
 
     def side_effect(cmd, **kwargs):
         joined = " ".join(str(c) for c in cmd)
+        if "cat-file --batch" in joined:
+            return SimpleNamespace(returncode=0, stdout=loki_git_batch(kwargs["input"]), stderr=b"")
 
         if "rev-parse" in joined and "--abbrev-ref" in joined:
             return SimpleNamespace(returncode=0, stdout="main\n", stderr="")
@@ -65,6 +69,8 @@ def _make_head_moved_side_effect(pre_sha=PRE_SHA, post_sha=POST_SHA):
     def side_effect(cmd, **kwargs):
         nonlocal advanced
         joined = " ".join(str(c) for c in cmd)
+        if "cat-file --batch" in joined:
+            return SimpleNamespace(returncode=0, stdout=loki_git_batch(kwargs["input"]), stderr=b"")
 
         if "merge --ff-only" in joined:
             advanced = True
@@ -98,6 +104,11 @@ def _patch_update_deps(monkeypatch, tmp_path, run_side_effect):
 
     monkeypatch.setattr(update_custody, "run",
                         lambda argv, *, inherit_lock=False, **kw: run_side_effect(list(argv), **kw))
+    # A held updater on macOS uses the owner-watched Popen path for network
+    # Git. Inject the canonical Git executor, keeping these synthetic checkout
+    # tests independent of the host's custody transport and real network.
+    monkeypatch.setattr(update_custody, "run_git", lambda command, args, **kw:
+                        run_side_effect(update_custody.git_argv(command, args), **kw))
     monkeypatch.setattr(hermes_main, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(update_cmd, "_prepare_updated_checkout", lambda *a, **k: None)
     (tmp_path / ".git").mkdir()
@@ -454,7 +465,7 @@ def test_clean_update_escalates_surviving_serve_as_unaccounted(
 
     def _match(p, **kw):
         kw["restarted_services"] = list(kw.get("restarted_services") or []) + [
-            "hermes-gateway.service"
+            "loki-gateway.service"
         ]
         return real_match(p, **kw)
 
@@ -530,7 +541,7 @@ def test_clean_update_defers_desktop_owned_serve_and_clears_marker(
 
     def _match(p, **kw):
         kw["restarted_services"] = list(kw.get("restarted_services") or []) + [
-            "hermes-gateway.service"
+            "loki-gateway.service"
         ]
         return real_match(p, **kw)
 
@@ -588,7 +599,7 @@ def test_startup_warn_prints_when_marker_present(capsys):
     update_cmd._warn_pending_fleet_restart_on_startup()
     err = capsys.readouterr().err
     assert "did not restart running gateways" in err
-    assert "hermes gateway restart" in err
+    assert "loki gateway restart" in err
 
 
 def test_startup_warn_silent_when_nothing_pending(capsys):
@@ -870,7 +881,7 @@ def test_startup_warn_silent_when_failed_receipt_already_restarted_fleet(monkeyp
                 "stop_reason": "AttributeError: module 'hermes_cli.main_dashboard' has no attribute 'x'",
                 "pre_update": {"sha": pre}, "post_update": {"sha": pulled},
                 "gateway_restart": {
-                    "restarted_services": ["hermes-gateway"], "relaunched_profiles": [],
+                    "restarted_services": ["loki-gateway"], "relaunched_profiles": [],
                     "externally_supervised_profiles": [], "killed_pids": [], "failed_units": [],
                     "incomplete": False, "phase_error": "",
                 },
@@ -907,7 +918,7 @@ def test_startup_warn_silent_when_completed_update_fleet_restarted_onto_moved_ch
                 "outcome": "success", "exit_code": 0,
                 "pre_update": {"sha": pre}, "post_update": {"sha": pulled},
                 "gateway_restart": {
-                    "restarted_services": ["hermes-gateway"], "relaunched_profiles": [],
+                    "restarted_services": ["loki-gateway"], "relaunched_profiles": [],
                     "externally_supervised_profiles": [], "killed_pids": [], "failed_units": [],
                     "incomplete": False, "phase_error": "",
                 },

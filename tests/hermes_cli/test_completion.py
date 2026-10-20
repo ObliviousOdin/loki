@@ -2,10 +2,13 @@
 
 import argparse
 import os
+import shutil
 import subprocess
 import tempfile
 
-from hermes_cli.completion import _walk, generate_bash, generate_fish
+import pytest
+
+from hermes_cli.completion import _walk, generate_bash, generate_fish, generate_zsh
 
 
 # ---------------------------------------------------------------------------
@@ -76,8 +79,8 @@ class TestWalk:
 class TestGenerateBash:
     def test_contains_completion_function_and_register(self):
         out = generate_bash(_make_parser())
-        assert "_hermes_completion()" in out
-        assert "complete -F _hermes_completion hermes" in out
+        assert "_loki_completion()" in out
+        assert "complete -F _loki_completion loki" in out
 
 
     def test_valid_bash_syntax(self):
@@ -111,16 +114,60 @@ class TestProfileCompletion:
         for line in lines:
             if "profile)" in line:
                 in_profile_case = True
-            if in_profile_case and "_hermes_profiles" in line:
+            if in_profile_case and "_loki_profiles" in line:
                 has_profiles_in_action = True
                 break
-        assert has_profiles_in_action, "profile actions should complete with _hermes_profiles"
+        assert has_profiles_in_action, "profile actions should complete with _loki_profiles"
 
 
     def test_fish_profile_actions_complete_names(self):
         out = generate_fish(_make_parser())
         # Should have profile name completion for actions like use, delete, etc.
-        assert "__hermes_profiles" in out
-        count = out.count("(__hermes_profiles)")
+        assert "__loki_profiles" in out
+        count = out.count("(__loki_profiles)")
         # At least the -p flag + the profile action completions
         assert count >= 2, f"Expected >=2 profile completion entries, got {count}"
+
+
+@pytest.mark.parametrize("generate,shell", [(generate_bash, "bash"), (generate_zsh, "zsh"), (generate_fish, "fish")])
+def test_generated_product_templates_preserve_custom_parser_descriptions(generate, shell):
+    parser = _make_parser()
+    subparsers = next(action for action in parser._actions if isinstance(action, argparse._SubParsersAction))
+    subparsers.add_parser("custom", help="Hermes model documentation")
+
+    script = generate(parser)
+
+    assert f"# Loki {shell} completion" in script
+    assert "Hermes model documentation" in script or shell == "bash"
+    assert "$HOME/.hermes" not in script
+    assert "hermes completion" not in script
+
+
+@pytest.mark.platforms("posix")
+@pytest.mark.parametrize("custom_root", [False, True])
+def test_generated_bash_uses_owned_profiles_and_preserves_foreign_completion(tmp_path, custom_root):
+    home = tmp_path / "home with spaces"
+    home.mkdir()
+    root = home / ("custom state with spaces" if custom_root else ".loki")
+    (root / "profiles/hermes-custom").mkdir(parents=True)
+    foreign = home / ".hermes/profiles/foreign-profile/canary"
+    foreign.parent.mkdir(parents=True)
+    foreign.write_bytes(b"foreign profile bytes")
+    script = "_hermes_profiles() { printf 'existing-foreign-completion\\n'; }\n"
+    script += "complete -F _hermes_profiles hermes\n" + generate_bash(_make_parser())
+    script += "\n_loki_profiles\n_hermes_profiles\ncomplete -p loki\ncomplete -p hermes\n"
+    env = {"HOME": str(home), "PATH": os.environ["PATH"]}
+    if custom_root:
+        env["LOKI_HOME"] = str(root)
+
+    bash = shutil.which("bash", path=os.defpath)
+    assert bash, "Generated completion acceptance requires native Bash with programmable completion"
+    result = subprocess.run([bash, "-c", script], env=env, capture_output=True, text=True, check=False)
+
+    assert result.returncode == 0, result.stderr
+    assert "default hermes-custom" in result.stdout
+    assert "foreign-profile" not in result.stdout
+    assert "existing-foreign-completion" in result.stdout
+    assert "complete -F _loki_completion loki" in result.stdout
+    assert "complete -F _hermes_profiles hermes" in result.stdout
+    assert foreign.read_bytes() == b"foreign profile bytes"

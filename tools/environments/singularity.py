@@ -67,7 +67,7 @@ def _get_scratch_dir() -> Path:
         scratch_path = get_sandbox_dir() / "singularity"
         scratch = Path("/scratch")
         if scratch.exists() and os.access(scratch, os.W_OK):
-            scratch_path = scratch / os.getenv("USER", "hermes") / "hermes-agent"
+            scratch_path = scratch / os.getenv("USER", "loki") / "loki-agent"
             scratch_path.mkdir(parents=True, exist_ok=True)
             logger.info("Using /scratch for sandboxes: %s", scratch_path)
     scratch_path.mkdir(parents=True, exist_ok=True)

@@ -167,9 +167,26 @@ def test_canary_changes_only_desktop_background_preserving_art_and_native_geomet
     assert_unbranded_outputs(stable, canary)
 
 
+def assert_badge_text(image, origin):
+    """Read the literal seven hexadecimal glyphs from every rendered cell."""
+    expected = (
+        (14, 17, 19, 21, 25, 17, 14), (4, 12, 4, 4, 4, 4, 14),
+        (14, 17, 1, 2, 4, 8, 31), (30, 1, 1, 14, 1, 1, 30),
+        (2, 6, 10, 18, 31, 2, 2), (31, 16, 16, 30, 1, 1, 30),
+        (14, 16, 16, 30, 17, 17, 14),
+    )
+    gx, gy = origin
+    for digit, rows in enumerate(expected):
+        for y, row in enumerate(rows):
+            for x in range(5):
+                point = (gx + (digit * 6 + x) * 16 + 8, gy + y * 16 + 8)
+                pixel = image.getpixel(point)
+                assert (min(pixel) > 240) == bool(row & (1 << (4 - x))), (digit, x, y)
+
+
 def test_commit_icons_are_red_and_print_only_the_actual_seven_digit_prefix(generate, monkeypatch):
     module = load_generator(monkeypatch)
-    (gx, gy), badge_min_size = module.BADGE_GLYPH_ORIGIN, module.BADGE_MIN_SIZE
+    badge_min_size = module.BADGE_MIN_SIZE
     stable = generate("v1.2.3")
     first = generate(commit="0123456" + "a" * 33)
     changed = generate(commit="abcdef9" + "a" * 33)
@@ -203,30 +220,11 @@ def test_commit_icons_are_red_and_print_only_the_actual_seven_digit_prefix(gener
             assert changed_box[3] <= bbox[1] + (bbox[3] - bbox[1]) * 0.25 + 3
     # At full resolution, read back each glyph's bitmap from pixels. These
     # digit forms spell 0123456, not a generic badge or a hash of the SHA.
-    expected = (
-        (14, 17, 19, 21, 25, 17, 14), (4, 12, 4, 4, 4, 4, 14),
-        (14, 17, 1, 2, 4, 8, 31), (30, 1, 1, 14, 1, 1, 30),
-        (2, 6, 10, 18, 31, 2, 2), (31, 16, 16, 30, 1, 1, 30),
-        (14, 16, 16, 30, 17, 17, 14),
-    )
-    # The portrait renders in front of the badge (her hair crosses its lower rows), so a
-    # cell is only judged where the stable icon shows no art at that spot; every glyph
-    # must still be identified by a majority of its uncovered cells.
+    # The badge must stay legible above the mark: read every cell of every
+    # digit, including the cells where the unbadged monogram would overlap.
     for name in ("icon.png", "icon-dark.png"):
         image = Image.open(first / "apps/desktop/assets" / name).convert("RGB")
-        unbadged = Image.open(stable / "apps/desktop/assets" / name).convert("RGB")
-        art = (0, 0, 0) if name == "icon.png" else (255, 255, 255)
-        for digit, rows in enumerate(expected):
-            judged = 0
-            for y, row in enumerate(rows):
-                for x in range(5):
-                    point = (gx + (digit * 6 + x) * 16 + 8, gy + y * 16 + 8)
-                    if unbadged.getpixel(point) == art:
-                        continue
-                    judged += 1
-                    pixel = image.getpixel(point)
-                    assert (min(pixel) > 240) == bool(row & (1 << (4 - x))), (name, digit, x, y)
-            assert judged >= 18, (name, digit, judged)
+        assert_badge_text(image, module.BADGE_GLYPH_ORIGIN)
     assert_unbranded_outputs(stable, first)
 
 
@@ -272,9 +270,9 @@ def manifest_fills(package):
 
 
 def test_layered_macos_icon_mono_layer_and_flavor_stays_in_the_fill(generate, monkeypatch):
-    """macOS 26 masks the layers itself. The girl is dragged past the plate edge
-    so the mask crops her (no gap below), the mono layer is one image of two
-    materials — near-black frosted ink and white — so nothing stacks, and build
+    """macOS 26 masks the layers itself. Loki's monogram keeps its inset safe
+    area on all four sides; the mono layer uses frosted ink and optional white
+    highlights in one image, so nothing stacks, and build
     flavors recolour the fill in icon.json only; the layers never change."""
     module = load_generator(monkeypatch)
     stable = generate("v1.2.3") / "apps/desktop/assets" / LAYERED_ICON
@@ -282,36 +280,42 @@ def test_layered_macos_icon_mono_layer_and_flavor_stays_in_the_fill(generate, mo
     commit = generate(commit="0123456" + "a" * 33) / "apps/desktop/assets" / LAYERED_ICON
 
     canvas = module.ICON_CANVAS
+    alpha_masks = []
     for name in ("art-light.png", "art-dark.png"):
         layer = Image.open(stable / "Assets" / name).convert("RGBA")
         assert layer.size == (canvas, canvas)
-        bottom_row = layer.crop((0, canvas - 1, canvas, canvas)).getchannel("A").getbbox()
-        assert bottom_row is not None, f"{name}: the girl must reach the plate edge"
+        alpha = layer.getchannel("A")
+        bounds = alpha.getbbox()
+        assert bounds is not None, f"{name}: the Loki mark must be visible"
+        left, top, right, bottom = bounds
+        margins = (left, top, canvas - right, canvas - bottom)
+        assert all(canvas * 0.08 <= margin <= canvas * 0.25 for margin in margins), (name, bounds)
+        alpha_masks.append(alpha.tobytes())
+    assert alpha_masks[0] == alpha_masks[1], "light and dark marks must have identical geometry"
     mono = Image.open(stable / "Assets" / "mono.png").convert("RGBA")
     ink_tone = round(module.MONO_INK[0] * 255)
     tones = {px[0] for px in mono.getdata() if px[3] > 127}
-    assert tones == {ink_tone, 255}, tones
+    assert tones == {ink_tone}, tones
     light_art = Image.open(stable / "Assets" / "art-light.png").convert("RGBA")
-    dark_art = Image.open(stable / "Assets" / "art-dark.png").convert("RGBA")
     for x, y in ((canvas // 2, canvas // 2), (canvas // 3, canvas // 3), (2 * canvas // 3, canvas // 2)):
         px = mono.getpixel((x, y))
-        if dark_art.getpixel((x, y))[3] > 200:      # the girl's white parts stay white and opaque
-            assert px[:3] == (255, 255, 255) and px[3] == 255, (x, y, px)
-        elif light_art.getpixel((x, y))[3] > 200:   # her black parts become the frosted ink
+        if light_art.getpixel((x, y))[3] > 200:   # the monogram becomes frosted ink
             assert px[0] == ink_tone and abs(px[3] - round(module.MONO_INK[1] * 255)) <= 1, (x, y, px)
+    badged_mono = Image.open(commit / "Assets" / "mono.png").convert("RGBA")
+    assert {px[0] for px in badged_mono.get_flattened_data() if px[3] > 127} == {ink_tone, 255}
+    assert_badge_text(badged_mono.convert("RGB"), module.BADGE_GLYPH_ORIGIN)
 
     for name in ("art-light.png", "art-dark.png", "mono.png"):
         assert (stable / "Assets" / name).read_bytes() == (canary / "Assets" / name).read_bytes(), name
 
-    # The DMG volume icon is the hand-made drive artwork, shipped as a full ICNS
-    # and never flavoured: an installer's disk looks the same for every channel.
+    # The DMG volume uses stable Loki artwork as a full ICNS across channels.
     volume = stable.parents[3] / DMG_VOLUME
     for other in (canary, commit):
         assert volume.read_bytes() == (other.parents[3] / DMG_VOLUME).read_bytes()
     icns = Image.open(volume)
     assert {w * scale for w, h, scale in icns.info["sizes"]} == {32, 64, 128, 256, 512, 1024}  # same reps as the app icns
     assert ImageChops.difference(icns.icns.getimage((512, 512, 2)).convert("RGBA"),
-                                 Image.open(ROOT / "assets/dmg-volume.png").convert("RGBA")).getbbox() is None
+                                 Image.open(stable.parent / "icon-mac.png").convert("RGBA")).getbbox() is None
     for name in ("art-light.png", "art-dark.png"):
         # The commit badge is the only difference, and it lives in the top quarter.
         plain = Image.open(stable / "Assets" / name).convert("RGBA")

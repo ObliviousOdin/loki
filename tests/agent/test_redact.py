@@ -1200,6 +1200,10 @@ class TestTerminalOutputRedaction:
     @pytest.mark.parametrize(
         ("command", "output", "secret"),
         [
+            ("cat ~/.loki/config.yaml", "api_key: lokiConfigSecret123", "lokiConfigSecret123"),
+            ('cat "$LOKI_HOME/config.yaml"', "api_key: lokiEnvSecret123", "lokiEnvSecret123"),
+            ('cat "${LOKI_HOME}/config.yaml"', "api_key: lokiBraceSecret123", "lokiBraceSecret123"),
+            ("cat $HOME/.loki/config.yaml", "api_key: lokiHomeSecret123", "lokiHomeSecret123"),
             ("cat ~/.hermes/config.yaml", "api_key: hermesConfigSecret123", "hermesConfigSecret123"),
             (
                 "head ~/.hermes/profiles/work/config.yaml",

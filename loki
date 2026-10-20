@@ -1,0 +1,6 @@
+#!/usr/bin/env python3
+"""Source entry point for Loki; the installed primary command is also loki."""
+from loki import main
+
+if __name__ == "__main__":
+    main()

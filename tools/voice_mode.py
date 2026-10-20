@@ -19,6 +19,7 @@ from pathlib import Path
 import tempfile
 import threading
 import time
+import uuid
 import wave
 from typing import Any, Callable, Dict, List, Optional
 
@@ -35,7 +36,7 @@ DTYPE = "int16"
 SAMPLE_WIDTH = 2  # bytes per sample (int16)
 SILENCE_RMS_THRESHOLD = 200  # RMS below this = silence (int16 range 0-32767)
 SILENCE_DURATION_SECONDS = 3.0  # continuous silence before auto-stop
-_TEMP_DIR = os.path.join(tempfile.gettempdir(), "hermes_voice")
+_TEMP_DIR = os.path.join(tempfile.gettempdir(), "loki_voice")
 
 
 # ── Lazy audio imports ──
@@ -518,9 +519,9 @@ def stop_thinking_sound() -> None:
 
 # ── Recorders ──
 def _new_recording_path(ext: str) -> str:
-    """Timestamped ``recording_*.<ext>`` path under _TEMP_DIR (created on demand)."""
+    """Unique ``recording_*.<ext>`` path under _TEMP_DIR (created on demand)."""
     os.makedirs(_TEMP_DIR, exist_ok=True)
-    return os.path.join(_TEMP_DIR, f"recording_{time.strftime('%Y%m%d_%H%M%S')}.{ext}")
+    return os.path.join(_TEMP_DIR, f"recording_{uuid.uuid4().hex}.{ext}")
 
 
 # WAV path -> live STT session that heard the same take (``stt.streaming``). transcribe_recording

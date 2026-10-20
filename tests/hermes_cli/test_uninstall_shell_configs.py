@@ -1,6 +1,6 @@
 """Tests for ``remove_path_from_shell_configs`` — the uninstaller's shell-rc rewrite.
 
-This rewrites files Hermes does not own (``~/.bashrc``, ``~/.zshrc``, ...) and
+This rewrites files Loki does not own (``~/.bashrc``, ``~/.zshrc``, ...) and
 takes no backup of them, so the rewrite has to be atomic: a bare
 ``write_text()`` truncates the rc file before the new content lands, and the
 caller wraps everything in ``except Exception: log_warn(...)``, so a partial
@@ -22,8 +22,8 @@ ZSHRC = (
     "export EDITOR=vim\n"
     "alias ll='ls -la'\n"
     "\n"
-    "# Hermes Agent\n"
-    'export PATH="$HOME/.local/bin:$PATH"\n'
+    "# Loki Agent\n"
+    'export PATH="$HOME/.loki/bin:$PATH"\n'
     "\n"
     "source ~/.work-profile\n"
 )
@@ -35,12 +35,12 @@ def fake_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     home = tmp_path / "home"
     home.mkdir()
     monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
-    monkeypatch.setenv("HERMES_HOME", str(home / ".hermes"))
+    monkeypatch.setenv("HERMES_HOME", str(home / ".loki"))
     return home
 
 
 class TestHappyPath:
-    def test_hermes_path_block_is_removed(self, fake_home: Path):
+    def test_loki_path_block_is_removed(self, fake_home: Path):
         rc = fake_home / ".zshrc"
         rc.write_text(ZSHRC, encoding="utf-8")
 
@@ -48,10 +48,24 @@ class TestHappyPath:
 
         assert removed == [rc]
         text = rc.read_text(encoding="utf-8")
-        assert "# Hermes Agent" not in text
+        assert "# Loki Agent" not in text
         # The user's own lines are untouched.
         assert "export EDITOR=vim" in text
         assert "source ~/.work-profile" in text
+
+    def test_foreign_product_blocks_are_preserved(self, fake_home: Path):
+        rc = fake_home / ".zshrc"
+        foreign = (
+            "# Hermes Agent\n"
+            'export PATH="$HOME/.hermes/bin:$PATH"\n'
+            "# Fabric Agent\n"
+            'export PATH="$HOME/.fabric/bin:$PATH"\n'
+        )
+        rc.write_text(foreign, encoding="utf-8")
+        original = rc.read_bytes()
+
+        assert uninstall.remove_path_from_shell_configs() == []
+        assert rc.read_bytes() == original
 
     def test_untouched_rc_is_not_reported(self, fake_home: Path):
         rc = fake_home / ".zshrc"
@@ -64,7 +78,7 @@ class TestHappyPath:
         """Every rc name the shell-config resolver knows gets the PATH sweep.
 
         Guards the single resolver's coverage: an rc the resolver misses keeps
-        a stale Hermes PATH entry after uninstall.
+        a stale Loki PATH entry after uninstall.
         """
         names = (".bashrc", ".bash_profile", ".profile", ".zshrc", ".zprofile")
         for name in names:
@@ -117,7 +131,7 @@ class TestCrashDurability:
 
         assert removed == [rc]
         assert rc.is_symlink(), "the symlink was replaced by a regular file"
-        assert "# Hermes Agent" not in real.read_text(encoding="utf-8")
+        assert "# Loki Agent" not in real.read_text(encoding="utf-8")
         assert "export EDITOR=vim" in real.read_text(encoding="utf-8")
 
     @pytest.mark.platforms("posix")  # POSIX permission bits

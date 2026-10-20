@@ -78,7 +78,7 @@ def windows_bash_candidates(on_path: str | None, env: Mapping[str, str]) -> list
     if env.get("ProgramFiles(x86)"):
         roots.append(ntpath.join(env["ProgramFiles(x86)"], "Git"))
     if env.get("LOCALAPPDATA"):
-        roots.extend((ntpath.join(env["LOCALAPPDATA"], "hermes", "git"),
+        roots.extend((ntpath.join(env["LOCALAPPDATA"], "loki", "git"),
                       ntpath.join(env["LOCALAPPDATA"], "Programs", "Git")))
     for root in roots:
         candidates.extend((ntpath.join(root, "bin", "bash.exe"),

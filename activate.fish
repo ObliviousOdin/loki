@@ -1,4 +1,4 @@
-# venv-style activation of the Hermes dev environment for fish.
+# venv-style activation of the Loki dev environment for fish.
 #
 #   source ./activate.fish
 #
@@ -64,9 +64,9 @@ function __hermes_worktree_here
     test (path resolve $top) = (path resolve $__hermes_worktree)
 end
 
-function hermes --description 'hermes of the activated checkout'
+function loki --description 'loki of the activated checkout'
     if not __hermes_worktree_here
-        echo "hermes: $PWD is outside $__hermes_worktree; refusing (the installed command is hidden while this checkout is active)" >&2
+        echo "loki: $PWD is outside $__hermes_worktree; refusing (the installed command is hidden while this checkout is active)" >&2
         return 1
     end
     set -l python python
@@ -78,7 +78,7 @@ function hermes --description 'hermes of the activated checkout'
         set python $__hermes_worktree/venv/bin/python
     end
     pushd $__hermes_worktree >/dev/null
-    $python hermes $argv
+    $python loki.py $argv
     set -l code $status
     popd >/dev/null
     return $code
@@ -107,5 +107,5 @@ function deactivate --description 'undo activate.fish'
     functions -c __hermes_saved_fish_prompt fish_prompt
     functions -e __hermes_saved_fish_prompt
     set -eg __hermes_keys __hermes_worktree __hermes_worktree_name
-    functions -e deactivate hermes __hermes_worktree_here
+    functions -e deactivate loki __hermes_worktree_here
 end

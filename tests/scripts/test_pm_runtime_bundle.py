@@ -25,6 +25,7 @@ def _exercise_relocated_pm_runtime(tmp_path, monkeypatch):
     for name in ("__init__.py", "runtime_state.py"):
         shutil.copy2(source / "hermes_cli" / name, repo / "hermes_cli" / name)
     shutil.copy2(source / "hermes_constants.py", repo / "hermes_constants.py")
+    shutil.copy2(source / "loki_identity.py", repo / "loki_identity.py")
     # Copy the base executable, not a venv's launcher. The test host provides
     # its stdlib; production's package stage provides the complete distribution.
     python = root / "tools" / "python" / ("python.exe" if os.name == "nt" else "bin/python")

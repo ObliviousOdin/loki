@@ -16,6 +16,8 @@ from pathlib import Path
 
 import pytest
 
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
+
 from hermes_cli import update_cmd_check
 
 git_cmd = ["git"]
@@ -35,6 +37,8 @@ def narrow_clone(tmp_path: Path) -> Path:
     seed = tmp_path / "seed"
     _run(tmp_path, "init", "-q", "--bare", "-b", "main", str(origin))
     _run(tmp_path, "clone", "-q", f"file://{origin}", str(seed))
+    write_loki_source(seed)
+    _run(seed, "add", "loki.py", "loki_identity.py", "pyproject.toml")
     (seed / "f.txt").write_text("a\n", encoding="utf-8")
     _run(seed, "add", "f.txt")
     _run(seed, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init")

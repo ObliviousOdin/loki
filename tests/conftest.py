@@ -30,6 +30,10 @@ from pathlib import Path
 
 import pytest
 
+# Tests bind explicit internal profile seams; production entry points alone translate
+# ambient Loki overrides. Keep bootstrap from replacing this runner's sandbox.
+os.environ["__LOKI_ENV_BOUND"] = "1"
+
 # Ensure project root is importable
 PROJECT_ROOT = Path(__file__).parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -127,10 +131,9 @@ if _HERMES_EXPORTED_TMP:
             del os.environ[_key]
     del os.environ[SCRATCH_DIR_MARKER_ENV]
 
-from hermes_state_guard import _real_platform_state_root
+from tests._fixtures.state_roots import operator_default_state_roots
 
-_real_test_root = _real_platform_state_root() or (Path.home() / ".hermes").resolve()
-_guarded_tmp_roots = [_real_test_root]
+_guarded_tmp_roots = list(operator_default_state_roots())
 _custom_test_home = os.environ.get("HERMES_HOME")
 if _custom_test_home:
     _guarded_tmp_roots.append(Path(_custom_test_home).expanduser().resolve())
@@ -1435,7 +1438,7 @@ _REAL_HERMES_ROOT_CANDIDATES: list[Path] = []
 
 
 def _capture_real_hermes_root() -> list[Path]:
-    """The real root(s) to refuse: the default ~/.hermes plus a pre-sandbox
+    """The real root(s) to refuse: Loki and Hermes defaults plus a pre-sandbox
     custom HERMES_HOME when one was set. Both are guarded — the default
     because hardcoded restatements hit it; the custom one because
     deployment-shaped tests (Docker /opt/data) must not touch the operator's
@@ -1443,21 +1446,21 @@ def _capture_real_hermes_root() -> list[Path]:
     import platform
 
     roots: list[Path] = []
-    try:
-        default_root = (Path.home() / ".hermes").resolve()
-        roots.append(default_root)
-    except Exception:
-        pass
-    # native-Windows default: %LOCALAPPDATA%\hermes (get_hermes_home's
-    # platform-native path) — guard it too
-    localappdata = os.environ.get("LOCALAPPDATA", "")
-    if localappdata:
+    for name in (".loki", ".hermes"):
         try:
-            win_root = (Path(localappdata) / "hermes").resolve()
-            if win_root not in roots:
-                roots.append(win_root)
+            roots.append((Path.home() / name).resolve())
         except Exception:
             pass
+    # Guard both native-Windows defaults, including the upstream user's state.
+    localappdata = os.environ.get("LOCALAPPDATA", "")
+    if localappdata:
+        for name in ("loki", "hermes"):
+            try:
+                win_root = (Path(localappdata) / name).resolve()
+                if win_root not in roots:
+                    roots.append(win_root)
+            except Exception:
+                pass
     if _PRE_SANDBOX_HERMES_HOME and not _hermes_home_points_at_production(
         _PRE_SANDBOX_HERMES_HOME
     ):

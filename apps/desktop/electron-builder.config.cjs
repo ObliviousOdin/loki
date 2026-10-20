@@ -13,7 +13,6 @@
 const fs = require('node:fs')
 const path = require('node:path')
 const feedContract = require('./update-feed.cjs')
-const { createMacSigner } = require('./scripts/mac-sign.mjs')
 
 const {
   light,
@@ -57,7 +56,7 @@ const channelRequest = channelBuildRequest()
 
 /** @typedef {import("app-builder-lib").Configuration} Configuration */
 
-const [owner, repo] = (process.env.GITHUB_REPOSITORY || 'NousResearch/hermes-agent').split('/')
+const [owner, repo] = (process.env.GITHUB_REPOSITORY || 'ObliviousOdin/loki').split('/')
 if (!owner || !repo) {
   throw new Error(`invalid GITHUB_REPOSITORY ${process.env.GITHUB_REPOSITORY}`)
 }
@@ -67,7 +66,7 @@ if (!/^\d+\.\d+\.\d+$/.test(electronVersion)) {
 }
 
 const macFeed = channelRequest ? null : feedContract.darwinFeed(channel === 'canary' || channel === 'light-canary' ? 'canary' : 'stable', light)
-const publicUrl = feedContract.feedBaseUrl(process.env.CLOUDFLARE_R2_PUBLIC_URL)
+const publicUrl = feedContract.feedBaseUrl(process.env.LOKI_UPDATE_BASE_URL)
 
 /** @satisfies {Configuration} */
 module.exports = {
@@ -78,7 +77,7 @@ module.exports = {
   protocols: [
     {
       name: `${displayName} Protocol`,
-      schemes: ['hermes']
+      schemes: ['loki']
     }
   ],
   // A store build is archived, never served to a feed — prefix its artifact
@@ -93,13 +92,7 @@ module.exports = {
   // var (local, or a fork without the R2 vars) keep the github provider, which
   // is exactly today's behavior. The store build has no feed at all (the Store
   // owns its distribution and updates).
-  publish: channelRequest ? null : !channel
-    ? null
-    : [
-        publicUrl
-          ? { provider: 'generic', url: publicUrl, channel }
-          : { provider: 'github', owner, repo, channel }
-      ],
+  publish: null,
   extraMetadata: {
     name: appNamePascal,
     // Electron bootstrap reads package.productName before main.ts. Keep the
@@ -111,7 +104,8 @@ module.exports = {
   directories: {
     output: 'release'
   },
-  files: ['dist/**', 'assets/**', 'public/**', 'package.json'],
+  // The compiler's path-bound freshness proof belongs to the local build only.
+  files: ['dist/**', 'assets/**', 'public/**', 'package.json', '!dist/hermes-build.json'],
   beforeBuild: channelRequest ? async () => {
     await require(path.join(__dirname, 'scripts/before-build.mjs')).default()
     stageChannelManifest(__dirname, channelRequest)
@@ -123,8 +117,19 @@ module.exports = {
   // rewritten file (#105629). afterPack keeps the signing/payload work.
   afterExtract: 'scripts/after-extract.mjs',
   afterPack: 'scripts/after-pack.mjs',
-  ...(process.platform === 'darwin' ? { afterSign: 'scripts/notarize.mjs' } : {}),
   extraResources: [
+    { from: '../../LICENSE', to: 'licenses/Hermes-LICENSE.txt' },
+    { from: '../../NOTICE', to: 'licenses/Loki-NOTICE.txt' },
+    { from: '../../notices/pilk-0.2.4/LICENSE', to: 'licenses/pilk/LICENSE' },
+    { from: '../../notices/pilk-0.2.4/SILK-NOTICES.txt', to: 'licenses/pilk/SILK-NOTICES.txt' },
+    { from: 'src/plugins/hermes-bots/LICENSE', to: 'licenses/hermes-bots-LICENSE.txt' },
+    { from: 'build/electron-runtime-licenses/LICENSE', to: 'licenses/electron/LICENSE' },
+    { from: 'build/electron-runtime-licenses/LICENSES.chromium.html', to: 'licenses/electron/LICENSES.chromium.html' },
+    {
+      from: '../../node_modules',
+      to: 'licenses/npm',
+      filter: ['**/LICENSE*', '**/LICENCE*', '**/license', '**/license.*', '**/COPYING*', '**/NOTICE*']
+    },
     {
       from: 'build/install-stamp.json',
       to: 'install-stamp.json'
@@ -151,13 +156,7 @@ module.exports = {
     // The afterSign hook owns notarization, including keychain-profile builds.
     notarize: false,
     // The packaged client reads this generated app-update.yml by default.
-    publish: channelRequest?.receiverCandidate
-      ? [{ provider: 'generic', url: `${channelRequest.publicBase}/releases/darwin/stable/`, channel: 'stable' }]
-      : channelRequest
-      ? [{ provider: 'generic', url: `${channelRequest.publicBase}/releases/channel-builds/${channelRequest.buildId}/darwin/`, channel: 'latest' }]
-      : publicUrl && channel && macFeed
-      ? [{ provider: 'generic', url: `${publicUrl}/${macFeed.directory}/`, channel: macFeed.channel }]
-      : null,
+    publish: null,
     category: 'public.app-category.developer-tools',
     extendInfo: {
       CFBundleDisplayName: displayName,
@@ -178,21 +177,7 @@ module.exports = {
       NSAppleEventsUsageDescription: `${displayName} uses Apple Events to automate apps you explicitly ask it to control.`
     },
     target: ['dmg', 'zip'],
-    sign: createMacSigner({
-      entitlements: path.join(__dirname, 'electron/entitlements.mac.plist'),
-      entitlementsInherit: path.join(__dirname, 'electron/entitlements.mac.inherit.plist'),
-      hardenedRuntime: true,
-      ignore: (/** @type {string} */ file) => {
-        try {
-          if (fs.lstatSync(file).isDirectory()) {
-            return false
-          }
-          return !isMachO(file)
-        } catch {
-          return true
-        }
-      }
-    })
+    sign: null
   },
   dmg: {
     // Avoid the failing optional APFS shrink pass; keep compressed conversion.
@@ -203,13 +188,13 @@ module.exports = {
     // paste onto the stock removable-drive icon). It lives in packaging/ with
     // the background so the `files` whitelist keeps it out of the app bundle.
     icon: 'packaging/dmg-volume.icns',
-    title: 'Hermes Agent Installer',
+    title: 'Loki Preview Installer',
     // A prebuilt .tiff on purpose, not a PNG plus a @2x sibling: dmg-builder's
     // PNG path runs `tiffutil -cathidpicheck`, which on macOS 26 rewrites both
     // frames to 72 dpi and silently drops the 2x representation. A .tiff is
     // handed to dmgbuild untouched (dmg-builder/dist/dmgUtil.js), and living
     // outside assets/ keeps it out of the app bundle via the `files` whitelist.
-    background: 'packaging/nous-dmg-2b.tiff',
+    backgroundColor: '#111827',
     iconSize: 96,
     iconTextSize: 11,
     window: {
@@ -238,7 +223,8 @@ module.exports = {
     // sealed payload's snapshot omits scripts/, so it ships as a resource
     // (RELAUNCH_WAITER_SCRIPT in electron/updater/relaunch-waiter.ts).
     extraResources: [{ from: 'scripts/update-relaunch-waiter.ps1', to: 'update-relaunch-waiter.ps1' }],
-    ...windowsSigning()
+    // Unsigned preview: no inherited signing provider is consumed.
+    sign: null
   },
   msix: {
     // A store build uses the Partner Center packaging identity (the Store
@@ -248,7 +234,7 @@ module.exports = {
     applicationId: appNamePascal,
     displayName,
     publisher: store ? mustStoreMsix(storeMsixWhenStore).publisher : OUT_OF_STORE_PUBLISHER,
-    publisherDisplayName: store ? mustStoreMsix(storeMsixWhenStore).publisherDisplayName : 'Nous Research',
+    publisherDisplayName: store ? mustStoreMsix(storeMsixWhenStore).publisherDisplayName : 'Loki contributors',
     // The native quad is the build time (scripts/msix-shared.mjs::nativeQuad),
     // baked into the manifest template, so the builder's own build-number
     // override would stamp a second, conflicting version.
@@ -278,10 +264,10 @@ module.exports = {
   },
   linux: {
     category: 'Development',
-    maintainer: 'Nous Research <support@nousresearch.com>',
+    maintainer: 'Loki contributors',
     synopsis: light
-      ? 'Remote-only desktop client for Hermes Agent.'
-      : 'Native desktop shell for Hermes Agent.',
+      ? 'Remote desktop client for Loki.'
+      : 'Loki desktop personal AI agent.',
     target: ['AppImage']
   }
 }

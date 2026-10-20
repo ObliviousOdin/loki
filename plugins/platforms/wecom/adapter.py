@@ -6,6 +6,8 @@ Config (``platforms.wecom.extra``): ``bot_id``/``secret`` (or WECOM_BOT_ID / WEC
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 from pm import install_hint
 import asyncio
 import json
@@ -652,7 +654,7 @@ def qr_scan_for_bot_info(*, timeout_seconds: int = _QR_POLL_TIMEOUT) -> Optional
     import urllib.parse
 
     def _get_json(url: str, timeout: int) -> dict[str, Any]:
-        req = urllib.request.Request(url, headers={"User-Agent": "HermesAgent/1.0"})
+        req = urllib.request.Request(url, headers={"User-Agent": CLIENT_USER_AGENT})
         with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode("utf-8"))
 
@@ -679,7 +681,7 @@ def qr_scan_for_bot_info(*, timeout_seconds: int = _QR_POLL_TIMEOUT) -> Optional
         print(f"\n  Scan the QR code above, or open this URL directly:\n  {page_url}")
     except Exception:
         print(f"  Open this URL in WeCom on your phone:\n\n  {page_url}\n")
-        print("  Tip: from the Hermes environment, run: "
+        print("  Tip: from the Loki environment, run: "
               f"{install_hint('messaging')} "
               "to display a scannable QR code here next time")
     print("\n  Fetching configuration results...", end="", flush=True)
@@ -754,10 +756,10 @@ _MANUAL_SETUP_STEPS = (
 _ACCESS_CHOICES = (
     ("Enable open access (anyone can message the bot)", (("WECOM_DM_POLICY", "open"), ("GATEWAY_ALLOW_ALL_USERS", "true")),
      (("warning", "Open access enabled — anyone can use your bot!"),)),
-    ("Use DM pairing (unknown users request access, you approve with 'hermes pairing approve')", (("WECOM_DM_POLICY", "pairing"),),
-     (("success", "DM pairing mode — users will receive a code to request access."), ("info", "Approve with: hermes pairing approve <platform> <code>"))),
+    ("Use DM pairing (unknown users request access, you approve with 'loki pairing approve')", (("WECOM_DM_POLICY", "pairing"),),
+     (("success", "DM pairing mode — users will receive a code to request access."), ("info", "Approve with: loki pairing approve <platform> <code>"))),
     ("Disable direct messages", (("WECOM_DM_POLICY", "disabled"),), (("warning", "Direct messages disabled."),)),
-    ("Skip for now (bot will deny all users until configured)", (), (("info", "Skipped — configure later with 'hermes gateway setup'"),)),
+    ("Skip for now (bot will deny all users until configured)", (), (("info", "Skipped — configure later with 'loki gateway setup'"),)),
 )
 
 
@@ -846,7 +848,7 @@ _WECOM_PLATFORM_HINT = (
 
 
 def register(ctx) -> None:
-    common = dict(install_hint="Run `hermes setup` to install WeCom support.", emoji="💼", allow_update_command=True)
+    common = dict(install_hint="Run `loki setup` to install WeCom support.", emoji="💼", allow_update_command=True)
     from . import gateway_env  # env -> GatewayConfig bridge (gateway.config_env)
     ctx.register_platform(
         target_ref_syntax_fn=parse_nonempty,

@@ -33,7 +33,7 @@ def fixture_repo(tmp_path):
     for relative in ('scripts/release.py', 'scripts/release-content-types.json',
                      'hermes_cli/__init__.py', 'hermes_cli/update_channel.py',
                      'hermes_cli/release_channels.py',
-                     'pm/paths.py', 'pm/environments.py', 'hermes_constants.py'):
+                     'pm/paths.py', 'pm/environments.py', 'loki_identity.py', 'hermes_constants.py'):
         dest = repo / relative
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / relative, dest)
@@ -73,6 +73,10 @@ subprocess.run = run
 if sys.argv[2] == 'admit':
     sys.argv = ['commit_build.py', 'admit']
     runpy.run_module('scripts.releases.commit_build', run_name='__main__')
+elif sys.argv[2] == 'reference':
+    sys.argv = ['release.py', *sys.argv[3:]]
+    reference = runpy.run_path(str(root / 'scripts/release.py'), run_name='retained_reference')
+    reference['_upstream_reference_main']()
 else:
     sys.argv = ['release.py', *sys.argv[2:]]
     runpy.run_path(str(root / 'scripts/release.py'), run_name='__main__')
@@ -82,9 +86,9 @@ else:
     env.update({'PROBE_CALLS': str(calls), 'PROBE_REMOTE': upstream.as_uri(), 'GIT_ALLOW_PROTOCOL': 'file',
                 'GIT_TERMINAL_PROMPT': '0', 'HERMES_HOME': str(tmp_path / 'home')})
 
-    def invoke(*args, extra=None):
+    def invoke(*args, extra=None, public=False):
         calls.unlink(missing_ok=True)
-        result = subprocess.run([sys.executable, '-I', '-S', str(driver), str(repo), *args],
+        result = subprocess.run([sys.executable, '-I', '-S', str(driver), str(repo), *(() if public or args == ('admit',) else ('reference',)), *args],
                                 cwd=repo, env={**env, **(extra or {})}, capture_output=True,
                                 text=True, encoding='utf-8', timeout=45, check=False)
         recorded = [json.loads(line) for line in calls.read_text(encoding='utf-8').splitlines()] if calls.exists() else []
@@ -244,3 +248,13 @@ def test_workflow_admission_checks_trust_before_publishing_outputs(tmp_path, fix
         result, _ = invoke('admit', extra={**env, key: value})
         assert result.returncode != 0
         assert output.read_bytes() == original
+
+
+def test_public_inherited_release_driver_refuses_before_any_dispatch(fixture_repo):
+    """Retained reference tests above do not authorize the obsolete public path."""
+    _, _, invoke = fixture_repo
+    for args in (('--help',), ('--build-commit', 'HEAD', '--publish'), ('publish', '--version', '1.2.3')):
+        result, calls = invoke(*args, public=True)
+        assert result.returncode != 0
+        assert 'disabled' in result.stderr.lower()
+        assert not calls

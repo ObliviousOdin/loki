@@ -208,8 +208,10 @@ def run_bootstrap(*, announce: bool = True) -> SetupRecord:
         logger.warning("onboarding: could not record the first-install decision", exc_info=True)
     try:
         from hermes_cli.welcome_trial import grandfather_existing_guest, settle_interrupted_claim
-        settle_interrupted_claim()
-        grandfather_existing_guest()
+        from hermes_cli.loki_auth_policy import hosted_services_enabled
+        if hosted_services_enabled():
+            settle_interrupted_claim()
+            grandfather_existing_guest()
     except Exception:  # the record still says who carries inference without it
         logger.warning("free tier: could not check for an existing free-model guest", exc_info=True)
     record = _build_record(other=_inventory_other_providers())

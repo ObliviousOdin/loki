@@ -238,7 +238,8 @@ def test_find_project_by_name_case_insensitive(monkeypatch: pytest.MonkeyPatch) 
     assert proj is not None and proj["id"] == "p2"
 
 
-def test_create_project_omits_spectrum_flag(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("name,expected", [(None, "Loki"), ("Hermes Agent custom", "Hermes Agent custom")])
+def test_create_project_omits_spectrum_flag(monkeypatch: pytest.MonkeyPatch, name, expected) -> None:
     captured: dict[str, Any] = {}
 
     def fake_post(url: str, **kwargs: Any) -> _FakeResponse:
@@ -248,12 +249,12 @@ def test_create_project_omits_spectrum_flag(monkeypatch: pytest.MonkeyPatch) -> 
         return _FakeResponse(json_body={"success": True, "id": "new-proj"})
 
     monkeypatch.setattr(photon_auth.httpx, "post", fake_post)
-    data = photon_auth.create_project("tok", name="Hermes Agent")
+    data = photon_auth.create_project("tok", **({"name": name} if name is not None else {}))
     assert data["id"] == "new-proj"
     # Spectrum is always provisioned at create-time; the field was dropped
     # from the API schema, so we must not send it.
     assert "spectrum" not in captured["body"]
-    assert captured["body"]["name"] == "Hermes Agent"
+    assert captured["body"]["name"] == expected
     assert captured["headers"]["Authorization"] == "Bearer tok"
     assert captured["url"].endswith("/api/projects")
 

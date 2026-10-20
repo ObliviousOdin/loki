@@ -200,7 +200,7 @@ class TestSuccessImpliesAccounting:
             plan,
             # Serve/dashboard runtimes are reconciled in their own unit
             # vocabulary and never borrow a gateway relaunch (#100479).
-            restarted_services=["hermes-serve-ops.service"],
+            restarted_services=["loki-serve-ops.service"],
             relaunched_profiles=["work"],
             externally_supervised_profiles=[],
             killed_pids={101},
@@ -228,7 +228,7 @@ class TestSuccessImpliesAccounting:
             relaunched_profiles=[],
             externally_supervised_profiles=[],
             killed_pids=set(),
-            failed_units=["hermes-gateway.service"],
+            failed_units=["loki-gateway.service"],
         )
         assert outcomes[0]["outcome"] == "failed"
         ur.finalize_update_receipt("partial")

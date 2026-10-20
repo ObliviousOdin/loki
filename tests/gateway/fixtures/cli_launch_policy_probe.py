@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 import subprocess
 import sys
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import threading
 import time
 
@@ -107,7 +109,7 @@ def probe(tmp_path):
                         base_url=origin + '/' + side + '/v1', reasoning='high' if side == 'left' else 'low',
                         max_turns=1 if side == 'left' else 3, ignore_rules=side == 'left', toolsets='terminal')
         result = subprocess.run([sys.executable, '-c', 'import cli; cli.main(**' + repr(args) + ')'],
-            cwd=cwd, env=env, stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=70, check=False)
+            cwd=cwd, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=70, check=False)
         # A budget run stops at --max-turns with the work unfinished: `chat -Q` exits 1 (documented
         # contract, same as the in-process CLI), never 0.
         assert result.returncode == (1 if budget else 0), result.stdout + result.stderr

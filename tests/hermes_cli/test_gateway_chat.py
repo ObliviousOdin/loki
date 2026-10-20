@@ -38,7 +38,7 @@ def test_refusals_name_the_replacement_and_a_runnable_safe_mode_example(monkeypa
     monkeypatch.setattr(gateway_chat, "connect_gateway", lambda: pytest.fail("connected"))
     assert gateway_chat.launch_from_args(argparse.Namespace(worktree=True, run_budget=30.0)) == 2
     err = capsys.readouterr().err
-    assert "--worktree: use" in err and "hermes --tui -w" in err
+    assert "--worktree: use" in err and "loki --tui -w" in err
     assert "--run-budget: use" in err and "run_budget_seconds" in err
     for name in gateway_chat._UNSUPPORTED:
         assert name in gateway_chat._RELOCATED, f"{name} refused without saying where it went"
@@ -191,7 +191,7 @@ def test_one_letter_alias_refusal_names_a_flag_the_user_can_type(monkeypatch, ca
     monkeypatch.setattr(gateway_chat, "connect_gateway", lambda: pytest.fail("connected"))
     assert gateway_chat.launch_from_args(argparse.Namespace(w=True)) == 2
     err = capsys.readouterr().err
-    assert "options: -w." in err and "\n  -w: use `hermes --tui -w`" in err and "--w" not in err
+    assert "options: -w." in err and "\n  -w: use `loki --tui -w`" in err and "--w" not in err
 
 
 @pytest.mark.asyncio

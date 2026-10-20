@@ -43,14 +43,14 @@ def _run_handoff(tmp_path: Path, extra_args: list[str], update_output: str = "")
     """Run the real hand-off end to end; return the argv of each hermes call."""
     install_root = tmp_path / "hermes-agent"
     (install_root / "venv" / "bin").mkdir(parents=True)
-    hermes = install_root / "venv" / "bin" / "hermes"
+    hermes = install_root / "venv" / "bin" / "loki"
     hermes.write_text(FAKE_HERMES)
     hermes.chmod(0o755)
 
     argv_log = tmp_path / "argv.jsonl"
     # posix.sh honours an ambient HERMES_HOME; the result file must land where this test looks.
-    env = {**os.environ, "TMPDIR": str(tmp_path), "HERMES_TEST_ARGV": str(argv_log), "HERMES_HOME": str(tmp_path),
-           "HERMES_TEST_UPDATE_OUTPUT": update_output}
+    env = {**os.environ, "TMPDIR": str(tmp_path), "LOKI_TEST_ARGV": str(argv_log), "LOKI_HOME": str(tmp_path),
+           "LOKI_TEST_UPDATE_OUTPUT": update_output}
     subprocess.run(
         ["/bin/bash", str(SHIM_DIR / "posix.sh"), "--install-root", str(install_root), "--no-ui", *extra_args],
         env=env,
@@ -123,7 +123,7 @@ def test_every_owed_followup_reaches_the_desktop_result(tmp_path, step):
     assert result["exit_code"] == 0 and result["ok"] is True
     assert result["manual"] is True
     assert step in result["message"]
-    assert ("hermes gateway restart" in result["message"]) is (step == "gateway_restart")
+    assert ("loki gateway restart" in result["message"]) is (step == "gateway_restart")
 
 
 @requires_posix_handoff

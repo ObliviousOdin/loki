@@ -5,6 +5,8 @@ import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import { isMain } from './frontend-common.mjs'
 
+// Local freshness proof keeps absolute prepared paths to bind this build to its inputs.
+// Assemblers and native packagers omit this receipt from shipped frontend copies.
 const receiptName = 'hermes-build.json'
 const workspaces = { tui: 'ui-tui', web: 'web', desktop: 'apps/desktop' }
 const generated = new Set(['node_modules', 'dist', 'build', 'release', '.cache', '.git', 'coverage', 'test-results', 'playwright-report'])

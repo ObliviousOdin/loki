@@ -1,8 +1,8 @@
 # Dot-source only. Prefer the published command; never rescue a broken one
 # through PATH, the user's shared bin, or an obsolete checkout venv.
 function Get-SourceHermes([string]$Root) {
-    foreach ($name in @('hermes.exe', 'hermes.cmd')) {
-        $command = Join-Path $Root ".hermes/bin/$name"
+    foreach ($name in @('loki.exe', 'loki.cmd')) {
+        $command = Join-Path $Root ".loki/bin/$name"
         if (Test-Path -LiteralPath $command) {
             if (-not (Test-Path -LiteralPath $command -PathType Leaf)) {
                 throw "Invalid published launcher: $command"
@@ -11,11 +11,11 @@ function Get-SourceHermes([string]$Root) {
         }
     }
     if (Test-Path -LiteralPath (Join-Path $Root 'pm/lock.json')) {
-        throw "Missing published launcher under $Root/.hermes/bin"
+        throw "Missing published launcher under $Root/.loki/bin"
     }
-    $legacy = Join-Path $Root 'venv/Scripts/hermes.exe'
+    $legacy = Join-Path $Root 'venv/Scripts/loki.exe'
     if (Test-Path -LiteralPath $legacy -PathType Leaf) { return $legacy }
-    throw "No installed Hermes command under $Root"
+    throw "No installed Loki command under $Root"
 }
 
 # Hand out a command to DRIVE the next ordinary startup, even when the
@@ -23,7 +23,7 @@ function Get-SourceHermes([string]$Root) {
 #
 # A pre-handoff release cannot flip during `hermes update` -- there is no
 # retired-hook seam on its update path to reach, so the update ends with the
-# tree at HEAD and no `.hermes/bin/*`. The NEXT ordinary startup is what
+# tree at HEAD and no `.loki/bin/*`. The NEXT ordinary startup is what
 # completes it: hermes_bootstrap calls prepare_launch() before importing
 # anything, which syncs PM, publishes the launchers and re-execs.
 #
@@ -31,13 +31,13 @@ function Get-SourceHermes([string]$Root) {
 # HERMES_DISABLE_LAZY_INSTALLS so a probe can never complete an unfinished
 # update. Only a real startup may heal.
 function Get-SourceHermesForStartup([string]$Root) {
-    foreach ($name in @('hermes.exe', 'hermes.cmd')) {
-        $published = Join-Path $Root ".hermes/bin/$name"
+    foreach ($name in @('loki.exe', 'loki.cmd')) {
+        $published = Join-Path $Root ".loki/bin/$name"
         if (Test-Path -LiteralPath $published -PathType Leaf) { return $published }
     }
-    $legacy = Join-Path $Root 'venv/Scripts/hermes.exe'
+    $legacy = Join-Path $Root 'venv/Scripts/loki.exe'
     if (Test-Path -LiteralPath $legacy -PathType Leaf) { return $legacy }
-    throw "No installed Hermes command to start under $Root"
+    throw "No installed Loki command to start under $Root"
 }
 
 # Official source checkouts default to the stable channel (the latest published

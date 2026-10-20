@@ -297,7 +297,7 @@ class TestReportDatabaseJournalModes:
 
         out = capsys.readouterr().out
         assert "state.db is in WAL mode on a cross-VM filesystem" in out
-        assert "hermes sessions set-journal-mode delete" in out
+        assert "loki sessions set-journal-mode delete" in out
 
     def test_vulnerable_runtime_wal_db_is_exposed(self, tmp_path, capsys):
         _make_db(tmp_path / "state.db", journal_mode="WAL")
@@ -424,7 +424,7 @@ class TestConfiguredDeleteNeverApplied:
 
         out = capsys.readouterr().out
         assert "state.db is in WAL mode" in out and "despite database.journal_mode=delete" in out
-        assert "never live-downgraded" in out and "hermes sessions set-journal-mode delete" in out
+        assert "never live-downgraded" in out and "loki sessions set-journal-mode delete" in out
         assert "state.db: WAL journal mode" not in out
         assert ("To clear the exposure:" in out) is exposed
 
@@ -443,6 +443,12 @@ class TestConfiguredDeleteNeverApplied:
         try:
             marker, sqlite_pid = holder.stdout.readline().strip().split(":", 1)
             assert marker == "held"  # child-reported: Popen.pid is the venv launcher on Windows
+            # Inspect the real child this test owns, without enumerating the
+            # developer's unrelated applications and open private files.
+            import psutil
+            process = psutil.Process(int(sqlite_pid))
+            process.info = process.as_dict(attrs=["pid", "open_files"])
+            monkeypatch.setattr(psutil, "process_iter", lambda _attrs: iter([process]))
             doctor_platform._report_database_journal_modes(tmp_path, (3, 51, 3))
         finally:
             holder.stdin.write("\n")

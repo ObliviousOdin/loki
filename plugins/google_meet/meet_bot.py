@@ -228,7 +228,7 @@ def _start_pcm_pump(rt: dict, bridge_info: dict, pcm_path: Path, state: _BotStat
     target = bridge_info.get("write_target")
     if platform_tag == "linux":
         cmd = ["paplay", "--raw", "--rate=24000", "--format=s16le", "--channels=1",
-               f"--device={target or 'hermes_meet_sink'}", "-"]
+               f"--device={target or 'loki_meet_sink'}", "-"]
         missing = "paplay not found — install pulseaudio-utils for realtime on Linux"
     elif platform_tag == "darwin":
         # User must have BlackHole as default input; ffmpeg targets it by audiotoolbox index.
@@ -340,7 +340,7 @@ def _config_from_env() -> _BotConfig:
         out_dir=Path(out_raw) if out_raw else None,
         headed=env("HERMES_MEET_HEADED", "").lower() in {"1", "true", "yes"},
         auth_state=env("HERMES_MEET_AUTH_STATE", "").strip(),
-        guest_name=env("HERMES_MEET_GUEST_NAME", "Hermes Agent"),
+        guest_name=env("HERMES_MEET_GUEST_NAME", "Loki"),
         duration_s=_parse_duration(env("HERMES_MEET_DURATION", "")),
         realtime=env("HERMES_MEET_MODE", "transcribe").strip().lower() == "realtime",
         # HERMES_MEET_REALTIME_KEY is resolved by process_manager.start() via the parent's
@@ -458,7 +458,7 @@ def run_bot() -> int:
     except ImportError as e:
         state.set(error=f"playwright not installed: {e}", exited=True)
         sys.stderr.write("google_meet bot: playwright is not installed. Run "
-                         "`hermes meet install`\n")
+                         "`loki meet install`\n")
         if rt["bridge"]:
             rt["bridge"].teardown()
         return 3

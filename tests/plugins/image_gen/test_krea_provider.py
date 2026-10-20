@@ -202,6 +202,9 @@ class TestGenerate:
         headers = mock_post.call_args.kwargs["headers"]
         assert headers["Authorization"] == "Bearer test-key-12345"
         assert headers["Content-Type"] == "application/json"
+        from loki_identity import CLIENT_USER_AGENT
+
+        assert headers["User-Agent"] == f"{CLIENT_USER_AGENT} (krea-image-gen)"
 
     def test_passthrough_seed_styles_moodboards(self):
         from plugins.image_gen.krea import KreaImageGenProvider

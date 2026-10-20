@@ -6,6 +6,8 @@ or root keeps the consumed refresh token and the next reader gets the whole fami
 Token values are synthetic placeholders.
 """
 
+from tests.loki_auth_fixture import configure_auth
+
 import json
 import threading
 from pathlib import Path
@@ -113,6 +115,7 @@ class _RotatingEndpoint:
 def test_concurrent_refreshes_of_shared_root_grant_submit_old_token_once(profile_env, monkeypatch):
     """Two refreshers holding the same stale pre-read pair: the second re-reads ROOT under its lock,
     sees the peer's rotated pair and adopts it instead of replaying the single-use token."""
+    configure_auth(monkeypatch, clients=("openai-codex",))
     profile_path, root_path = profile_env
     _write(root_path, {
         "version": 1,

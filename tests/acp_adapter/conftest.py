@@ -26,6 +26,8 @@ import time
 
 import pytest
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 
 @pytest.fixture(autouse=True)
 def _offline_model_inventory(monkeypatch):
@@ -69,6 +71,7 @@ def daemon(tmp_path, model_peer, request):
                PYTHONPATH=str(root), PYTHONUNBUFFERED="1",
                OPENAI_API_KEY="loopback-only", OPENAI_BASE_URL=model_url,
                HERMES_ACP_SKIP_CONFIGURED_MCP="1")
+    env = bind_fixture_child_env(env)
     command = [sys.executable, "-m", "gateway.run"]
     if getattr(request, 'param', None) == 'proposed-acp-descriptor':
         # API-owner handoff only: execution/create/policy stay unmodified. This

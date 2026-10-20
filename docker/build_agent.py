@@ -22,7 +22,8 @@ def assemble_image(root: Path) -> None:
     ), root)
     # Preserve the venv command paths used by s6 and the privilege-drop shim.
     for name, command in manifest["runtime"]["commands"].items():
-        link = environment / "bin" / name
+        public_name = {"hermes": "loki", "hermes-agent": "loki-agent", "hermes-acp": "loki-acp"}.get(name, name)
+        link = environment / "bin" / public_name
         link.unlink(missing_ok=True)
         link.symlink_to(f"../../{command}")
 

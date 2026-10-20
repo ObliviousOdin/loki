@@ -578,6 +578,7 @@ def _reserve_waiting_out_browse_reconcile(ownership, homes, *, wait_s: float | N
     that is not browse maintenance refuses at once; the flock exclusion itself is never weakened."""
     from gateway.runtime_ownership import OwnershipConflict, lock_record_unpublished, maintenance_holder
     from hermes_state_reconcile import BROWSE_RECONCILE_PURPOSE
+    homes = tuple(homes)
     if wait_s is None:
         wait_s = _browse_reconcile_reserve_wait_s()
     deadline = time.monotonic() + wait_s
@@ -589,6 +590,10 @@ def _reserve_waiting_out_browse_reconcile(ownership, homes, *, wait_s: float | N
             # Only the homes that actually conflict decide: a real owner on any of them refuses at
             # once, even while another home is mid-browse (multiplexer boot, all-or-nothing).
             conflicting = _conflicting_homes(homes)
+            # Maintenance can release after reserve failed but before the probe. A now-free
+            # home needs a fresh reservation attempt, within the original deadline.
+            if not conflicting and time.monotonic() < deadline:
+                continue
             holders = [h for h in conflicting
                        if maintenance_holder(h, BROWSE_RECONCILE_PURPOSE) or lock_record_unpublished(h)]
             if not holders or len(holders) < len(conflicting) or time.monotonic() >= deadline:

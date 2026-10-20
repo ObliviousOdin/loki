@@ -2,7 +2,7 @@
 
 The desktop self-update chain (Desktop → hermes-setup --update →
 ``hermes update`` → ``hermes desktop --build-only`` → relaunch) rebuilds
-Hermes.exe on the end user's machine. Before this gate, "build succeeded" was
+Loki.exe on the end user's machine. Before this gate, "build succeeded" was
 just "the file exists", so a truncated PE (corrupt cached Electron zip), a
 non-PE file, or a wrong-architecture tree shipped as the new app — Windows
 then refuses to launch it with "This app can't run on your computer"
@@ -216,20 +216,20 @@ def test_expected_machines_prefers_user_runnable_api_over_arch_name(monkeypatch)
 def test_corrupt_staged_app_keeps_live_bytes_without_backup_recovery(tmp_path, monkeypatch, capsys):
     """Exercise publication and PE parsing, not Windows host/architecture discovery."""
     desktop_dir = tmp_path / "apps" / "desktop"
-    live_exe = desktop_dir / "release" / "linux-unpacked" / "hermes"
+    live_exe = desktop_dir / "release" / "linux-unpacked" / "loki"
     make_pe(live_exe)
     live_bytes = live_exe.read_bytes()
     assert main_desktop._parse_pe_machine(live_exe) == PE_AMD64
     # The host-native layout makes discovery/swap real; PE is just fixture data.
     staging = main_desktop._desktop_staging_dir(desktop_dir)
-    staged_exe = make_pe(staging / "linux-unpacked" / "hermes", truncate_to=0x300)
+    staged_exe = make_pe(staging / "linux-unpacked" / "loki", truncate_to=0x300)
     staged_bytes = staged_exe.read_bytes()
-    backup_exe = make_pe(staging / "linux-unpacked.bak" / "hermes")
+    backup_exe = make_pe(staging / "linux-unpacked.bak" / "loki")
     old_diagnostic = staging / "linux-unpacked.corrupt" / "diagnostic"
     old_diagnostic.parent.mkdir()
     old_diagnostic.write_bytes(b"previous diagnostic")
     # Raw in-place pack recovery material is not owned by this transaction.
-    live_backup = make_pe(live_exe.parent.with_name("linux-unpacked.bak") / "hermes")
+    live_backup = make_pe(live_exe.parent.with_name("linux-unpacked.bak") / "loki")
 
     checked = []
 
@@ -271,7 +271,7 @@ def test_gate_fails_clearly_without_backup(tmp_path, capsys):
     """Exercise the default Windows PE check, without injecting a validator."""
     desktop_dir = tmp_path / "apps" / "desktop"
     staging = main_desktop._desktop_staging_dir(desktop_dir)
-    exe = staging / "win-unpacked" / "Hermes.exe"
+    exe = staging / "win-unpacked" / "Loki.exe"
     exe.parent.mkdir(parents=True)
     exe.write_bytes(b"<html>proxy error</html>" + b" " * 600)
 
@@ -305,7 +305,7 @@ def _ns(**kw):
 
 @pytest.mark.platforms("windows")
 def test_build_only_fails_when_pack_produces_corrupt_exe(tmp_path, monkeypatch, capsys):
-    """The updater chain's contract: a rebuild whose Hermes.exe cannot launch
+    """The updater chain's contract: a rebuild whose Loki.exe cannot launch
     must exit nonzero (so hermes-setup's retry-once kicks in) and must leave
     the previous working build in place instead of installing the corrupt one.
 
@@ -323,7 +323,7 @@ def test_build_only_fails_when_pack_produces_corrupt_exe(tmp_path, monkeypatch, 
     (desktop_dir / "package.json").write_text("{}", encoding="utf-8")
     monkeypatch.setattr(cli_main, "PROJECT_ROOT", root)
 
-    live_exe = desktop_dir / "release" / "win-unpacked" / "Hermes.exe"
+    live_exe = desktop_dir / "release" / "win-unpacked" / "Loki.exe"
     make_pe(live_exe, PE_AMD64)  # the previous, working app
     live_bytes = live_exe.read_bytes()
 
@@ -338,7 +338,7 @@ def test_build_only_fails_when_pack_produces_corrupt_exe(tmp_path, monkeypatch, 
         out_flag = next((a for a in cmd if str(a).startswith("-c.directories.output=")), None)
         assert out_flag is not None, "pack must be redirected into a staging dir"
         staging = Path(str(out_flag).split("=", 1)[1])
-        make_pe(staging / "win-unpacked" / "Hermes.exe", PE_AMD64, truncate_to=0x300)
+        make_pe(staging / "win-unpacked" / "Loki.exe", PE_AMD64, truncate_to=0x300)
         return subprocess.CompletedProcess(list(cmd), 0)
 
     def pinned_git(name, *, base_env):

@@ -379,11 +379,11 @@ def classify_refused_owner(*, own_session: int | None, owner_session: int | None
 def refused_owner_remedy(reason: str, pid: int, owner_session: int | None) -> str:
     if reason == GATEWAY_ELEVATED:
         return (f"The running gateway (PID {pid}) was started as administrator, so this non-elevated "
-                "app cannot reach it. Stop it from an administrator prompt (hermes gateway stop), then "
-                "start Hermes without elevation")
+                "app cannot reach it. Stop it from an administrator prompt (loki gateway stop), then "
+                "start Loki without elevation")
     where = f"session {owner_session}" if owner_session is not None else "another session"
     return (f"The running gateway (PID {pid}) runs in another Windows logon session ({where}, e.g. a "
-            "boot-time scheduled task), so this app cannot reach it. Stop it (hermes gateway stop from an "
+            "boot-time scheduled task), so this app cannot reach it. Stop it (loki gateway stop from an "
             "administrator prompt) and let only one auto-start task launch the gateway")
 
 

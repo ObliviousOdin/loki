@@ -57,7 +57,7 @@ def test_activate_applies_the_environment_and_deactivate_restores_the_shell(tmp_
         set -q __HERMES_ACTIVATED; and exit 23
         set -q HERMES_PM_ACTIVATE_CANARY; and exit 24
         functions -q deactivate; and exit 25
-        functions -q hermes; and exit 26
+        functions -q loki; and exit 26
         functions -q __hermes_saved_fish_prompt; and exit 27
         exit 0
     """, tmp_path)

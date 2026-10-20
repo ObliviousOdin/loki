@@ -6,12 +6,13 @@ import { pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { isMain, workspaceTool } from '../../../scripts/build/frontend-common.mjs'
 import { environmentDefaultsBanner } from './bundle-env.mjs'
+import previewIdentity from '../preview-identity.cjs'
 
 const repoRoot = resolve(import.meta.dirname, '../../..')
 
 // Evaluate the one identity module in a fresh process. Its CJS cache and the
 // caller's environment must not carry a previous variant into this artifact.
-function productIdentity(source, stamp) {
+export function productIdentity(source, stamp) {
   const variant = stamp.updateMechanism === 'microsoft-store' ? 'store'
     : stamp.payload === 'bootstrap' ? '' : stamp.payload
   if (!['', 'bundled', 'light', 'store'].includes(variant)) {
@@ -19,10 +20,10 @@ function productIdentity(source, stamp) {
   }
   return execFileSync(process.execPath, ['-e', 'console.log(JSON.stringify(require(process.argv[1])))',
     join(source, 'apps/desktop/product-identity.cjs')], {
-    env: { ...process.env, HERMES_DESKTOP_VARIANT: variant, HERMES_PAYLOAD_TAG: stamp.tag || '',
+    env: previewIdentity.previewIdentityEnvironment(stamp, { ...process.env, HERMES_DESKTOP_VARIANT: variant, HERMES_PAYLOAD_TAG: stamp.tag || '',
       // Commit builds stamp source='commit-build'; the display name carries
       // the short SHA (see product-identity.cjs). Tagged builds pass ''.
-      HERMES_BUILD_COMMIT: stamp.source === 'commit-build' ? (stamp.commit || '') : '' },
+      HERMES_BUILD_COMMIT: stamp.source === 'commit-build' ? (stamp.commit || '') : '' }),
     encoding: 'utf8',
   }).trim()
 }

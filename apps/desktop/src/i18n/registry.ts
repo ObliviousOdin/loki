@@ -14,6 +14,7 @@
  * name, direction) is composed with the bundled table in `./languages`.
  */
 
+import { brandCatalog } from '@hermes/shared/branding'
 import {
   adaptStringOverrides,
   type FlatMessages,
@@ -243,6 +244,7 @@ export function resolveTranslations(locale: Locale): Translations {
     }
   }
 
+  value = brandCatalog(value)
   resolved.set(locale, { version, value })
 
   return value

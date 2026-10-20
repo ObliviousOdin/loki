@@ -129,7 +129,7 @@ def active_profile_may_override_home(hermes_root: str) -> bool:
 
 
 def _default_home() -> str:
-    return os.path.join(os.path.expanduser("~"), ".hermes")
+    return os.path.join(os.path.expanduser("~"), ".loki")
 
 
 def _resolved_home() -> str:
@@ -200,7 +200,7 @@ def print_fast_version_info(*, check_updates: bool = True) -> None:
         from hermes_cli import __release_date__
         from hermes_cli.version_info import get_version_info
 
-        print(f"Hermes Agent v{get_version_info().derived_version} ({__release_date__})")
+        print(f"Loki v{get_version_info().derived_version} ({__release_date__})")
     print(f"Install directory: {project_root_str()}")
     # Authoritative resolver first (code-scoped stamp → managed → nix → git → pip; also self-heals
     # poisoned shared-home 'docker' stamps); cheap stdlib stamp probe only if it fails.

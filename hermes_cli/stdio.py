@@ -91,10 +91,10 @@ def _default_windows_editor() -> str:
 
 
 def _augment_path_with_known_tools() -> None:
-    r"""Prepend Hermes-managed tool directories to ``PATH`` (no-op on POSIX / missing dirs).
+    r"""Prepend Loki-managed tool directories to ``PATH`` (no-op on POSIX / missing dirs).
 
-    install.ps1 adds entries like ``%LOCALAPPDATA%\hermes\git\bin`` to the User PATH via
-    ``SetEnvironmentVariable``, but already-running shells never see that broadcast, so a hermes
+    install.ps1 adds entries like ``%LOCALAPPDATA%\loki\git\bin`` to the User PATH via
+    ``SetEnvironmentVariable``, but already-running shells never see that broadcast, so a loki
     launched from the install session would not find rg / bash / grep. Prepending the known dirs
     at startup closes that first-launch gap.
     """
@@ -105,13 +105,16 @@ def _augment_path_with_known_tools() -> None:
         return
 
     # Kept in sync with the PATH entries scripts/install.ps1 adds to User scope. The venv Scripts
-    # dir hosts hermes.exe + pip console scripts; WinGet\Links is where ``winget install`` drops
+    # dir hosts loki.exe + pip console scripts; WinGet\Links is where ``winget install`` drops
     # CLI shims (ripgrep lands there as rg.exe).
+    from hermes_constants import get_default_hermes_root
+
+    root = str(get_default_hermes_root())
     candidate_dirs = [
-        os.path.join(local_appdata, "hermes", "git", "cmd"),
-        os.path.join(local_appdata, "hermes", "git", "bin"),
-        os.path.join(local_appdata, "hermes", "git", "usr", "bin"),
-        os.path.join(local_appdata, "hermes", "hermes-agent", "venv", "Scripts"),
+        os.path.join(root, "git", "cmd"),
+        os.path.join(root, "git", "bin"),
+        os.path.join(root, "git", "usr", "bin"),
+        os.path.join(root, "hermes-agent", "venv", "Scripts"),
         os.path.join(local_appdata, "Microsoft", "WinGet", "Links")]
     existing = os.environ.get("PATH", "")
     existing_lower = {p.lower() for p in existing.split(os.pathsep) if p}

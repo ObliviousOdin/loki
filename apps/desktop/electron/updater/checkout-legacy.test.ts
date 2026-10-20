@@ -57,7 +57,7 @@ it('moves a checkout without a source probe to main, but surfaces a broken probe
       }
 
       expect(await strategy.check()).toMatchObject({ supported: true, updateAvailable: true, branch: 'main' })
-      expect(await strategy.apply()).toMatchObject({ ok: true, manual: true, command: 'hermes update' })
+      expect(await strategy.apply()).toMatchObject({ ok: true, manual: true, command: 'loki update' })
     }
 
     fs.writeFileSync(modulePath, 'def main():\n    raise RuntimeError("invalid channel configuration")\n')
@@ -75,7 +75,7 @@ it.skipIf(process.platform === 'win32')(
   async (): Promise<void> => {
     const root: string = fs.mkdtempSync(path.join(os.tmpdir(), 'pm-source-check-'))
     const home: string = path.join(root, 'profile')
-    const launcher: string = path.join(root, '.hermes', 'bin', 'hermes')
+    const launcher: string = path.join(root, '.loki', 'bin', 'loki')
     fs.mkdirSync(path.dirname(launcher), { recursive: true })
     fs.mkdirSync(path.join(root, 'pm'))
     fs.mkdirSync(home)
@@ -108,7 +108,7 @@ it.skipIf(process.platform !== 'win32')(
   async (): Promise<void> => {
     const root: string = fs.mkdtempSync(path.join(os.tmpdir(), 'pm source check '))
     const home: string = path.join(root, 'profile with spaces')
-    const launcher: string = path.join(root, '.hermes', 'bin', 'hermes.cmd')
+    const launcher: string = path.join(root, '.loki', 'bin', 'loki.cmd')
     fs.mkdirSync(path.dirname(launcher), { recursive: true })
     fs.mkdirSync(path.join(root, 'pm'))
     fs.mkdirSync(home)

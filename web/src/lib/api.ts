@@ -218,7 +218,7 @@ export async function fetchJSON<T>(
       // fallback the post-login handler can read.
       try {
         sessionStorage.setItem(
-          "hermes.lastLocation",
+          "loki.lastLocation",
           window.location.pathname + window.location.search,
         );
       } catch {

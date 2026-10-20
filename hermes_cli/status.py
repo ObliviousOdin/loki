@@ -100,7 +100,7 @@ def _estop_status_line():
     if state is None:
         return None
     reason = state.get("reason")
-    return f"⏸️  PAUSED (global emergency stop{f' — reason: {reason}' if reason else ''}; `hermes resume` to lift)"
+    return f"⏸️  PAUSED (global emergency stop{f' — reason: {reason}' if reason else ''}; `loki resume` to lift)"
 
 
 # --- Data tables driving the per-section renderers -------------------------
@@ -126,7 +126,7 @@ def _banner(lines, *styles) -> None:
 
 def _render_header(ctx):
     _banner(("┌─────────────────────────────────────────────────────────┐",
-             "│                 ☤ Hermes Agent Status                  │",
+             "│                 ᛚ Loki Agent Status                  │",
              "└─────────────────────────────────────────────────────────┘"), Colors.CYAN)
     paused = _estop_status_line()
     if paused:
@@ -168,7 +168,7 @@ def _render_terminal(ctx):
         _kv("Image:", os.getenv('TERMINAL_VERCEL_RUNTIME') or terminal_cfg.get('vercel_runtime')
             or os.getenv('TERMINAL_VERCEL_IMAGE') or terminal_cfg.get('vercel_image') or DEFAULT_VERCEL_IMAGE)
         _kv_flag("SDK:", importlib.util.find_spec("vercel") is not None, "installed",
-                 "missing (run hermes setup terminal and select Vercel Sandbox, then restart Hermes)")
+                 "missing (run loki setup terminal and select Vercel Sandbox, then restart Loki)")
         _kv("Auth:", f"{check_mark(auth_status.ok)} {auth_status.label}")
         for line in auth_status.detail_lines:
             _kv("Auth detail:", line)
@@ -220,7 +220,7 @@ def _render_gateway(ctx):
         # A satellite profile has no gateway.pid of its own; the default multiplexer is its live process.
         if not snapshot.running and named_profile_served_by_running_multiplexer():
             _kv_flag("Status:", True, "running (via the default-profile multiplexer)", "stopped")
-            _kv("Manage with:", "hermes gateway status   # from the default profile")
+            _kv("Manage with:", "loki gateway status   # from the default profile")
             return
         _kv_flag("Status:", snapshot.running, "running", "stopped")
         _kv("Manager:", snapshot.manager)
@@ -343,7 +343,7 @@ def _render_deep(ctx):
 
 
 def _render_footer(ctx):
-    _banner(("─" * 60, "  Run 'hermes doctor' for detailed diagnostics", "  Run 'hermes setup' to configure"),
+    _banner(("─" * 60, "  Run 'loki doctor' for detailed diagnostics", "  Run 'loki setup' to configure"),
             Colors.DIM)
     print()
 
@@ -403,7 +403,7 @@ def _render_summary(ctx):
         _kv("Gateway:", "unknown")
     _summary_row("Platforms:", _connected_platform_labels, "none configured")
     _kv("Jobs:", _cron_summary())
-    _banner(("  Run 'hermes status --full' for every section",), Colors.DIM)
+    _banner(("  Run 'loki status --full' for every section",), Colors.DIM)
     print()
 
 

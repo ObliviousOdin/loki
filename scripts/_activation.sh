@@ -38,7 +38,7 @@ hermes_bootstrap_python() {
                      "$repo/venv/bin/python" "$repo/venv/Scripts/python.exe"; do
         [ -x "$candidate" ] && { printf '%s\n' "$candidate"; return 0; }
     done
-    for store in "${HERMES_RUNTIME_DIR:-}" "$repo/../tools" "${HERMES_HOME:-$HOME/.hermes}/tools"; do
+    for store in "${LOKI_RUNTIME_DIR:-}" "$repo/../tools" "${LOKI_HOME:-$HOME/.loki}/tools"; do
         [ -n "$store" ] || continue
         for candidate in "$store"/python-*/bin/python3 "$store"/python-*/python.exe \
                          "$store"/python-*/bin/python "$store"/python-*/bin/python.exe; do
@@ -56,7 +56,7 @@ hermes_compose_env() {
         echo "no bootstrap Python found; run setup-hermes.sh" >&2
         return 1
     }
-    script="$(PYTHONHOME= PYTHONPATH="$repo" "$python" -m pm.environments --format "$dialect")" &&
+    script="$(PYTHONHOME= PYTHONPATH="$repo" LOKI_HOME="${LOKI_HOME:-$HOME/.loki}" HERMES_HOME="${LOKI_HOME:-$HOME/.loki}" HERMES_RUNTIME_DIR="${LOKI_RUNTIME_DIR:-}" __LOKI_ENV_BOUND=1 "$python" -m pm.environments --format "$dialect")" &&
         [ -n "$script" ] || {
         echo "could not read pm env (run ./setup-hermes.sh first)" >&2
         return 1

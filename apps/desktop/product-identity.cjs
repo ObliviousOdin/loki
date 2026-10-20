@@ -9,16 +9,16 @@
 'use strict'
 
 const variants = {
-  '': { display: 'Hermes', kebab: 'hermes', pascal: 'Hermes' },
+  '': { display: 'Loki Source', kebab: 'loki-source', pascal: 'LokiSource' },
   light: {
-    display: 'Hermes Light',
-    kebab: 'hermes-light',
-    pascal: 'HermesLight'
+    display: 'Loki Light',
+    kebab: 'loki-light',
+    pascal: 'LokiLight'
   },
   bundled: {
-    display: 'Hermes Agent',
-    kebab: 'hermes-bundled',
-    pascal: 'HermesBundled'
+    display: 'Loki',
+    kebab: 'loki',
+    pascal: 'Loki'
   }
 }
 
@@ -32,6 +32,9 @@ if (!['', 'light', 'bundled', 'store'].includes(variant)) {
 // userData + single-instance lock with the out-of-store install), different
 // MSIX package identity. The Store re-signs on submission.
 const store = variant === 'store'
+if (store) {
+  throw new Error('Loki Store packaging requires a Loki-owned Partner Center identity and signing configuration')
+}
 const light = variant === 'light'
 const name = variants[store ? 'bundled' : (variant || '')]
 
@@ -45,7 +48,8 @@ const canary = /\+canary\.20\d{6}T\d{6}Z$/.test(process.env.HERMES_PAYLOAD_TAG |
 // Nonstable installs own their package family and local desktop state. The
 // seven-character commit suffix also names the CLI and fits MSIX's name cap.
 const buildCommitEnv = process.env.HERMES_BUILD_COMMIT || ''
-const buildCommit = /^[a-f0-9]{40}$/.test(buildCommitEnv) ? buildCommitEnv.slice(0, 7) : null
+const primaryPreview = require('./preview-identity.cjs').primaryPreviewEnabled()
+const buildCommit = !primaryPreview && /^[a-f0-9]{40}$/.test(buildCommitEnv) ? buildCommitEnv.slice(0, 7) : null
 const displayName = buildCommit
   ? `${name.display} ${buildCommit}`
   : canary
@@ -54,7 +58,7 @@ const displayName = buildCommit
 
 const kebabSuffix = buildCommit ? `-${buildCommit}` : canary ? '-canary' : ''
 const pascalSuffix = buildCommit ? `Commit${buildCommit}` : canary ? 'Canary' : ''
-const cliName = `${light ? 'hermes-light' : 'hermes'}${kebabSuffix}`
+const cliName = `${light ? 'loki-light' : 'loki'}${kebabSuffix}`
 if (store && (canary || buildCommit)) {
   throw new Error('Store packaging is only eligible for stable releases')
 }
@@ -66,25 +70,15 @@ const identity = {
   store,
   light,
   displayName,
-  appId: `com.nousresearch.${name.kebab}${kebabSuffix}`,
+  appId: `com.obliviousodin.${name.kebab}${kebabSuffix}`,
   // Store and commit builds do not publish a release feed.
-  channel: store || buildCommit ? null : light ? (canary ? 'light-canary' : 'light') : (canary ? 'canary' : 'latest'),
+  channel: null,
   appNamePascal: `${name.pascal}${pascalSuffix}`,
   artifactNamePascal: name.pascal,
   windowsExecutableName: kebabSuffix ? cliName : displayName,
   cliName,
-  msixAppIdWithOrg: `NousResearch.${name.pascal}${pascalSuffix}`,
-  ...(store
-    ? {
-        storeMsix: {
-          // Partner Center publisher identity (the account's publisher ID) —
-          // validated + re-signed by the Store on submission.
-          identityName: 'NousResearchInc.HermesAgent',
-          publisher: 'CN=EE6D86E4-606F-4E38-B940-AD7248C9D519',
-          publisherDisplayName: 'Nous Research Inc.'
-        }
-      }
-    : {})
+  msixAppIdWithOrg: `ObliviousOdin.${name.pascal}${pascalSuffix}`,
+
 }
 
 const { channelBuildRequest } = require('../../scripts/msix-shared.mjs')

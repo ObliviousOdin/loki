@@ -151,7 +151,7 @@ Subcommands:
 
 Categories: temp | test | research | download | chrome-profile | cron-output | other
 
-All operations are scoped to HERMES_HOME and /tmp/hermes-*.  # no-tmp: ok — legacy scratch scope this plugin cleans up
+All operations are scoped to LOKI_HOME and /tmp/loki-*.  # no-tmp: ok — owned scratch scope this plugin cleans up
 Test files are auto-tracked on write_file / terminal and auto-cleaned at session end.
 """
 
@@ -233,4 +233,4 @@ def register(ctx) -> None:
     ctx.register_hook("post_tool_call", _on_post_tool_call)
     ctx.register_hook("on_session_end", _on_session_end)
     ctx.register_command("disk-cleanup", handler=_handle_slash,
-                         description="Track and clean up ephemeral Hermes session files.")
+                         description="Track and clean up ephemeral Loki session files.")

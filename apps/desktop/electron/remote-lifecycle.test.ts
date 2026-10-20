@@ -77,8 +77,8 @@ function ownedLock(over: any = {}) {
     pid: 333,
     port: 40000,
     profile: '',
-    hermesPath: '~/.local/bin/hermes',
-    hermesHome: '~/.hermes',
+    hermesPath: '~/.loki/bin/loki',
+    hermesHome: '~/.loki',
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
     tokenFingerprint: fingerprintToken('stored-token'),
     startedAt: '2026-07-14T00:00:00.000Z',
@@ -152,8 +152,8 @@ test('POSIX relaunch gate refuses live and uncertain install markers without exe
           return 'Linux\nx86_64\n'
         }
 
-        if (command.includes('HERMES_HOME')) {
-          return '/home/alice/.hermes\n'
+        if (command.includes('LOKI_HOME')) {
+          return '/home/alice/.loki\n'
         }
 
         if (command.includes('.hermes-update-in-progress')) {
@@ -186,8 +186,8 @@ test('POSIX relaunch gate permits absent/dead markers and normalizes named-profi
     }
   }
 
-  await assertRemoteInstallUpdateClear(ssh, '/home/alice/.hermes/profiles/research')
-  assert.ok(commands[0].endsWith(" '/home/alice/.hermes/.hermes-update-in-progress'"), commands[0].slice(-80))
+  await assertRemoteInstallUpdateClear(ssh, '/home/alice/.loki/profiles/research')
+  assert.ok(commands[0].endsWith(" '/home/alice/.loki/.hermes-update-in-progress'"), commands[0].slice(-80))
 })
 
 test('POSIX relaunch gate rechecks after token upload immediately before process creation', async () => {
@@ -202,8 +202,8 @@ test('POSIX relaunch gate rechecks after token upload immediately before process
         return 'Linux\nx86_64\n'
       }
 
-      if (command.includes('HERMES_HOME')) {
-        return '/home/alice/.hermes\n'
+      if (command.includes('LOKI_HOME')) {
+        return '/home/alice/.loki\n'
       }
 
       if (command.includes('.hermes-update-in-progress')) {
@@ -245,7 +245,7 @@ test('POSIX relaunch gate rechecks after token upload immediately before process
 
 test('readRemoteInstallId reads the backend identity without spawning a dashboard or minting one', async () => {
   const ssh = fakeSsh([
-    [/HERMES_HOME/, '/Users/zillajr/.hermes\n'],
+    [/LOKI_HOME/, '/Users/zillajr/.loki\n'],
     [/cat .*install_id/, '0f8a1c2b3d4e5f60718293a4b5c6d7e8\n']
   ])
 
@@ -261,13 +261,13 @@ test('readRemoteInstallId reports the INSTALL root id for a profile-pinned home'
   // The whole point of the id: two ssh connections to one machine — one pinned at a profile,
   // one at the root — must report the SAME backend so their roster rows collapse.
   const pinned = fakeSsh([
-    [/HERMES_HOME/, '/Users/zillajr/.hermes/profiles/dixie\n'],
+    [/LOKI_HOME/, '/Users/zillajr/.loki/profiles/dixie\n'],
     [/cat .*install_id/, '0f8a1c2b3d4e5f60718293a4b5c6d7e8\n']
   ])
 
   assert.equal(await readRemoteInstallId(pinned), '0f8a1c2b3d4e5f60718293a4b5c6d7e8')
   assert.equal(
-    pinned.calls.some(cmd => cmd.includes('/Users/zillajr/.hermes/install_id')),
+    pinned.calls.some(cmd => cmd.includes('/Users/zillajr/.loki/install_id')),
     true
   )
   assert.equal(
@@ -279,7 +279,7 @@ test('readRemoteInstallId reports the INSTALL root id for a profile-pinned home'
 test('readRemoteInstallId reports no id rather than a bad one', async () => {
   for (const payload of ['', 'not-an-id\n', 'ABCDEF\n', '0f8a1c2b3d4e5f60718293a4b5c6d7e8extra\n']) {
     const ssh = fakeSsh([
-      [/HERMES_HOME/, '/Users/zillajr/.hermes\n'],
+      [/LOKI_HOME/, '/Users/zillajr/.loki\n'],
       [/cat .*install_id/, payload]
     ])
 
@@ -291,7 +291,7 @@ test('readRemoteInstallId reports no id rather than a bad one', async () => {
 
 test('listRemoteHermesProfiles inventories Mini-style profile dirs without spawning a dashboard', async () => {
   const ssh = fakeSsh([
-    [/HERMES_HOME/, '/Users/zillajr/.hermes\n'],
+    [/LOKI_HOME/, '/Users/zillajr/.loki\n'],
     [/ls -1/, 'bob\ndixie\ngoose\nrambo\nbob.rollback-old\n']
   ])
 
@@ -302,8 +302,8 @@ test('listRemoteHermesProfiles inventories Mini-style profile dirs without spawn
   )
 })
 
-test('listRemoteHermesProfiles rejects a hostile HERMES_HOME', async () => {
-  const ssh = fakeSsh([[/HERMES_HOME/, '/tmp/x; echo pwned\n']])
+test('listRemoteHermesProfiles rejects a hostile LOKI_HOME', async () => {
+  const ssh = fakeSsh([[/LOKI_HOME/, '/tmp/x; echo pwned\n']])
 
   await assert.rejects(
     () => listRemoteHermesProfiles(ssh),
@@ -328,8 +328,8 @@ test('locateHermes throws (no silent fallback) when an EXPLICIT path is not exec
   // command -v WOULD find a different install, but an explicit path must not
   // silently fall back to it — that is the "connected to the wrong hermes" bug.
   const ssh = fakeSsh([
-    [/command -v hermes/, '/home/u/.local/bin/hermes\n'],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK']
+    [/command -v loki/, '/home/u/.local/bin/loki\n'],
+    [/\[ -x .*\.local\/bin\/loki/, 'OK']
   ])
 
   await assert.rejects(
@@ -345,11 +345,11 @@ test('locateHermes throws (no silent fallback) when an EXPLICIT path is not exec
 
 test('locateHermes falls back to the login-shell command -v probe', async () => {
   const ssh = fakeSsh([
-    [/command -v hermes/, '/home/u/.local/bin/hermes\n'],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK']
+    [/command -v loki/, '/home/u/.local/bin/loki\n'],
+    [/\[ -x .*\.local\/bin\/loki/, 'OK']
   ])
 
-  assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/hermes')
+  assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/loki')
 })
 
 test('locateHermes preserves an installer wrapper instead of resolving its interpreter', async () => {
@@ -359,14 +359,14 @@ test('locateHermes preserves an installer wrapper instead of resolving its inter
   // `<python> serve --help` failed outright (#74411). The wrapper itself is
   // executable and forwards args correctly — return it untouched.
   const ssh = fakeSsh([
-    [/command -v hermes/, '/home/u/.local/bin/hermes\n'],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK'],
+    [/command -v loki/, '/home/u/.local/bin/loki\n'],
+    [/\[ -x .*\.local\/bin\/loki/, 'OK'],
     // If the removed python3 wrapper-parser were ever reintroduced, this rule
     // would reward it with an interpreter path and the assertions below fail.
-    [/python3 -c/, '/home/u/.hermes/hermes-agent/venv/bin/python\n']
+    [/python3 -c/, '/home/u/.loki/hermes-agent/venv/bin/python\n']
   ])
 
-  assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/hermes')
+  assert.equal(await locateHermes(ssh, ''), '/home/u/.local/bin/loki')
   assert.ok(
     !ssh.calls.some(cmd => cmd.includes('python3 -c')),
     'locateHermes must not shell out to a python3 parser to rewrite the launcher'
@@ -376,29 +376,29 @@ test('locateHermes preserves an installer wrapper instead of resolving its inter
 test('locateHermes returns an explicit remoteHermesPath unchanged', async () => {
   // The override half of #74411: an explicit remoteHermesPath pointing at a
   // wrapper was also canonicalized to its interpreter, so overriding to
-  // ~/.local/bin/hermes changed nothing for affected users.
+  // ~/.local/bin/loki changed nothing for affected users.
   const ssh = fakeSsh([
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK'],
-    [/python3 -c/, '/home/u/.hermes/hermes-agent/venv/bin/python\n']
+    [/\[ -x .*\.local\/bin\/loki/, 'OK'],
+    [/python3 -c/, '/home/u/.loki/hermes-agent/venv/bin/python\n']
   ])
 
-  assert.equal(await locateHermes(ssh, '~/.local/bin/hermes'), '~/.local/bin/hermes')
+  assert.equal(await locateHermes(ssh, '~/.local/bin/loki'), '~/.local/bin/loki')
   assert.ok(!ssh.calls.some(cmd => cmd.includes('python3 -c')), 'an explicit remoteHermesPath must never be rewritten')
 })
 
-test('locateHermes falls back to ~/.local/bin/hermes when the login-shell probe misses', async () => {
+test('locateHermes falls back to ~/.local/bin/loki when the login-shell probe misses', async () => {
   // ~/.local/bin is the non-root installer's command location (scripts/install.sh).
   const ssh = fakeSsh([
-    [/command -v hermes/, ''],
-    [/\[ -x .*\.local\/bin\/hermes/, 'OK']
+    [/command -v loki/, ''],
+    [/\[ -x .*\.local\/bin\/loki/, 'OK']
   ])
 
-  assert.equal(await locateHermes(ssh, ''), '~/.local/bin/hermes')
+  assert.equal(await locateHermes(ssh, ''), '~/.local/bin/loki')
 })
 
 test('locateHermes tries the conventional venv path last', async () => {
-  const ssh = fakeSsh([[/\[ -x .*venv\/bin\/hermes/, 'OK']])
-  assert.equal(await locateHermes(ssh, ''), '~/.hermes/hermes-agent/venv/bin/hermes')
+  const ssh = fakeSsh([[/\[ -x .*hermes-agent\/\.loki\/bin\/loki/, 'OK']])
+  assert.equal(await locateHermes(ssh, ''), '~/.loki/hermes-agent/.loki/bin/loki')
 })
 
 test('locateHermes throws a hermes-not-found error with an install hint', async () => {
@@ -416,7 +416,7 @@ test('locateHermes throws a hermes-not-found error with an install hint', async 
 
 test('locateHermes uses a login shell for the command -v probe', async () => {
   const ssh = fakeSsh([
-    [/command -v hermes/, '/x/hermes'],
+    [/command -v loki/, '/x/hermes'],
     [/\[ -x/, 'OK']
   ])
 
@@ -450,9 +450,9 @@ test('probeRemotePlatform rejects unsupported remote platforms', async () => {
 })
 
 test('ownership paths are isolated by ownership ID and spawn nonce', () => {
-  assert.equal(ownershipDirectory(OWNERSHIP_ID), `~/.hermes/desktop-ssh/${OWNERSHIP_ID}`)
-  assert.equal(lockfilePath(OWNERSHIP_ID), `~/.hermes/desktop-ssh/${OWNERSHIP_ID}/backend.lock.json`)
-  assert.equal(spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE), `~/.hermes/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.log`)
+  assert.equal(ownershipDirectory(OWNERSHIP_ID), `~/.loki/desktop-ssh/${OWNERSHIP_ID}`)
+  assert.equal(lockfilePath(OWNERSHIP_ID), `~/.loki/desktop-ssh/${OWNERSHIP_ID}/backend.lock.json`)
+  assert.equal(spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE), `~/.loki/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.log`)
 })
 
 test('readLockfile returns null ONLY for a missing/empty lockfile', async () => {
@@ -618,7 +618,7 @@ test('pidIsOurDashboard accepts the venv entrypoint an installer wrapper execs i
   ])
 
   assert.equal(
-    await pidIsOurDashboard(ssh, 5, SPAWN_NONCE, '~/.local/bin/hermes', '/Users/cd9c/.hermes', OWNERSHIP_ID, 'ops'),
+    await pidIsOurDashboard(ssh, 5, SPAWN_NONCE, '~/.local/bin/loki', '/Users/cd9c/.loki', OWNERSHIP_ID, 'ops'),
     true
   )
   assert.match(ownershipProbe, /hermes-agent.*venv.*bin.*hermes/)
@@ -638,7 +638,7 @@ test.skipIf(process.platform === 'win32')(
     const launcher = path.join(temp, 'hermes launcher')
     const python: string = (await exec('command -v python3', { shell })).stdout.trim()
     const tokenPath: string = path.join(temp, spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE).replace(/^~\//, ''))
-    const env: NodeJS.ProcessEnv = { ...process.env, HOME: temp, HERMES_HOME: temp }
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: temp, LOKI_HOME: temp }
 
     await mkdir(venvBin, { recursive: true })
     await symlink(python, pythonLink)
@@ -1011,7 +1011,7 @@ mv "$report.tmp" "$report"
         logPath
       })
 
-      await exec(command, { shell, env: { ...process.env, HOME: directory, HERMES_HOME: directory } })
+      await exec(command, { shell, env: { ...process.env, HOME: directory, LOKI_HOME: directory } })
 
       for (let attempt: number = 0; attempt < 100; attempt += 1) {
         try {
@@ -1205,7 +1205,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
   assert.match(spawn, /--profile\b/)
   assert.ok(spawn.includes('writer_2'))
   assert.match(spawn, /serve\s+--isolated/)
-  assert.match(spawn, /\.hermes\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
+  assert.match(spawn, /\.loki\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
   assert.ok(!spawn.includes(' work'), 'the local Desktop scope must not become the remote profile')
 })
 
@@ -1321,7 +1321,7 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
     [/uname/, 'Linux\nx86_64'],
     [/\[ -x/, 'OK'],
     [/cat .*lock\.json/, ''], // no lockfile
-    [/HERMES_HOME/, '/home/alice/.hermes\n'],
+    [/LOKI_HOME/, '/home/alice/.loki\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/printf '%s\\n'/, ''],
@@ -1341,7 +1341,7 @@ test('connect() fresh spawn writes hermesHome + protocolVersion into the lockfil
   await connect(connectDeps(ssh, { adoptServedToken: async () => 'fresh' }))
   const lockWrite = writes.find(c => c.includes('schemaVersion')) || ''
   assert.match(lockWrite, new RegExp(`"protocolVersion":${PROTOCOL_VERSION}`))
-  assert.match(lockWrite, /"hermesHome":"\/home\/alice\/\.hermes"/)
+  assert.match(lockWrite, /"hermesHome":"\/home\/alice\/\.loki"/)
 })
 
 test('connect() respawns when the lockfile pid is dead (killed dashboard)', async () => {
@@ -1582,13 +1582,13 @@ test('connect() preserves an owned backend when a reuse transport throws', async
 })
 
 test('validateRemotePath accepts absolute POSIX paths', () => {
-  assert.doesNotThrow(() => validateRemotePath('/usr/bin/hermes'))
-  assert.doesNotThrow(() => validateRemotePath('/home/user/.hermes/hermes-agent/venv/bin/hermes'))
+  assert.doesNotThrow(() => validateRemotePath('/usr/bin/loki'))
+  assert.doesNotThrow(() => validateRemotePath('/home/user/.loki/hermes-agent/venv/bin/loki'))
 })
 
 test('validateRemotePath accepts ~/ prefix paths', () => {
-  assert.doesNotThrow(() => validateRemotePath('~/bin/hermes'))
-  assert.doesNotThrow(() => validateRemotePath('~/.hermes/logs/desktop-ssh.log'))
+  assert.doesNotThrow(() => validateRemotePath('~/bin/loki'))
+  assert.doesNotThrow(() => validateRemotePath('~/.loki/logs/desktop-ssh.log'))
   assert.doesNotThrow(() => validateRemotePath('~'))
 })
 
@@ -1600,14 +1600,14 @@ test('validateRemotePath accepts paths with spaces and quotes', () => {
 
 test('validateRemotePath rejects relative paths', () => {
   assert.throws(() => validateRemotePath('hermes'), /absolute|relative/i)
-  assert.throws(() => validateRemotePath('./bin/hermes'), /absolute|relative/i)
+  assert.throws(() => validateRemotePath('./bin/loki'), /absolute|relative/i)
   assert.throws(() => validateRemotePath('../etc/passwd'), /absolute|relative/i)
 })
 
 test('validateRemotePath rejects NUL and newline', () => {
-  assert.throws(() => validateRemotePath('/usr/bin/hermes\x00'), /unsafe/i)
-  assert.throws(() => validateRemotePath('/usr/bin/hermes\n'), /unsafe/i)
-  assert.throws(() => validateRemotePath('/usr/bin/hermes\r'), /unsafe/i)
+  assert.throws(() => validateRemotePath('/usr/bin/loki\x00'), /unsafe/i)
+  assert.throws(() => validateRemotePath('/usr/bin/loki\n'), /unsafe/i)
+  assert.throws(() => validateRemotePath('/usr/bin/loki\r'), /unsafe/i)
 })
 
 test('validateRemotePath preserves shell metacharacters as path data', () => {
@@ -1618,15 +1618,15 @@ test('validateRemotePath preserves shell metacharacters as path data', () => {
 })
 
 test('expandRemotePath expands ~/ to "$HOME"/', () => {
-  const result = expandRemotePath('~/.hermes/logs/desktop-ssh.log')
+  const result = expandRemotePath('~/.loki/logs/desktop-ssh.log')
   assert.match(result, /\$HOME/)
   assert.ok(!result.includes('eval'), 'must not use eval')
   assert.ok(!result.includes('echo'), 'must not use echo for expansion')
 })
 
 test('expandRemotePath returns quoted absolute paths unchanged', () => {
-  const result = expandRemotePath('/usr/local/bin/hermes')
-  assert.ok(result.includes('/usr/local/bin/hermes'))
+  const result = expandRemotePath('/usr/local/bin/loki')
+  assert.ok(result.includes('/usr/local/bin/loki'))
   assert.ok(!result.includes('eval'))
 })
 
@@ -1637,13 +1637,13 @@ test('expandRemotePath preserves spaces as data', () => {
 
 test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is provided', () => {
   const cmd = buildSpawnCommand('/x/hermes', 'work', {
-    tokenFilePath: `~/.hermes/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.token`,
+    tokenFilePath: `~/.loki/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.token`,
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
     spawnNonce: SPAWN_NONCE
   })
 
   assert.match(cmd, /--ssh-session-token-file/)
-  assert.match(cmd, /\.hermes\/desktop-ssh\//)
+  assert.match(cmd, /\.loki\/desktop-ssh\//)
 })
 
 test('spawnRemoteDashboard removes a token file when upload reporting fails', async () => {
@@ -1813,7 +1813,7 @@ test('spawnRemoteDashboard fails with update-required when remote lacks --ssh-se
 })
 
 test('readLockfile treats a log path outside the exact ownership and spawn path as skew', async () => {
-  const lock = ownedLock({ logPath: '~/.hermes/desktop-ssh/other.log' })
+  const lock = ownedLock({ logPath: '~/.loki/desktop-ssh/other.log' })
   const ssh = fakeSsh([[/cat .*lock\.json/, JSON.stringify(lock)]])
   assert.equal(isLockfileSkew(await readLockfile(ssh, OWNERSHIP_ID)), true)
 })
@@ -1824,7 +1824,7 @@ test('cleanupStale never deletes a lock-supplied unexpected log path', async () 
     [cmd => /pidfd_open/.test(cmd), 'TERMINATED\n']
   ])
 
-  await cleanupStale(ssh, OWNERSHIP_ID, ownedLock({ logPath: '~/.hermes/unrelated.log' }))
+  await cleanupStale(ssh, OWNERSHIP_ID, ownedLock({ logPath: '~/.loki/unrelated.log' }))
   assert.ok(!ssh.calls.some(command => command.includes('unrelated.log')))
 })
 
@@ -2062,7 +2062,7 @@ test.skipIf(process.platform === 'win32')(
     // characters to the remote python. Parse the composed command with a real sh,
     // as the remote login shell does, and require every path to come out clean.
     const cmd = buildSpawnCommand('/x/hermes', 'work', {
-      hermesHome: '~/.hermes',
+      hermesHome: '~/.loki',
       logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
       ownershipId: OWNERSHIP_ID,
       reservationNonce: SPAWN_NONCE,
@@ -2093,7 +2093,7 @@ test.skipIf(process.platform === 'win32')(
       // argv: ['-c', <marker gate>, <marker path>, <payload>]
       assert.equal(
         argv[2],
-        `${fakeHome}/.hermes/.hermes-update-in-progress`,
+        `${fakeHome}/.loki/.hermes-update-in-progress`,
         'marker path must reach python fully expanded, with no quote characters'
       )
 
@@ -2112,7 +2112,7 @@ test.skipIf(process.platform === 'win32')(
       )
 
       const [reservation, lock, ownerFile] = stdout.split('\n')
-      const base = `${fakeHome}/.hermes/desktop-ssh/${OWNERSHIP_ID}`
+      const base = `${fakeHome}/.loki/desktop-ssh/${OWNERSHIP_ID}`
       assert.equal(reservation, `${base}/.connect.lock`)
       assert.equal(lock, `${base}/backend.lock.json`)
       assert.equal(ownerFile, `${base}/.connect.lock/owner`)

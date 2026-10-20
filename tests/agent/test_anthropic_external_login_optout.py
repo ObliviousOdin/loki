@@ -16,6 +16,8 @@ from unittest import mock
 
 import urllib.request
 
+from tests.loki_auth_fixture import write_auth_config
+
 from agent import anthropic_credentials as ac
 from agent import credential_sources
 from agent.credential_pool import load_pool
@@ -27,6 +29,7 @@ def _write_config(hermes_home, adopt):
     if adopt is not None:
         body += f"auth:\n  adopt_external_logins: {'true' if adopt else 'false'}\n# arm {adopt}\n"
     (hermes_home / "config.yaml").write_text(body)
+    write_auth_config(hermes_home, clients=("anthropic",))
 
 
 def test_opt_out_never_reads_or_refreshes_claude_code_login(tmp_path, monkeypatch):
@@ -57,8 +60,15 @@ def test_opt_out_never_reads_or_refreshes_claude_code_login(tmp_path, monkeypatc
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
-    # Arm A (default): today's behaviour — the borrowed login is seeded into the pool.
+    # The omitted setting defaults to no adoption, with no credential mutation or POST.
     _write_config(hermes_home, adopt=None)
+    assert ac.resolve_anthropic_token() is None
+    assert load_pool("anthropic").entries() == []
+    assert posts == []
+    assert cred_file.read_bytes() == original_bytes
+
+    # Arm A: explicit consent permits seeding the borrowed login into the pool.
+    _write_config(hermes_home, adopt=True)
     assert [e.source for e in load_pool("anthropic").entries()] == ["claude_code"]
 
     # Arm B (opt-out): no read, no refresh POST, the persisted row is dropped, the status line explains why.

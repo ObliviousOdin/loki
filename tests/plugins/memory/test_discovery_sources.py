@@ -87,7 +87,7 @@ def _write_provider_dir(root: Path, name: str) -> Path:
 
 def test_project_dir_is_ignored_without_opt_in(tmp_path, monkeypatch):
     """A repo you merely cd into must not be able to offer a memory backend."""
-    _write_provider_dir(tmp_path / ".hermes" / "plugins", "projectmem")
+    _write_provider_dir(tmp_path / ".loki" / "plugins", "projectmem")
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("HERMES_ENABLE_PROJECT_PLUGINS", raising=False)
 
@@ -96,7 +96,7 @@ def test_project_dir_is_ignored_without_opt_in(tmp_path, monkeypatch):
 
 
 def test_project_dir_is_discovered_when_opted_in(tmp_path, monkeypatch):
-    provider = _write_provider_dir(tmp_path / ".hermes" / "plugins", "projectmem")
+    provider = _write_provider_dir(tmp_path / ".loki" / "plugins", "projectmem")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HERMES_ENABLE_PROJECT_PLUGINS", "1")
 
@@ -109,7 +109,7 @@ def test_bundled_still_wins_over_project(tmp_path, monkeypatch):
     PluginManager's later-wins order. A provider is activated by name, so a
     directory dropped into the working tree must not be able to shadow a
     shipped one and silently redirect the agent's memory."""
-    _write_provider_dir(tmp_path / ".hermes" / "plugins", "byterover")
+    _write_provider_dir(tmp_path / ".loki" / "plugins", "byterover")
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HERMES_ENABLE_PROJECT_PLUGINS", "1")
 
@@ -255,3 +255,12 @@ def test_unreadable_user_plugin_does_not_abort_memory_discovery(tmp_path, monkey
     assert "goodmem" in names
     assert "denied" not in names
     assert memory_plugins.find_provider_dir("denied") is None
+
+
+def test_loki_memory_does_not_adopt_hermes_project_provider(tmp_path, monkeypatch):
+    _write_provider_dir(tmp_path / ".hermes" / "plugins", "foreignhermesmemory")
+    owned = _write_provider_dir(tmp_path / ".loki" / "plugins", "ownedlokimemory")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HERMES_ENABLE_PROJECT_PLUGINS", "1")
+    assert memory_plugins.find_provider_dir("ownedlokimemory") == owned
+    assert memory_plugins.find_provider_dir("foreignhermesmemory") is None

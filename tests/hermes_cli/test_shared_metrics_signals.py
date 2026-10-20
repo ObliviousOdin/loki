@@ -368,6 +368,9 @@ def _poll(provider, status, body):
         monkeypatch.setattr(auth_device_flow, "time", fake_time)
         if provider == "nous":
             return auth_device_flow._poll_for_token(_wire(status, body), "https://p", "c", "d", 30, 1)
+        from tests.loki_auth_fixture import configure_auth
+
+        configure_auth(monkeypatch, clients=("xai-oauth",))
         return _xai_oauth_poll_device_token(
             _wire(status, body), token_endpoint="https://x/token", device_code="d", expires_in=30, poll_interval=1)
     return run

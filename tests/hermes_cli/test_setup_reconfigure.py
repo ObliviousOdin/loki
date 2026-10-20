@@ -169,6 +169,34 @@ class TestQuickFlag:
 class TestFreshInstall:
     """On a fresh install (no active provider), flags are no-ops."""
 
+    def test_enter_defaults_to_own_provider_full_setup(self, fresh_install):
+        menus = []
+
+        def press_enter(question, choices, *, selected, **kwargs):
+            menus.append((choices, selected))
+            return selected
+
+        with ExitStack() as stack:
+            m = _enter_fresh_install_patches(
+                stack,
+                menu=("hermes_cli.curses_ui.curses_radiolist", {"side_effect": press_enter}),
+                full="hermes_cli.setup._run_full_setup",
+                quick="hermes_cli.setup_quick._run_first_time_quick_setup",
+                summary="hermes_cli.setup._print_setup_summary",
+                completed="hermes_cli.setup._record_setup_completed",
+            )
+            from hermes_cli.setup import run_setup_wizard
+
+            run_setup_wizard(_make_setup_args())
+
+        choices, selected = menus[0]
+        assert selected == 1
+        assert "own API keys or local provider" in choices[selected]
+        assert "your account" in choices[0]
+        assert "Loki-authorized OAuth client" in choices[0]
+        m["full"].assert_called_once_with({}, fresh_install, is_existing=False, migration_ran=False)
+        m["quick"].assert_not_called()
+
 
     def test_reconfigure_on_fresh_install_falls_through(self, fresh_install):
         args = _make_setup_args(reconfigure=True)

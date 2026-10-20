@@ -28,13 +28,13 @@ function request(sequence: number = 65536, token: string = 'ab12cd34ef56ab78'): 
     windowsVersion: `0.${Math.floor(sequence / 65536)}.${sequence % 65536}.0`,
     identity: {
       token,
-      displayName: 'Hermes no-registry-needed',
-      appId: `com.nousresearch.hermes-channel-${token}`,
-      appNamePascal: `HermesChannel${token}`,
-      artifactNamePascal: `HermesChannel${token}`,
-      cliName: 'hermes-no-registry-needed',
-      windowsExecutableName: 'hermes-no-registry-needed',
-      msixAppIdWithOrg: `NousResearch.HermesChannel${token}`
+      displayName: 'Loki no-registry-needed',
+      appId: `com.obliviousodin.loki-channel-${token}`,
+      appNamePascal: `LokiChannel${token}`,
+      artifactNamePascal: `LokiChannel${token}`,
+      cliName: 'loki-no-registry-needed',
+      windowsExecutableName: 'loki-no-registry-needed',
+      msixAppIdWithOrg: `ObliviousOdin.LokiChannel${token}`
     },
     bundleEnv: { HERMES_PREVIEW_FULL_CONNECTORS: '1' },
     publicBase: 'https://builds.example.test'
@@ -129,13 +129,8 @@ test('channel packaging reuses admitted identity and rejects unsupported or unsa
     fs.rmSync(appData, { recursive: true, force: true })
   }
 
-  assert.deepEqual(a.config.mac?.publish, [
-    {
-      provider: 'generic',
-      url: `${first.publicBase}/releases/channel-builds/${first.buildId}/darwin/`,
-      channel: 'latest'
-    }
-  ])
+  assert.equal(a.config.mac?.publish, null, 'admitted channel metadata never enables an inherited publisher')
+  assert.equal(a.config.publish, null)
   process.env.HERMES_DESKTOP_VARIANT = 'light'
   delete require.cache[require.resolve('../product-identity.cjs')]
   assert.throws((): void => {
@@ -188,17 +183,22 @@ test('a channel that copies the stable identity packages and runs as the regular
   assert.equal(branded.config.extraMetadata?.name, stable.config.extraMetadata?.name)
   assert.equal(branded.config.artifactName, stable.config.artifactName)
 
-  assert.equal(
-    applyDesktopIdentity(
-      {
-        getPath: (): string => assert.fail('stable userData must not be relocated'),
-        setPath: (): void => assert.fail('stable userData must not be relocated'),
-        setName: (): void => assert.fail('stable name must not change')
-      },
-      branded.identity
-    ),
-    null
-  )
+  const appData: string = fs.mkdtempSync(path.join(os.tmpdir(), 'loki-stable-identity-'))
+  const locations: string[] = []
+
+  try {
+    for (const identity of [official, branded.identity]) {
+      assert.equal(applyDesktopIdentity({
+        getPath: (): string => appData,
+        setPath: (_name: 'userData', value: string): void => { locations.push(value) },
+        setName: (name: string): void => { assert.equal(name, official.displayName) }
+      }, identity), official.displayName)
+    }
+
+    assert.deepEqual(locations, [path.join(appData, official.appNamePascal), path.join(appData, official.appNamePascal)])
+  } finally {
+    fs.rmSync(appData, { recursive: true, force: true })
+  }
 })
 
 test('channel stamps verify the real checkout and retain source version and native ownership', async (): Promise<void> => {
@@ -303,9 +303,8 @@ test('channel stamps verify the real checkout and retain source version and nati
     assert.equal(stable.displayVersion, receiver.version)
     assert.equal(stable.updateMechanism, 'electron-updater')
     const packaged: PackagingFacts = load(receiver)
-    assert.deepEqual(packaged.config.mac?.publish, [
-      { provider: 'generic', url: `${receiver.publicBase}/releases/darwin/stable/`, channel: 'stable' }
-    ])
+    assert.equal(packaged.config.mac?.publish, null)
+    assert.equal(packaged.config.publish, null)
 
     const {
       verifyBundleStamp
@@ -372,6 +371,7 @@ test('actual MSIX manifest writer consumes the channel quad across rollover inst
   try {
     for (const file of [
       'apps/desktop/product-identity.cjs',
+      'apps/desktop/preview-identity.cjs',
       'apps/desktop/electron-builder.config.cjs',
       'apps/desktop/package.json',
       'apps/desktop/update-feed.cjs',
@@ -413,7 +413,7 @@ test('actual MSIX manifest writer consumes the channel quad across rollover inst
     fs.mkdirSync(path.join(app, 'build/agent-payload'), { recursive: true })
     fs.writeFileSync(
       path.join(app, 'build/agent-payload/manifest.json'),
-      JSON.stringify({ launchers: ['hermes-no-registry-needed', 'hermes-no-registry-needed-acp'] })
+      JSON.stringify({ launchers: ['loki-no-registry-needed', 'loki-no-registry-needed-acp'] })
     )
     const facts: ManifestFacts[] = []
 
@@ -455,7 +455,7 @@ test('actual MSIX manifest writer consumes the channel quad across rollover inst
       assert.equal(row.semver, build.version)
       assert.match(row.xml, new RegExp(`Version="${build.windowsVersion.replaceAll('.', '\\.')}"`))
       assert.equal((row.xml.match(/Category="windows.appExecutionAlias"/g) || []).length, 2)
-      assert.match(row.xml, /HermesChannelab12cd34ef56ab78Cli1/)
+      assert.match(row.xml, /LokiChannelab12cd34ef56ab78Cli1/)
 
       const recordScript: string = `
 import json, pathlib, sys, zipfile, xml.etree.ElementTree as ET

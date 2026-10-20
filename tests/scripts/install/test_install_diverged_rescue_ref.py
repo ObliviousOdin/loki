@@ -35,7 +35,8 @@ def _git(cwd: Path, *args: str) -> str:
 
 def _commit(repo: Path, name: str) -> str:
     (repo / name).write_text(f"{name}\n", encoding="utf-8")
-    _git(repo, "add", name)
+    (repo / "pyproject.toml").write_text('[project]\nname="obliviousodin-loki-agent"\n', encoding="utf-8")
+    _git(repo, "add", name, "pyproject.toml")
     _git(repo, "commit", "-q", "-m", f"add {name}")
     return _git(repo, "rev-parse", "HEAD")
 
@@ -73,8 +74,8 @@ def _assert_local_commit_parked(repo: Path, local_sha: str, output: str) -> None
 def test_install_sh_repository_stage_parks_local_commits_before_reset(tmp_path: Path) -> None:
     managed, local_sha = _diverged_managed_checkout(tmp_path)
     env = os.environ | {
-        "HERMES_HOME": str(tmp_path / "hermes-home"),
-        "HERMES_INSTALL_DIR": str(managed),
+        "LOKI_HOME": str(tmp_path / "hermes-home"),
+        "LOKI_INSTALL_DIR": str(managed),
     }
 
     result = subprocess.run(
@@ -108,7 +109,7 @@ def test_install_ps1_repository_stage_parks_local_commits_before_reset(tmp_path:
         assert git is not None
         (cmd / "git.exe").symlink_to(git)
         (cmd / "git").symlink_to(git)
-        env["HERMES_RUNTIME_DIR"] = str(store)
+        env["LOKI_RUNTIME_DIR"] = str(store)
         env["PATH"] = str(cmd) + os.pathsep + env["PATH"]
 
     result = subprocess.run(

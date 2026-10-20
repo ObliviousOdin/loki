@@ -31,7 +31,7 @@ def _write_live_gateway(home: Path, served: list[str] | None = None) -> None:
 def stranded(tmp_path, monkeypatch):
     """A host mid-migration: manifest on disk, both secondaries' units already uninstalled,
     nothing serving. Exactly what an apply that died in ``_wait_for_served`` leaves behind."""
-    root = tmp_path / "home" / ".hermes"
+    root = tmp_path / "home" / ".loki"
     for sub in ("profiles/coder", "profiles/ops"):
         (root / sub).mkdir(parents=True)
         (root / sub / "SOUL.md").write_text("x\n", encoding="utf-8")
@@ -67,7 +67,7 @@ def stranded(tmp_path, monkeypatch):
             _write_live_gateway(root, ["default", "coder", "ops"])
 
     from gateway import status
-    monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "hermes gateway run")
+    monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "loki gateway run")
     monkeypatch.setattr(gm, "_installed_services", lambda home: [])
     monkeypatch.setattr(gm, "_service_op", _service_op)
     monkeypatch.setattr(gm, "_host_supports_migration", lambda: None)

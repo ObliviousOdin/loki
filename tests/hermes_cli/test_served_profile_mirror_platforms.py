@@ -16,7 +16,7 @@ import pytest
 
 @pytest.fixture
 def served_root(tmp_path, monkeypatch):
-    root = tmp_path / "hermes"
+    root = tmp_path / "loki"
     (root / "profiles" / "alpha").mkdir(parents=True)
     (root / "config.yaml").write_text("gateway: {multiplex_profiles: true}\n", encoding="utf-8")
     (root / "gateway.pid").write_text(json.dumps({"pid": os.getpid(), "hermes_home": str(root)}), encoding="utf-8")
@@ -34,7 +34,7 @@ def served_root(tmp_path, monkeypatch):
     from gateway import status
     # Liveness is a verified identity; this pytest process passes as the default gateway only by
     # wearing a gateway command line.
-    monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "hermes gateway run")
+    monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "loki gateway run")
     monkeypatch.setattr(hermes_constants, "_default_hermes_root_memo", None)
     return root
 
@@ -102,7 +102,7 @@ def test_messaging_card_for_the_default_home_rekeys_by_the_profile_not_the_dirna
     "Restart needed" forever while the multiplexer served its flat-keyed adapters (#123088)."""
     from gateway import status
     from hermes_cli.web_routers import messaging
-    root = tmp_path / ".hermes"  # the shipped default root's literal name — never equal to "default"
+    root = tmp_path / ".loki"  # the shipped default root's literal name — never equal to "default"
     root.mkdir()
     (root / "config.yaml").write_text("gateway: {multiplex_profiles: true}\n", encoding="utf-8")
     record = {
@@ -117,7 +117,7 @@ def test_messaging_card_for_the_default_home_rekeys_by_the_profile_not_the_dirna
     # falls through to the multiplexer rung — mirrored here by an absent own record.
     monkeypatch.setattr(messaging, "read_runtime_status", lambda *a, **k: None)
     monkeypatch.setattr(status, "multiplexer_liveness_for_profile", lambda home: (os.getpid(), record))
-    monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "hermes gateway run")
+    monkeypatch.setattr(status, "_read_process_cmdline", lambda pid: "loki gateway run")
     monkeypatch.setattr(messaging, "_platform_enablement", lambda *a, **k: (True, True, None))
     entry = {"id": "telegram", "name": "Telegram", "description": "", "docs_url": "", "env_vars": [],
              "required_env": []}
@@ -180,7 +180,7 @@ def test_messaging_card_keeps_a_live_own_gateway_record_over_the_multiplexer(ser
     real_pid_exists = status._pid_exists
     monkeypatch.setattr(status, "_pid_exists", lambda pid: pid == own_pid or real_pid_exists(pid))
     monkeypatch.setattr(status, "_read_process_cmdline",
-                        lambda pid: "hermes -p alpha gateway run" if pid == own_pid else "hermes gateway run")
+                        lambda pid: "loki -p alpha gateway run" if pid == own_pid else "loki gateway run")
     assert status.multiplexer_liveness_for_profile(alpha) is not None
     entry = {"id": "telegram", "name": "Telegram", "description": "", "docs_url": "", "env_vars": [],
              "required_env": []}

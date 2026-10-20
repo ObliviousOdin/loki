@@ -4,11 +4,22 @@ import json
 import os
 import sqlite3
 from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
 
 from gateway.readiness import collect_runtime_readiness
 
 
-def test_collect_runtime_readiness_reports_healthy_local_runtime(tmp_path, monkeypatch):
+@pytest.fixture
+def healthy_disk(monkeypatch):
+    # This unit contract supplies health inputs; actual host capacity is a separate
+    # installation/readiness observation and can legitimately exceed the threshold.
+    monkeypatch.setattr("gateway.readiness.shutil.disk_usage", lambda home: SimpleNamespace(
+        total=1000, used=250, free=750))
+
+
+def test_collect_runtime_readiness_reports_healthy_local_runtime(tmp_path, monkeypatch, healthy_disk):
     home = tmp_path / ".hermes"
     home.mkdir()
     (home / "config.yaml").write_text(
@@ -37,6 +48,20 @@ def test_collect_runtime_readiness_reports_healthy_local_runtime(tmp_path, monke
     assert result["checks"]["gateway"]["status"] == "ok"
     assert result["checks"]["background_queues"]["active_api_runs"] == 2
     assert result["checks"]["disk"]["status"] in {"ok", "degraded"}
+
+
+@pytest.mark.parametrize("used, expected", [(899, "ok"), (900, "degraded"), (999, "degraded")])
+def test_disk_pressure_degrades_overall_readiness(tmp_path, monkeypatch, used, expected):
+    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
+    monkeypatch.setattr("gateway.readiness.shutil.disk_usage", lambda home: SimpleNamespace(
+        total=1000, used=used, free=1000 - used))
+
+    result = collect_runtime_readiness(configured_model="fixture", runtime_status={"gateway_state": "running"})
+
+    assert result["status"] == expected
+    assert result["checks"]["disk"] == {"status": expected, "used_percent": used / 10,
+                                          "free_bytes": 1000 - used}
+    assert all(check["status"] == "ok" for name, check in result["checks"].items() if name != "disk")
 
 
 def test_collect_runtime_readiness_degrades_on_invalid_config_and_stopped_gateway(

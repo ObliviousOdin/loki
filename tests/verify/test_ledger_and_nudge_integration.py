@@ -61,7 +61,7 @@ def _workspace(tmp_path, *, scripts=None, manifest_recipe=None):
         json.dumps({"scripts": scripts} if scripts else {}), encoding="utf-8"
     )
     if manifest_recipe is not None:
-        hermes_dir = project / ".hermes"
+        hermes_dir = project / ".loki"
         hermes_dir.mkdir()
         (hermes_dir / "environment.json").write_text(
             json.dumps({"version": 1, "recipe": manifest_recipe}), encoding="utf-8"

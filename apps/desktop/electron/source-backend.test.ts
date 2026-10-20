@@ -74,14 +74,15 @@ test.skipIf(process.platform === 'win32')(
 
     const env: NodeJS.ProcessEnv = Object.fromEntries(
       Object.entries(process.env).filter(
-        ([key]: [string, string | undefined]): boolean => !/^(HERMES_|PYTHON|UV_|VIRTUAL_ENV|XDG_)/.test(key)
+        ([key]: [string, string | undefined]): boolean => !/^(HERMES_|LOKI_|__LOKI_|PYTHON|UV_|VIRTUAL_ENV|XDG_)/.test(key)
       )
     )
 
     Object.assign(env, {
       HOME: home,
       USERPROFILE: home,
-      HERMES_HOME: path.join(home, '.hermes'),
+      HERMES_HOME: path.join(home, '.loki'),
+      __LOKI_ENV_BOUND: '1',
       HERMES_RUNTIME_DIR: path.join(temp, 'tools'),
       HERMES_DISABLE_LAZY_INSTALLS: '1',
       XDG_CONFIG_HOME: path.join(temp, 'config'),
@@ -190,7 +191,7 @@ test.skipIf(process.platform === 'win32')(
               encoding: 'utf8',
               timeout: 15_000
             }),
-            /Hermes/
+            /Loki/
           )
           assert.equal(fs.existsSync(poison), false)
         }

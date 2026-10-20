@@ -44,7 +44,7 @@ def _client(transport, **kwargs):
 def _consent(send: bool):
     path = get_config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(f"telemetry:\n  shared_metrics:\n    enabled: true\n    send: {str(send).lower()}\n")
+    path.write_text(f"telemetry:\n  shared_metrics:\n    enabled: true\n    send: {str(send).lower()}\n    endpoint: http://127.0.0.1:9419/metrics\n")
 
 
 @pytest.fixture

@@ -36,8 +36,8 @@ _PRE_UPDATE_SNAPSHOT_MAX_FILE_SIZE = 1 << 30  # 1 GiB
 #: Reinstalling through the official installer swaps in a Python whose SQLite is safe; the
 #: one-liner differs per OS (mirrors ``uninstall._REINSTALL_HINT``). windows -> command
 _REINSTALL_ONE_LINER = {
-    True: "iex (irm https://hermes-agent.nousresearch.com/install.ps1)",
-    False: "curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash",
+    True: "follow https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md#windows-source-preview",
+    False: "follow https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md#source-preview-macos-and-linux",
 }
 
 
@@ -48,9 +48,9 @@ def _sqlite_partial_completion_lines(sqlite_version: str) -> list[str]:
     from hermes_cli.update_cmd import _m
     return [
         f"⚠ Update partially complete — your Python's SQLite ({sqlite_version}) has a known "
-        "corruption bug. Hermes works, but sessions could be damaged.",
+        "corruption bug. Loki works, but sessions could be damaged.",
         f"  Fix: run the installer again ({_REINSTALL_ONE_LINER[bool(_m()._is_windows())]}) "
-        "which installs a safe Python, then run `hermes doctor` to confirm.",
+        "which installs a safe Python, then run `loki doctor` to confirm.",
     ]
 
 
@@ -100,9 +100,9 @@ def _print_curator_first_run_notice() -> None:
         f"~{days}d after installation; only agent-created skills are in "
         f"scope and nothing is ever auto-deleted (archive is recoverable)."
     )
-    print("  Preview now:  hermes curator run --dry-run")
-    print("  Pause it:     hermes curator pause")
-    print("  Docs:         https://hermes-agent.nousresearch.com/docs/user-guide/features/curator")
+    print("  Preview now:  loki curator run --dry-run")
+    print("  Pause it:     loki curator pause")
+    print("  Docs:         https://github.com/ObliviousOdin/loki/blob/main/website/docs/user-guide/features/curator.md")
 
 
 def _print_fts_optimize_available_notice() -> None:
@@ -172,11 +172,11 @@ def _print_fts_optimize_available_notice() -> None:
         print()
         print("◆ Session database optimization incomplete")
         print(
-            "  A previous `hermes sessions optimize-storage` run was "
+            "  A previous `loki sessions optimize-storage` run was "
             "interrupted. Search still works; re-run the command to resume "
             "and finish reclaiming disk:"
         )
-        print("    hermes sessions optimize-storage")
+        print("    loki sessions optimize-storage")
         return
 
     est_reclaim = size_gb * 0.6
@@ -196,7 +196,7 @@ def _print_fts_optimize_available_notice() -> None:
             f"typically frees ~60% of state.db — about {est_reclaim:.1f} GB "
             f"of your current {size_gb:.1f} GB."
         )
-    print("  Run when convenient:  hermes sessions optimize-storage")
+    print("  Run when convenient:  loki sessions optimize-storage")
     print(
         "  It runs in the foreground with a progress bar, is safe to "
         "interrupt/re-run, and never changes your conversations."
@@ -227,7 +227,7 @@ def _print_curator_recent_run_notice() -> None:
         print(f"ℹ Skill curator — last run {_format_time_ago(last_run_at)}")
         for line in summary.splitlines():
             print(f"  {line}")
-        print("  (This message shows once per curator run. View anytime: hermes curator status)")
+        print("  (This message shows once per curator run. View anytime: loki curator status)")
 
     with suppress(Exception):
         state["last_run_summary_shown_at"] = last_run_at
@@ -295,7 +295,7 @@ def _refresh_dashboard_after_update(*, already_restarted_units: set[str] | None 
         print()
         print(f"⚠ Could not refresh running dashboard/serve process(es): {exc}")
         print("  If one is still running, restart it so it serves the updated code:")
-        print("    hermes dashboard --port <port>   (or: systemctl --user restart hermes-dashboard)")
+        print("    loki dashboard --port <port>   (or: systemctl --user restart loki-dashboard)")
         return set()
     unrecovered = {int(pid) for pid in stop_result.get("unrecovered") or ()}
     if not unrecovered:
@@ -304,7 +304,7 @@ def _refresh_dashboard_after_update(*, already_restarted_units: set[str] | None 
     print()
     print("⚠ A web dashboard/serve process was stopped during update and could not be auto-restarted.")
     print("  Re-launch it when you want the web UI back:")
-    print("    hermes dashboard --port <port>")
+    print("    loki dashboard --port <port>")
     return unrecovered
 
 
@@ -417,7 +417,7 @@ def _restore_state_db_from_snapshot(state_path: Path, snap_state: Path) -> bool:
         print("  ✗ Auto-restore refused or failed; state.db was not restored.")
         print("    Stop the owning runtime and close database handles before retrying.")
         print("    If the canonical runtime epoch is unreadable, do not restore in place:")
-        print("    use `hermes sessions recover --source <snapshot> --output <separate-path>`")
+        print("    use `loki sessions recover --source <snapshot> --output <separate-path>`")
         print("    to salvage transcripts into a separate output.")
         return False
     restored = verify_sqlite_integrity(state_path, check_header=True, run_pragma=True)
@@ -505,7 +505,7 @@ def _print_bundled_skills_sync_report() -> None:
         print(f"  ↑ {len(result['updated'])} updated: {', '.join(result['updated'])}")
     if result.get("user_modified"):
         print(f"  ~ {len(result['user_modified'])} user-modified (kept)")
-        print("    → see them: hermes skills list-modified  (diff/reset to resume updates)")
+        print("    → see them: loki skills list-modified  (diff/reset to resume updates)")
     if result.get("cleaned"):
         print(f"  − {len(result['cleaned'])} removed from manifest")
     if result.get("relocated"):
@@ -517,7 +517,7 @@ def _print_bundled_skills_sync_report() -> None:
 def _ensure_fhs_path_guard() -> None:
     """Ensure /usr/local/bin is on PATH for RHEL-family root non-login shells (su, sudo -s,
     tmux), where neither /etc/bashrc nor .bash_profile adds it. Mirrors install.sh. Idempotent;
-    no-op on non-Linux/non-root/non-FHS or when ``bash -i -c 'command -v hermes'`` resolves."""
+    no-op on non-Linux/non-root/non-FHS or when ``bash -i -c 'command -v loki'`` resolves."""
     from hermes_cli.update_cmd import _m
     if _m().sys.platform != "linux":
         return
@@ -526,8 +526,8 @@ def _ensure_fhs_path_guard() -> None:
             return
     except AttributeError:
         return
-    # Only for FHS-layout installs (link at /usr/local/bin/hermes).
-    fhs_link = Path("/usr/local/bin/hermes")
+    # Only for owned FHS-layout installs (link at /usr/local/bin/loki).
+    fhs_link = Path("/usr/local/bin/loki")
     if not fhs_link.is_symlink() and not fhs_link.exists():
         return
 
@@ -544,7 +544,7 @@ def _ensure_fhs_path_guard() -> None:
                 "bash",
                 "-i",
                 "-c",
-                "command -v hermes",
+                "command -v loki",
             ],
             # Fallback: blunt systemctl restart. This is what the old code always did; we get here only when
             # the graceful path failed (unit missing SIGUSR1 wiring, drain exceeded the budget,
@@ -564,7 +564,7 @@ def _ensure_fhs_path_guard() -> None:
         return  # already on PATH, nothing to do
 
     path_line = 'export PATH="/usr/local/bin:$PATH"'
-    path_comment = "# Hermes Agent — ensure /usr/local/bin is on PATH (RHEL non-login shells)"
+    path_comment = "# Loki — ensure /usr/local/bin is on PATH (RHEL non-login shells)"
     wrote_any = False
     for candidate in (".bashrc", ".bash_profile"):
         cfg = Path(home) / candidate
@@ -732,7 +732,7 @@ def _run_full_backup() -> None:
         display_path = str(out_path)
 
     print(f"  Saved:    {display_path} ({format_bytes(size_bytes)}, {elapsed:.1f}s)")
-    print(f"  Restore:  hermes import {out_path}")
+    print(f"  Restore:  loki import {out_path}")
     print("  Disable:  set updates.pre_update_backup: quick (or off) in config.yaml")
     print()
 
@@ -802,7 +802,7 @@ def _sweep_bytecode_after_update(branch: str) -> None:
         _m()._refresh_bootstrap_cache_scripts(branch)
     except Exception as exc:  # health: allow BLE001 -- refreshed again by the next update
         record_followup("bootstrap_scripts", str(exc) or type(exc).__name__,
-                        retry="the next `hermes update` refreshes them")
+                        retry="the next `loki update` refreshes them")
 
 
 def _profile_skill_sync_status(r) -> str:
@@ -865,7 +865,7 @@ def _refresh_cua_driver_after_update() -> None:
         # The scheduled task targets a versioned binary. Selecting a new pin
         # without re-registering leaves it stale; registration requires UAC.
         print("\n→ Windows cua-driver refresh deferred (autostart registration requires UAC).")
-        print("  Run `hermes computer-use install --upgrade` in an interactive terminal.")
+        print("  Run `loki computer-use install --upgrade` in an interactive terminal.")
         return
     print("\n→ Preparing pinned cua-driver (Computer Use)...")
     if sys.platform == "darwin":
@@ -899,12 +899,12 @@ def _install_default_tools_after_update() -> None:
     for name in default_packages(Lockfile(lockfile_path()).names()):
         if pm.installed_package(name) is not None:
             continue
-        print(f"\n→ Installing {name} (default tool; opt out with `hermes pm install --without {name}`)...")
+        print(f"\n→ Installing {name} (default tool; opt out with `loki pm install --without {name}`)...")
         try:
             pm.ensure(name, explicit=True)
         except (pm.InstallError, OSError) as exc:
             print(f"  ⚠ {name} was not installed: {exc}")
-            print(f"    Retry with: hermes pm install {name}")
+            print(f"    Retry with: loki pm install {name}")
 
 
 def _print_checkpoint_footprint_notice() -> None:
@@ -987,9 +987,9 @@ def _run_post_update_maintenance(
     if sys.platform == "darwin" and had_desktop_app_before_update:
         print()
         print(
-            "  ℹ macOS: if Hermes re-prompts for permissions you already "
+            "  ℹ macOS: if Loki re-prompts for permissions you already "
             "granted (toggle shows ON), the stored grant is stale — run "
-            "`tccutil reset ScreenCapture com.nousresearch.hermes` (repeat "
+            "`tccutil reset ScreenCapture com.obliviousodin.loki` (repeat "
             "per affected service), toggle it ON in System Settings, then "
             "fully quit & relaunch once."
         )

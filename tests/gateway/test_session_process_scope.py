@@ -4,6 +4,8 @@ from pathlib import Path
 import subprocess
 import sys
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 from tests.gateway.fixtures.local_recovery_probe import child_env
 
 
@@ -20,7 +22,7 @@ def test_stop_is_session_scoped_and_global_verbs_keep_the_owner_refusal(tmp_path
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home),
                PYTHONPATH=str(root), PYTHONUNBUFFERED='1')
     result = subprocess.run([sys.executable, str(root / 'tests/gateway/fixtures/process_scope_peer.py')],
-                            cwd=root, env=env, capture_output=True, text=True, timeout=90, check=False)
+                            cwd=root, env=bind_fixture_child_env(env), capture_output=True, text=True, timeout=90, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     receipt = json.loads((home / 'receipt.json').read_text())
     assert receipt['stop'] == {'killed': 2, 'delegations': 0}, receipt

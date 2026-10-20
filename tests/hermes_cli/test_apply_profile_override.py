@@ -1,7 +1,7 @@
 """Regression tests for _apply_profile_override HERMES_HOME guard (issue #22502).
 
 When HERMES_HOME is set to the hermes root (e.g. systemd hardcodes
-HERMES_HOME=/root/.hermes), _apply_profile_override must still read
+HERMES_HOME=/root/.loki), _apply_profile_override must still read
 active_profile and update HERMES_HOME to the profile directory.
 
 When HERMES_HOME is already a profile directory (.../profiles/<name>),
@@ -20,7 +20,7 @@ import pytest
 
 @pytest.fixture(autouse=True)
 def _platform_home(tmp_path, monkeypatch):
-    monkeypatch.setattr("hermes_constants._get_platform_default_hermes_home", lambda: tmp_path / ".hermes")
+    monkeypatch.setattr("hermes_constants._get_platform_default_hermes_home", lambda: tmp_path / ".loki")
 
 
 def _run_apply_profile_override(
@@ -33,7 +33,7 @@ def _run_apply_profile_override(
     Returns the value of os.environ["HERMES_HOME"] after the call,
     or None if unset.
     """
-    hermes_root = tmp_path / ".hermes"
+    hermes_root = tmp_path / ".loki"
     hermes_root.mkdir(parents=True, exist_ok=True)
 
     if active_profile is not None:
@@ -50,7 +50,7 @@ def _run_apply_profile_override(
     else:
         monkeypatch.delenv("HERMES_HOME", raising=False)
 
-    monkeypatch.setattr(sys, "argv", argv or ["hermes", "gateway", "start"])
+    monkeypatch.setattr(sys, "argv", argv or ["loki", "gateway", "start"])
 
     # Scrub supervisor markers the host environment may carry (systemd-run
     # CI runners export INVOCATION_ID) so each test controls them explicitly.
@@ -72,17 +72,17 @@ def _run_apply_profile_override(
 
 
 @pytest.mark.parametrize("argv", [
-    ["hermes", "profile", "list"],
-    ["hermes", "profile", "use", "default"],
-    ["hermes", "uninstall"],
-    ["hermes", "uninstall", "--dry-run"],
-    ["hermes", "uninstall", "--help"],
+    ["loki", "profile", "list"],
+    ["loki", "profile", "use", "default"],
+    ["loki", "uninstall"],
+    ["loki", "uninstall", "--dry-run"],
+    ["loki", "uninstall", "--help"],
 ])
 @pytest.mark.parametrize("exported_home", [False, True])
 def test_missing_sticky_profile_allows_recovery_commands(
     tmp_path, monkeypatch, capsys, argv, exported_home,
 ):
-    root = tmp_path / ".hermes"
+    root = tmp_path / ".loki"
     result = _run_apply_profile_override(
         tmp_path, monkeypatch, hermes_home=str(root) if exported_home else None,
         active_profile="ray",
@@ -101,24 +101,24 @@ def test_missing_sticky_profile_allows_recovery_commands(
 
 
 @pytest.mark.parametrize("argv, expect_hint", [
-    (["hermes", "chat"], True),
-    (["hermes", "uninstall", "--data"], True),
-    (["hermes", "uninstall", "--dat", "--yes"], True),
-    (["hermes", "uninstall", "--full", "--yes"], True),
-    (["hermes", "uninstall", "--fu"], True),
-    (["hermes", "uninstall", "--full", "--data"], True),
-    (["hermes", "-p", "ray", "uninstall"], False),  # explicit -p keeps the create hint
+    (["loki", "chat"], True),
+    (["loki", "uninstall", "--data"], True),
+    (["loki", "uninstall", "--dat", "--yes"], True),
+    (["loki", "uninstall", "--full", "--yes"], True),
+    (["loki", "uninstall", "--fu"], True),
+    (["loki", "uninstall", "--full", "--data"], True),
+    (["loki", "-p", "ray", "uninstall"], False),  # explicit -p keeps the create hint
 ])
 def test_missing_profile_still_blocks_other_or_explicit_commands(
     tmp_path, monkeypatch, capsys, argv, expect_hint,
 ):
     with pytest.raises(SystemExit) as exc:
         _run_apply_profile_override(
-            tmp_path, monkeypatch, hermes_home=str(tmp_path / ".hermes"),
+            tmp_path, monkeypatch, hermes_home=str(tmp_path / ".loki"),
             active_profile="ray", create_active_profile=False, argv=argv,
         )
     assert exc.value.code == 1
-    assert ("hermes profile use default" in capsys.readouterr().err) is expect_hint
+    assert ("loki profile use default" in capsys.readouterr().err) is expect_hint
 
 
 class TestApplyProfileOverrideHermesHomeGuard:
@@ -132,14 +132,14 @@ class TestApplyProfileOverrideHermesHomeGuard:
     def test_hermes_home_at_root_with_active_profile_is_redirected(
         self, tmp_path, monkeypatch
     ):
-        """HERMES_HOME=/root/.hermes + active_profile=coder must redirect
+        """HERMES_HOME=/root/.loki + active_profile=coder must redirect
         HERMES_HOME to .../profiles/coder.
 
         Bug scenario from #22502: systemd sets HERMES_HOME to the hermes root
         and the user switches to a profile via `hermes profile use`.
         Before the fix, the guard returned early and active_profile was ignored.
         """
-        hermes_root = tmp_path / ".hermes"
+        hermes_root = tmp_path / ".loki"
         hermes_root.mkdir(parents=True, exist_ok=True)
 
         result = _run_apply_profile_override(
@@ -162,18 +162,18 @@ class TestApplyProfileOverrideHermesHomeGuard:
     def test_sudo_explicit_profile_resolves_invoking_users_profile(self, tmp_path, monkeypatch):
         """sudo elias ... should resolve `-p elias` under SUDO_USER, not root."""
         root_home = tmp_path / "root"
-        user_home = tmp_path / "home" / "hermes"
-        profile_dir = user_home / ".hermes" / "profiles" / "elias"
+        user_home = tmp_path / "home" / "loki"
+        profile_dir = user_home / ".loki" / "profiles" / "elias"
         profile_dir.mkdir(parents=True, exist_ok=True)
         (profile_dir / "config.yaml").write_text(
             "{}\n", encoding="utf-8")  # identity marker: a bare dir does not resolve
-        (root_home / ".hermes").mkdir(parents=True, exist_ok=True)
+        (root_home / ".loki").mkdir(parents=True, exist_ok=True)
 
         monkeypatch.setattr(Path, "home", lambda: root_home)
-        monkeypatch.setenv("SUDO_USER", "hermes")
+        monkeypatch.setenv("SUDO_USER", "loki")
         monkeypatch.delenv("HERMES_HOME", raising=False)
         monkeypatch.setattr(os, "geteuid", lambda: 0, raising=False)
-        monkeypatch.setattr(sys, "argv", ["hermes", "-p", "elias", "gateway", "install", "--system"])
+        monkeypatch.setattr(sys, "argv", ["loki", "-p", "elias", "gateway", "install", "--system"])
 
         import pwd
 
@@ -183,9 +183,9 @@ class TestApplyProfileOverrideHermesHomeGuard:
         _apply_profile_override()
 
         assert os.environ.get("HERMES_HOME") == str(profile_dir)
-        assert sys.argv == ["hermes", "gateway", "install", "--system"]
+        assert sys.argv == ["loki", "gateway", "install", "--system"]
         # Same identity gate as ``-p`` without sudo: a marker-less shell is not a profile.
-        (user_home / ".hermes" / "profiles" / "ghost" / "cron").mkdir(parents=True)
+        (user_home / ".loki" / "profiles" / "ghost" / "cron").mkdir(parents=True)
         assert _resolve_sudo_user_profile_env("ghost") is None
 
 
@@ -195,7 +195,7 @@ class TestSupervisedChildIgnoresStickyProfile:
     """The reserved default gateway s6 slot must not follow active_profile.
 
     Inside the Docker s6 image the ``gateway-default`` service slot runs a
-    bare ``hermes gateway run`` (no ``-p``) to mean "the root HERMES_HOME
+    bare ``loki gateway run`` (no ``-p``) to mean "the root HERMES_HOME
     profile". The run-script exports ``HERMES_S6_SUPERVISED_CHILD=1``.
     Without a guard, ``_apply_profile_override`` would read the sticky
     ``active_profile`` file (set by e.g. the dashboard profile switcher) and
@@ -207,14 +207,14 @@ class TestSupervisedChildIgnoresStickyProfile:
     def test_non_supervised_run_still_follows_active_profile(
         self, tmp_path, monkeypatch
     ):
-        """Without the sentinel, a normal `hermes gateway run` still honors
+        """Without the sentinel, a normal `loki gateway run` still honors
         active_profile — the guard is scoped strictly to supervised children."""
         result = _run_apply_profile_override(
             tmp_path,
             monkeypatch,
             hermes_home=None,
             active_profile="briefer",
-            argv=["hermes", "gateway", "run"],
+            argv=["loki", "gateway", "run"],
         )
 
         assert result is not None
@@ -224,7 +224,7 @@ class TestSupervisedChildIgnoresStickyProfile:
         """A supervised named-profile slot passes ``-p <name>`` explicitly;
         that must still resolve (the sentinel guard only skips the sticky
         active_profile fallback, never an explicit flag)."""
-        hermes_root = tmp_path / ".hermes"
+        hermes_root = tmp_path / ".loki"
         hermes_root.mkdir(parents=True, exist_ok=True)
         (hermes_root / "active_profile").write_text("briefer", encoding="utf-8")
         for name in ("briefer", "coder"):
@@ -235,7 +235,7 @@ class TestSupervisedChildIgnoresStickyProfile:
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
         monkeypatch.delenv("HERMES_HOME", raising=False)
         monkeypatch.setenv("HERMES_S6_SUPERVISED_CHILD", "1")
-        monkeypatch.setattr(sys, "argv", ["hermes", "-p", "coder", "gateway", "run"])
+        monkeypatch.setattr(sys, "argv", ["loki", "-p", "coder", "gateway", "run"])
 
         from hermes_cli.main import _apply_profile_override
         _apply_profile_override()
@@ -260,7 +260,7 @@ class TestGeneralizedSupervisorMarkers:
     """
 
     def _root_home(self, tmp_path):
-        hermes_root = tmp_path / ".hermes"
+        hermes_root = tmp_path / ".loki"
         hermes_root.mkdir(parents=True, exist_ok=True)
         return hermes_root
 
@@ -276,7 +276,7 @@ class TestGeneralizedSupervisorMarkers:
             monkeypatch,
             hermes_home=str(hermes_root),
             active_profile="telegram_nick",
-            argv=["hermes", "gateway", "run"],
+            argv=["loki", "gateway", "run"],
             extra_env={"HERMES_SUPERVISED_CHILD": "1"},
         )
         assert result == str(hermes_root), (
@@ -295,7 +295,7 @@ class TestGeneralizedSupervisorMarkers:
             monkeypatch,
             hermes_home=str(hermes_root),
             active_profile="telegram_nick",
-            argv=["hermes", "gateway", "run"],
+            argv=["loki", "gateway", "run"],
             extra_env={"INVOCATION_ID": "deadbeef" * 4},
         )
         assert result == str(hermes_root)
@@ -312,7 +312,7 @@ class TestGeneralizedSupervisorMarkers:
             monkeypatch,
             hermes_home=str(hermes_root),
             active_profile="coder",
-            argv=["hermes", "chat"],
+            argv=["loki", "chat"],
             extra_env={"INVOCATION_ID": "deadbeef" * 4},
         )
         assert result is not None
@@ -327,7 +327,7 @@ class TestGeneralizedSupervisorMarkers:
             monkeypatch,
             hermes_home=str(hermes_root),
             active_profile="telegram_nick",
-            argv=["hermes", "gateway", "run"],
+            argv=["loki", "gateway", "run"],
             extra_env={"HERMES_GATEWAY_EXTERNAL_SUPERVISOR": "1"},
         )
         assert result == str(hermes_root)
@@ -342,7 +342,7 @@ class TestGeneralizedSupervisorMarkers:
             monkeypatch,
             hermes_home=str(hermes_root),
             active_profile="telegram_nick",
-            argv=["hermes", "serve", "--isolated", "--host", "127.0.0.1", "--port", "0",
+            argv=["loki", "serve", "--isolated", "--host", "127.0.0.1", "--port", "0",
                   "--ssh-session-token-file", "/tmp/x/y.token"],
         )
         assert result == str(hermes_root)
@@ -379,10 +379,10 @@ class TestS6ContainerGatewayRun:
         self, tmp_path, monkeypatch
     ):
         monkeypatch.setattr("hermes_cli.service_manager._s6_running", lambda: True)
-        root = tmp_path / ".hermes"
+        root = tmp_path / ".loki"
         result = _run_apply_profile_override(
             tmp_path, monkeypatch, hermes_home=str(root), active_profile="coder",
-            argv=["hermes", "gateway", "run"],
+            argv=["loki", "gateway", "run"],
         )
         assert result == str(root)
 
@@ -390,8 +390,8 @@ class TestS6ContainerGatewayRun:
         self, tmp_path, monkeypatch
     ):
         monkeypatch.setattr("hermes_cli.service_manager._s6_running", lambda: True)
-        root = tmp_path / ".hermes"
-        for argv in (["hermes", "gateway", "run", "--no-supervise"], ["hermes", "chat"]):
+        root = tmp_path / ".loki"
+        for argv in (["loki", "gateway", "run", "--no-supervise"], ["loki", "chat"]):
             result = _run_apply_profile_override(
                 tmp_path, monkeypatch, hermes_home=str(root), active_profile="coder", argv=argv,
             )

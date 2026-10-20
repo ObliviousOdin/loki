@@ -35,3 +35,6 @@ docker/entrypoint.sh text eol=lf
 *.html  text eol=lf
 *.svg   text eol=lf
 *.ps1   text eol=crlf
+
+# Retain the supplier's exact license bytes, including original CRLF endings.
+notices/pilk-0.2.4/LICENSE -text whitespace=cr-at-eol

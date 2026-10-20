@@ -6,6 +6,7 @@ import pytest
 
 from hermes_cli import update_cmd
 from tests.hermes_cli.test_update_target_identity import git, update_tree
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
 
 
 def init_repo(root, monkeypatch):
@@ -20,6 +21,7 @@ def init_repo(root, monkeypatch):
 def checkout(tmp_path, monkeypatch):
     root = tmp_path / "checkout"
     init_repo(root, monkeypatch)
+    write_loki_source(root)
     (root / "cli.py").write_text("value = 1\n", encoding="utf8")
     git(root, "add", ".")
     git(root, "commit", "-qm", "old")
@@ -248,10 +250,11 @@ def test_fork_sync_round_trip_is_not_misclassified_as_noop(tmp_path, monkeypatch
     running before the update: still a successful branch repair, not a no-op."""
     root = tmp_path / "fork"
     init_repo(root, monkeypatch)
+    write_loki_source(root)
 
     def commit(value):
         (root / "state.txt").write_text(value + "\n", encoding="utf-8")
-        git(root, "add", "state.txt")
+        git(root, "add", "state.txt", "loki.py", "loki_identity.py", "pyproject.toml")
         git(root, "commit", "-qm", value)
         return git(root, "rev-parse", "HEAD")
 

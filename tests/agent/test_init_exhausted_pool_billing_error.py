@@ -151,6 +151,7 @@ def test_pool_billing_message_names_billing_entry():
     assert "z-ai/glm-5.3" in message
     assert "402" in message
     assert "can only afford 4282" in message
+    assert "`loki model`" in message
 
 
 def test_pool_billing_message_none_when_pool_is_usable():

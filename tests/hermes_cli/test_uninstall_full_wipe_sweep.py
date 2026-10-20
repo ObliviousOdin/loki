@@ -2,9 +2,8 @@
 caches that live OUTSIDE HERMES_HOME and survive the home rmtree (#62209)."""
 from __future__ import annotations
 
+import os
 import plistlib
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -12,7 +11,7 @@ import pytest
 from hermes_cli import uninstall
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="macOS-only sweep")
+@pytest.mark.platforms("macos")
 def test_remove_dashboard_launchd_jobs_boots_out_and_deletes_matching_plists(
         monkeypatch, tmp_path, capsys):
     agents_dir = tmp_path / "LaunchAgents"
@@ -20,41 +19,44 @@ def test_remove_dashboard_launchd_jobs_boots_out_and_deletes_matching_plists(
     agents_dir.mkdir()
     daemons_dir.mkdir()
 
-    def job(label, args, directory):
+    root = tmp_path / ".loki"
+    root.mkdir()
+
+    def job(label, args, directory, env=None):
         path = directory / f"{label}.plist"
         path.write_bytes(plistlib.dumps({
-            "Label": label,
-            "ProgramArguments": args,
+            "Label": label, "ProgramArguments": args,
+            "EnvironmentVariables": env or {"LOKI_HOME": str(root)},
         }))
         return path
 
-    dashboard = job("com.user.hermes-dashboard",
-                    ["/Users/u/.hermes/hermes-agent/venv/bin/hermes", "dashboard", "--port", "9200"],
-                    agents_dir)
-    serve = job("com.user.hermes-serve", ["hermes", "serve"], agents_dir)
+    dashboard = job("com.obliviousodin.loki.dashboard", ["/owned/bin/loki", "dashboard", "--port", "9200"], agents_dir)
+    serve = job("operator.dashboard", ["loki", "serve"], agents_dir)
+    daemon = job("com.obliviousodin.loki.serve", ["python3", "-m", "hermes_cli.main", "serve"],
+                 daemons_dir, {"__LOKI_ENV_BOUND": "1", "HERMES_HOME": str(root)})
+    foreign = job("com.user.hermes-dashboard", ["hermes", "dashboard"], agents_dir)
+    foreign_bytes = foreign.read_bytes()
     unrelated = job("com.user.keep", ["/usr/bin/say", "hello"], agents_dir)
-    daemon = job("io.nousresearch.hermes-agent.dashboard", ["hermes_cli.main", "dashboard"],
-                 daemons_dir)
-
     booted = []
     monkeypatch.setattr(uninstall.subprocess, "run", lambda cmd, **kw: booted.append(cmd))
     monkeypatch.setattr("hermes_cli.main_dashboard._launchd_plist_dirs",
                         lambda: [("agent", agents_dir), ("daemon", daemons_dir)])
+    monkeypatch.setattr("hermes_cli.update_fleet_scope.update_scope_homes", lambda: {root})
 
     removed = uninstall.remove_dashboard_launchd_jobs()
 
     assert sorted(removed) == sorted([dashboard, serve, daemon])
     assert not dashboard.exists() and not serve.exists() and not daemon.exists()
-    assert unrelated.exists()  # non-Hermes job is never touched
-    domains = {tuple(cmd[2].rsplit("/", 1)) for cmd in booted}
-    assert ("com.user.hermes-dashboard", "gui/501") in domains or \
-        {d for d, _ in domains} >= {"gui/501", "user/501"} or booted  # bootout attempted per domain
-    assert all(cmd[:2] == ["launchctl", "bootout"] for cmd in booted)
+    assert unrelated.exists() and foreign.read_bytes() == foreign_bytes
+    expected = {("launchctl", "bootout", f"{domain}/{label}")
+                for label in ("com.obliviousodin.loki.dashboard", "operator.dashboard")
+                for domain in (f"gui/{os.getuid()}", f"user/{os.getuid()}")}
+    expected.add(("launchctl", "bootout", "system/com.obliviousodin.loki.serve"))
+    assert set(map(tuple, booted)) == expected and len(booted) == len(expected)
 
 
+@pytest.mark.platforms("macos")
 def test_remove_dashboard_launchd_jobs_skips_malformed_plists(monkeypatch, tmp_path):
-    if sys.platform != "darwin":
-        pytest.skip("macOS-only sweep")
     agents_dir = tmp_path / "LaunchAgents"
     agents_dir.mkdir()
     (agents_dir / "broken.plist").write_text("<plist><dict>&", encoding="utf-8")
@@ -66,11 +68,11 @@ def test_remove_dashboard_launchd_jobs_skips_malformed_plists(monkeypatch, tmp_p
     assert (agents_dir / "broken.plist").exists()  # skipped, not aborted
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="macOS-only sweep")
+@pytest.mark.platforms("macos")
 def test_full_uninstall_sweeps_macos_caches_and_dashboard_launchd(monkeypatch, tmp_path):
     """The full-wipe step must reach the caches + launchd sweep, keep-data must not."""
     project_root = tmp_path / "hermes-agent"
-    hermes_home = tmp_path / ".hermes"
+    hermes_home = tmp_path / ".loki"
     project_root.mkdir()
     # A .git dir marks the tree as a removable git checkout — without it the
     # install-kind gate refuses before the sweep runs.
@@ -79,8 +81,8 @@ def test_full_uninstall_sweeps_macos_caches_and_dashboard_launchd(monkeypatch, t
 
     removed_caches, removed_jobs = [], []
     cache_dirs = [tmp_path / "caches" / name for name in
-                  ("Hermes", "com.nousresearch.hermes", "hermes-setup",
-                   "com.nousresearch.hermes.setup")]
+                  ("Loki", "com.obliviousodin.loki", "loki-setup",
+                   "com.obliviousodin.loki.setup")]
     for d in cache_dirs:
         d.mkdir(parents=True)
         (d / "Cache").write_text("x", encoding="utf-8")

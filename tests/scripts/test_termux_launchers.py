@@ -14,20 +14,22 @@ from scripts.build.launchers import write_launchers
 
 
 @pytest.mark.platforms("posix")
-def test_launchers_forward_arguments_and_export_payload_environment(tmp_path):
+@pytest.mark.parametrize("bound", [False, True])
+def test_launchers_forward_arguments_and_export_payload_environment(tmp_path, bound):
     payload = tmp_path / "payload with spaces"
     (payload / "venv/bin").mkdir(parents=True)
     (payload / "venv/bin/python").symlink_to(sys.executable)
     (payload / "app").mkdir()
     (payload / "app/capture_entry.py").write_text(
-        "import json, os, sys\n"
+        "import json, os, sys\nfrom loki_identity import bind_loki_environment\nbind_loki_environment()\n"
         "def main():\n"
         "    print(json.dumps({'argv': sys.argv[1:], 'env': {k: os.environ.get(k) for k in "
-        "['HERMES_NODE', 'HERMES_PYTHON', 'HERMES_RUNTIME_DIR', 'PYTHONPATH', 'PYTHONHOME', 'PYTHONPYCACHEPREFIX']}}))\n",
+        "['HERMES_HOME', 'HERMES_NODE', 'HERMES_PYTHON', 'HERMES_RUNTIME_DIR', 'PYTHONPATH', 'PYTHONHOME', 'PYTHONPYCACHEPREFIX']}}))\n",
         encoding="utf-8",
     )
+    shutil.copy2(Path(__file__).resolve().parents[2] / "loki_identity.py", payload / "app")
     (tmp_path / "json.py").write_text("raise RuntimeError('cwd shadowed stdlib')\n", encoding="utf-8")
-    entries = {name: "capture_entry:main" for name in ("hermes", "hermes-agent", "hermes-acp")}
+    entries = {name: "capture_entry:main" for name in ("loki", "loki-agent", "loki-acp")}
     write_launchers(payload, entries, python="venv/bin/python", repo="app",
                     site="venv/lib/python3.14/site-packages", target="linux-arm64-bionic")
     bin_dir = tmp_path / "prefix/bin"
@@ -35,14 +37,23 @@ def test_launchers_forward_arguments_and_export_payload_environment(tmp_path):
     for name in entries:
         link = bin_dir / name
         link.symlink_to(os.path.relpath(payload / "bin" / name, bin_dir))
+        owned_home = tmp_path / "owned-loki"
+        active_home = owned_home / "profiles" / "work"
+        launch_env = {**os.environ, "PYTHONHOME": "/does-not-exist", "PYTHONPATH": "/foreign",
+                      "LOKI_HOME": str(owned_home), "HERMES_HOME": str(active_home if bound else tmp_path / "foreign-hermes"),
+                      "HERMES_RUNTIME_DIR": str(tmp_path / "foreign-tools")}
+        launch_env.pop("__LOKI_ENV_BOUND", None)
+        if bound:
+            launch_env["__LOKI_ENV_BOUND"] = "1"
         result = subprocess.run(
             [shutil.which("sh"), str(link), "one two", "$(not-executed)", ""],
             cwd=tmp_path, check=True, capture_output=True, text=True,
-            env={**os.environ, "PYTHONHOME": "/does-not-exist", "PYTHONPATH": "/foreign"},
+            env=launch_env,
         )
         data = json.loads(result.stdout)
         assert data["argv"] == ["one two", "$(not-executed)", ""]
         env = data["env"]
+        assert env["HERMES_HOME"] == str(active_home if bound else owned_home)
         assert Path(env["HERMES_PYTHON"]).resolve() == Path(sys.executable).resolve()
         assert Path(env["HERMES_NODE"]) == payload / "tools/node/data/data/com.termux/files/usr/bin/node"
         assert Path(env["HERMES_RUNTIME_DIR"]) == payload / "tools"
@@ -57,21 +68,55 @@ def test_postinst_refuses_foreign_path_and_prerm_preserves_it(tmp_path):
 
     control = tmp_path / "DEBIAN"
     control.mkdir()
-    write_maintainer_scripts(control, ["hermes"])
+    write_maintainer_scripts(control, ["loki"])
     prefix = tmp_path / "prefix"
     bin_dir = prefix / "bin"
     bin_dir.mkdir(parents=True)
-    link = bin_dir / "hermes"
+    link = bin_dir / "loki"
     env = {**os.environ, "PREFIX": str(prefix)}
     command = [shutil.which("sh"), str(control / "postinst"), "configure"]
     subprocess.run(command, check=True, env=env)
-    assert os.readlink(link) == "../lib/hermes-agent/bin/hermes"
+    assert os.readlink(link) == "../lib/loki-agent/bin/loki"
     subprocess.run(command, check=True, env=env)
     link.unlink()
     link.write_text("foreign launcher", encoding="utf-8")
     assert subprocess.run(command, env=env, check=False).returncode != 0
     subprocess.run([shutil.which("sh"), str(control / "prerm"), "remove"], check=True, env=env)
     assert link.read_text(encoding="utf-8") == "foreign launcher"
+
+
+@pytest.mark.platforms("posix")
+def test_maintainer_hooks_preserve_legacy_package_and_foreign_symlinks(tmp_path):
+    from scripts.termux.launchers import write_maintainer_scripts
+
+    control = tmp_path / "DEBIAN"
+    control.mkdir()
+    write_maintainer_scripts(control, ["loki", "loki-acp"])
+    prefix = tmp_path / "prefix"
+    (prefix / "bin").mkdir(parents=True)
+    legacy = prefix / "lib/hermes-agent/bin/hermes"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_bytes(b"existing Hermes package")
+    legacy_link = prefix / "bin/hermes"
+    legacy_link.symlink_to("../lib/hermes-agent/bin/hermes")
+    env = {**os.environ, "PREFIX": str(prefix)}
+    install = [shutil.which("sh"), str(control / "postinst"), "configure"]
+    remove = [shutil.which("sh"), str(control / "prerm"), "remove"]
+
+    subprocess.run(install, check=True, env=env)
+    assert os.readlink(prefix / "bin/loki") == "../lib/loki-agent/bin/loki"
+    assert os.readlink(prefix / "bin/loki-acp") == "../lib/loki-agent/bin/loki-acp"
+    subprocess.run(remove, check=True, env=env)
+    assert not (prefix / "bin/loki").is_symlink()
+    assert not (prefix / "bin/loki-acp").is_symlink()
+    foreign = prefix / "bin/loki"
+    foreign.symlink_to("../lib/hermes-agent/bin/hermes")
+    refused = subprocess.run(install, capture_output=True, text=True, env=env, check=False)
+    assert refused.returncode != 0 and "Refusing to replace foreign launcher" in refused.stderr
+    subprocess.run(remove, check=True, env=env)
+    assert os.readlink(foreign) == "../lib/hermes-agent/bin/hermes"
+    assert os.readlink(legacy_link) == "../lib/hermes-agent/bin/hermes"
+    assert legacy.read_bytes() == b"existing Hermes package"
 
 
 @pytest.mark.platforms("posix")

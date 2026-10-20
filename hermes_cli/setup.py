@@ -27,6 +27,7 @@ from hermes_cli.config import (
 from hermes_cli.colors import Colors, color
 from hermes_cli.cli_output import print_error, print_info, print_success, print_warning
 from hermes_cli.secret_prompt import masked_secret_prompt
+from hermes_cli.loki_branding import public_env_name
 
 logger = logging.getLogger(__name__)
 
@@ -85,17 +86,17 @@ def is_interactive_stdin() -> bool:
 def print_noninteractive_setup_guidance(reason: str | None = None) -> None:
     """Print guidance for headless/non-interactive setup flows."""
     print()
-    print(color("☤ Hermes Setup — Non-interactive mode", Colors.CYAN, Colors.BOLD))
+    print(color("ᛚ Loki Setup — Non-interactive mode", Colors.CYAN, Colors.BOLD))
     print()
     if reason:
         print_info(reason)
     _info("The interactive wizard cannot be used here.", None,
-          "Configure Hermes using environment variables or config commands:",
-          "  hermes config set model.provider custom",
-          "  hermes config set model.base_url http://localhost:8080/v1",
-          "  hermes config set model.default your-model-name", None,
+          "Configure Loki using environment variables or config commands:",
+          "  loki config set model.provider custom",
+          "  loki config set model.base_url http://localhost:8080/v1",
+          "  loki config set model.default your-model-name", None,
           "Or set OPENROUTER_API_KEY (OpenRouter) / OPENAI_API_KEY (OpenAI) in your environment.",
-          "Run 'hermes setup' in an interactive terminal to use the full wizard.", None)
+          "Run 'loki setup' in an interactive terminal to use the full wizard.", None)
 
 
 def _sanitize_pasted_input(value: str) -> str:
@@ -332,18 +333,18 @@ def _prompt_api_key(var: dict):
     tools_str = ", ".join(tools[:3])
     if len(tools) > 3:
         tools_str += f", +{len(tools) - 3} more"
-    _section_rule(var.get("description", var["name"]))
+    _section_rule(var.get("description", public_env_name(var["name"])))
     if tools_str:
         print_info(f"  Enables: {tools_str}")
     if var.get("url"):
         print_info(f"  Get your key at: {var['url']}")
     print()
-    _prompt_and_save_env_var(var, "  ✓ Saved", "  Skipped (configure later with 'hermes setup')")
+    _prompt_and_save_env_var(var, "  ✓ Saved", "  Skipped (configure later with 'loki setup')")
 
 
 def _prompt_and_save_env_var(var: dict, saved_msg: str, skipped_msg: str) -> None:
     """Prompt for one env-var value (masked when secret); persist and confirm, or report the skip."""
-    value = prompt(f"  {var.get('prompt', var['name'])}", password=bool(var.get("password")))
+    value = prompt(f"  {var.get('prompt', public_env_name(var['name']))}", password=bool(var.get("password")))
     if value:
         save_env_value(var["name"], value)
         print_success(saved_msg)
@@ -390,7 +391,7 @@ def setup_model_provider(config: dict, *, quick: bool = False):
     except Exception as exc:
         logger.debug("select_provider_and_model error during setup: %s", exc)
         from hermes_cli.auth_error_copy import provider_setup_failure_lines
-        lead, *rest = provider_setup_failure_lines(exc, retry_command="hermes model")
+        lead, *rest = provider_setup_failure_lines(exc, retry_command="loki model")
         print_warning(lead)
         for line in rest:
             print_info(line)
@@ -419,7 +420,7 @@ def _apply_default_agent_settings(config: dict):
     save_config(config)
     print_success("Applied recommended defaults:")
     _info("  Max iterations: 150", "  Compression threshold: 0.50",
-          "  Run `hermes setup agent` later to customize.")
+          "  Run `loki setup agent` later to customize.")
 
 
 def _prompt_number(label: str, current, cast=int):
@@ -443,7 +444,7 @@ _TOOL_PROGRESS_HELP = (
     "  new     — Show tool name only when it changes (less noise)",
     "  all     — Show every tool call with a short preview",
     "  verbose — Full args, results, and debug logs",
-    "  log     — Silent in chat; write every tool call to ~/.hermes/logs/tool_calls.log (gateway only)",
+    "  log     — Silent in chat; write every tool call to ~/.loki/logs/tool_calls.log (gateway only)",
 )
 def setup_agent_settings(config: dict):
     """Configure agent behavior: iterations, progress display and compression."""
@@ -511,8 +512,9 @@ def setup_tools(config: dict, first_install: bool = False):
 
 
 _SEND_CONSENT_EXPLAINER = (
-    "", "Sending uploads each daily package to the Nous telemetry",
-    "service. Packages carry your profile-scoped install ID, a",
+    "", "Sending uploads each daily package to the collector you",
+    "explicitly configure. Loki provides no default collector.",
+    "Packages carry your profile-scoped install ID, a",
     "stable random UUID that identifies this profile across days",
     "(it contains no personal information and is reset by deleting",
     "the shared-metrics directory). Only packages whose entire",
@@ -534,13 +536,14 @@ def setup_telemetry(config: dict):
           "counts, update and install results and timing (with a fixed-list reason",
           "and the stage when one fails; a fresh install is noted on this machine and",
           "counted only once you opt in), crashes,",
-          "startup and reply speed, messaging-platform health, how Hermes gets used",
+          "startup and reply speed, messaging-platform health, how Loki gets used",
           "(agent accuracy and efficiency, active time per surface, which features and",
           "settings are used or switched off, provider setup outcomes), and coarse",
           "machine facts (RAM range, GPU type, version age and channel, updates behind,",
           "local model server yes/no). Never prompts, files, paths, setting values or",
           "error text.",
-          "Collection is local. Sending them to Nous is a separate opt-in.")
+          "Collection is local. Uploads need separate consent and an explicit collector.",
+          "Loki provides no default collector.")
     # The answer is written to config.yaml here, not by the caller's later save: that save strips
     # values equal to the defaults, so a "no" would vanish and every surface would ask again.
     from hermes_cli.observability.shared_metrics_consent import save_consent
@@ -555,9 +558,9 @@ def setup_telemetry(config: dict):
         return
     print_success("Local shared metrics enabled.")
     _info(*_SEND_CONSENT_EXPLAINER)
-    save_consent(True, prompt_yes_no("Send shared metrics to Nous?", default=shared_metrics.get("send") is True), config)
+    save_consent(True, prompt_yes_no("Allow uploads to your configured collector?", default=shared_metrics.get("send") is True), config)
     if shared_metrics["send"]:
-        print_success("Sending shared metrics enabled.")
+        print_success("Upload consent saved. An explicitly configured collector is required.")
     else:
         print_info("Sending shared metrics disabled (collection stays local).")
 
@@ -618,7 +621,7 @@ def _run_setup_section(config: dict, section: str) -> None:
         print_info(f"Available sections: {', '.join(k for k, _, _ in SETUP_SECTIONS)}")
         return
     label, func = entry
-    _print_banner(f"│     ☤ Hermes Setup — {label:<34s} │")
+    _print_banner(f"│     ᛚ Loki Setup — {label:<34s} │")
     _run_setup_steps([(label, lambda: func(config))])
     save_config(config)
     print()
@@ -630,7 +633,7 @@ def _run_full_setup(config: dict, hermes_home, *, is_existing: bool, migration_r
     print_header("Configuration Location")
     _info(f"Config file:  {get_config_path()}", f"Secrets file: {get_env_path()}",
           f"Data folder:  {hermes_home}", f"Install dir:  {PROJECT_ROOT}", None,
-          "You can edit these files directly or use 'hermes config edit'")
+          "You can edit these files directly or use 'loki config edit'")
     if migration_ran:
         _info(None, "Settings were imported from OpenClaw.",
               "Each section below will show what was imported — press Enter to keep,",
@@ -663,9 +666,9 @@ def _run_full_setup(config: dict, hermes_home, *, is_existing: bool, migration_r
 
 # First-time mode picker: (menu label, setup_quick runner name) — None falls through to Full Setup.
 _FIRST_TIME_MODES = (
-    ("Quick Setup (Nous Portal) — free OAuth login, no API keys, model + tools (recommended)",
+    ("Quick setup (Nous Portal) — requires your account and a Loki-authorized OAuth client",
      "_run_first_time_quick_setup"),
-    ("Full setup — configure every provider, tool & option yourself (bring your own keys)", None),
+    ("Full setup — configure your own API keys or local provider (recommended)", None),
     ("Blank Slate — everything off except the bare minimum; opt in to each capability", "_run_blank_slate_setup"),
 )
 
@@ -708,9 +711,9 @@ def _run_setup_wizard_impl(args):
     from hermes_cli.auth import get_active_provider
     is_existing = bool(get_env_value("OPENROUTER_API_KEY") or get_env_value("OPENAI_BASE_URL")
                        or get_active_provider() is not None)
-    _print_banner("│             ☤ Hermes Agent Setup Wizard                │",
+    _print_banner("│             ᛚ Loki Agent Setup Wizard                │",
                   "├─────────────────────────────────────────────────────────┤",
-                  "│  Let's configure your Hermes Agent installation.       │",
+                  "│  Let's configure your Loki Agent installation.       │",
                   "│  Press Ctrl+C at any time to exit.                     │")
     migration_ran = False
     if is_existing:
@@ -722,10 +725,10 @@ def _run_setup_wizard_impl(args):
             _record_setup_completed(config)
             return
         print_header("Reconfigure", gap=True)
-        print_success("You already have Hermes configured.")
+        print_success("You already have Loki configured.")
         _info("Running the full wizard — each prompt shows your current value.",
               "Press Enter to keep it, or type a new value to change it.", "",
-              "Tip: jump straight to a section with 'hermes setup model|terminal|",
+              "Tip: jump straight to a section with 'loki setup model|terminal|",
               "     gateway|tools|agent', or fill only missing items with --quick.")
     else:
         # First-time setup (--reconfigure / --quick are meaningless here; fall through)
@@ -735,7 +738,7 @@ def _run_setup_wizard_impl(args):
         migration_ran = _offer_openclaw_migration(hermes_home)  # before configuration begins
         if migration_ran:
             config = load_config()
-        setup_mode = prompt_choice("How would you like to set up Hermes?", [label for label, _ in _FIRST_TIME_MODES], 0)
+        setup_mode = prompt_choice("How would you like to set up Loki?", [label for label, _ in _FIRST_TIME_MODES], 1)
         label, runner = _FIRST_TIME_MODES[setup_mode]
         if runner is not None:
             from hermes_cli import setup_quick

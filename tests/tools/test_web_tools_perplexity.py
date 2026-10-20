@@ -1,5 +1,7 @@
 """Perplexity web backend — search + snippets dispatch through the real tools."""
 
+from loki_identity import CLIENT_USER_AGENT
+
 import asyncio
 import json
 import os
@@ -21,9 +23,9 @@ def _assert_hermes_identity_headers(headers):
     plus Perplexity's integration header."""
     from hermes_cli.version_info import get_version_info
 
-    assert headers["HTTP-Referer"] == "https://hermes-agent.nousresearch.com"
-    assert headers["X-Title"] == "Hermes Agent"
-    assert headers["User-Agent"] == f"HermesAgent/{get_version_info().base_version}"
+    assert headers["HTTP-Referer"] == "https://github.com/ObliviousOdin/loki"
+    assert headers["X-Title"] == "Loki"
+    assert headers["User-Agent"] == CLIENT_USER_AGENT
     assert headers["X-Pplx-Integration"] == "hermes-agent"
 
 

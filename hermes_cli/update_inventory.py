@@ -118,7 +118,7 @@ def _restart_mechanism(supervisor: str, profile: str) -> str:
 def describe_restart_mechanism(mechanism: str, profile: str) -> str:
     """Human-readable description of a restart mechanism id."""
     return _MECHANISM_DESCRIPTIONS.get(mechanism) or (
-        f"hermes -p {profile} gateway restart" if profile != "default" else "hermes gateway restart"
+        f"loki -p {profile} gateway restart" if profile != "default" else "loki gateway restart"
     )
 
 
@@ -363,7 +363,7 @@ def _serve_unit_matches_profile(profile: str, unit: object) -> bool:
     """
     name = str(unit).removesuffix(".service").rsplit("/", 1)[-1]
     suffix = "" if profile == "default" else f"-{profile}"
-    return name in {f"hermes-serve{suffix}", f"hermes-dashboard{suffix}"}
+    return name in {f"loki-serve{suffix}", f"loki-dashboard{suffix}"}
 
 
 def _gateway_service_matches_profile(profile: str, service: object) -> bool:
@@ -377,8 +377,8 @@ def _gateway_service_matches_profile(profile: str, service: object) -> bool:
     """
     name = str(service).removesuffix(".service").rsplit("/", 1)[-1]
     if profile == "default":
-        return name in {"hermes-gateway", "ai.hermes.gateway", "gateway", "gateway-default"}
-    return name in {f"hermes-gateway-{profile}", f"ai.hermes.gateway-{profile}", f"gateway-{profile}"}
+        return name in {"loki-gateway", "com.obliviousodin.loki.gateway", "gateway", "gateway-default"}
+    return name in {f"loki-gateway-{profile}", f"com.obliviousodin.loki.gateway-{profile}", f"gateway-{profile}"}
 
 
 def _gateway_named_in(r: RuntimeRecord, names: set) -> bool:

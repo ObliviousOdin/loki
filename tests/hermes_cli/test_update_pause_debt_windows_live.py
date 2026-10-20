@@ -24,6 +24,7 @@ import psutil
 import pytest
 
 from hermes_cli import update_pause_record as pause_record
+from tests.loki_child_fixture import bind_fixture_child_env
 
 REPO = Path(__file__).resolve().parents[2]
 pytestmark = [pytest.mark.platforms("windows"), pytest.mark.live_system_guard_bypass]
@@ -83,7 +84,7 @@ def test_a_completed_obligation_never_runs_again_from_a_copy_windows_kept(tmp_pa
     else:  # the update that paused them resumes them all and discharges its record, then exits
         updater = subprocess.Popen([sys.executable, "-c", textwrap.dedent(_UPDATER), uuid.uuid4().hex],
                                    cwd=REPO, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8",
-                                   env={**os.environ, "HERMES_HOME": str(tmp_path), "PYTHONPATH": str(REPO)})
+                                   env=bind_fixture_child_env({**os.environ, "HERMES_HOME": str(tmp_path), "PYTHONPATH": str(REPO)}))
         assert updater.stdout.readline().strip() == "written"
         holder = _hold(src)
         try:
@@ -173,9 +174,9 @@ def test_a_running_service_owes_its_gateway_until_that_gateway_is_ready(tmp_path
     exe.write_bytes(service_wrapper.read_bytes())
     child = ([sys.executable, "-c \"import time; time.sleep(900)\""] if gateway == "absent"
              else [sys.executable, "-m hermes_cli.main gateway run"])
-    (bin_dir / "child.txt").write_text("\n".join([*child, str(REPO), f"HERMES_HOME={home}", f"PYTHONPATH={REPO}",
+    (bin_dir / "child.txt").write_text("\n".join([*child, str(REPO), f"LOKI_HOME={home}", f"PYTHONPATH={REPO}",
                                                   "PYTHONIOENCODING=utf-8"]) + "\n", encoding="utf-8")
-    name = f"hermes-r8-debt-{gateway}-{os.getpid()}"
+    name = f"loki-r8-debt-{gateway}-{os.getpid()}"
     created = _sc("create", name, "binPath=", f'"{exe}"', "start=", "demand")
     assert created.returncode == 0, created.stdout + created.stderr
     if gateway == "absent":  # the budget only bounds how long the miss takes to report

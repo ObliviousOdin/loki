@@ -51,7 +51,7 @@ class _Scoped:
 
 @pytest.fixture
 def homes(tmp_path, monkeypatch):
-    a = tmp_path / "hermes"
+    a = tmp_path / "loki"
     b = a / "profiles" / "B"
     for home in (a, b):
         (home / "cache").mkdir(parents=True)
@@ -206,6 +206,9 @@ def test_banner_skills_are_the_routed_profiles(homes):
 
 
 def test_failed_guest_mint_only_suppresses_that_profile(homes, monkeypatch, tmp_path):
+    from tests.loki_auth_fixture import configure_auth
+
+    configure_auth(monkeypatch, hosted_services=True)
     a, b = homes
     monkeypatch.setenv("HERMES_SHARED_AUTH_DIR", str(tmp_path / "shared"))
     import hermes_cli.anon_auth as anon

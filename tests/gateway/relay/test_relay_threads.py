@@ -41,6 +41,15 @@ FULL_OPS = (
 )
 
 
+def test_relay_manifest_describes_loki_without_changing_wire_command_names():
+    commands = {row["name"]: row for row in build_relay_command_manifest()}
+    assert commands["update"]["description"] == "Update Loki to the latest version"
+    for name in ("reset", "status", "stop", "restart", "thread"):
+        assert "Loki" in commands[name]["description"]
+        assert "Hermes" not in commands[name]["description"]
+    assert commands["reasoning"]["options"][0]["choices"][0] == {"name": "none", "value": "none"}
+
+
 def make_desc(**kw) -> CapabilityDescriptor:
     base = dict(
         contract_version=CONTRACT_VERSION,

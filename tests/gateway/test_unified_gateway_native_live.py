@@ -10,6 +10,8 @@ opens no writable canonical SQLite; refuse a second owner while the first holds
 ``gateway.lock``; and release lock, control channel and API port on planned stop.
 No POSIX-only primitive is used (no AF_UNIX at import, no SIGKILL, no pty).
 """
+
+from tests.loki_child_fixture import bind_fixture_child_env
 import asyncio
 from contextlib import closing, contextmanager
 from datetime import datetime, timezone, UTC
@@ -140,7 +142,7 @@ def hard_kill(proc):
 
 
 def planned_stop(home, proc, desc):
-    """The ``hermes gateway stop`` contract: marker first, then the owner drains itself.
+    """The ``loki gateway stop`` contract: marker first, then the owner drains itself.
 
     The marker names the gateway's own pid from ``identify`` (what the PID file carries), not
     the Popen handle: a Windows uv venv ``python.exe`` is a trampoline whose pid differs."""
@@ -165,7 +167,7 @@ def planned_stop(home, proc, desc):
 def daemon(home, env, log_name, *, fixture=None, expect_ready=True):
     command = [sys.executable, str(ROOT / 'tests/gateway/fixtures' / fixture)] if fixture else [sys.executable, '-m', 'gateway.run']
     with (home.parent / log_name).open('w+', encoding='utf-8', errors='replace') as log:
-        proc = subprocess.Popen(command, cwd=ROOT, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+        proc = subprocess.Popen(command, cwd=ROOT, env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
         try:
             desc = {}
             deadline = time.monotonic() + 180
@@ -383,7 +385,7 @@ def test_native_gateway_runtime_live(harness):
             with exclusive_maintenance([home]):
                 pass
         with (home.parent / 'second.log').open('w+', encoding='utf-8', errors='replace') as log:
-            second = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=ROOT, env=env,
+            second = subprocess.Popen([sys.executable, '-m', 'gateway.run'], cwd=ROOT, env=bind_fixture_child_env(env),
                                       stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
             try:
                 code = second.wait(timeout=120)
@@ -485,7 +487,7 @@ def test_native_safe_mode_cli_executes_in_managed_worker(harness):
         gateway_pid = desc['pid']
         command = [sys.executable, '-m', 'hermes_cli.main', 'chat', '--safe-mode', '--provider', 'custom',
                    '--base-url', url, '--model', 'safe-fixture', '--api-key', 'fixture', '-Q', '-q', 'SAFE_PROBE_NATIVE']
-        proc = subprocess.Popen(command, cwd=harness['work'], env=env, stdin=subprocess.DEVNULL,
+        proc = subprocess.Popen(command, cwd=harness['work'], env=bind_fixture_child_env(env), stdin=subprocess.DEVNULL,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         try:
             out, err = proc.communicate(timeout=180)

@@ -534,11 +534,12 @@ class TestToAgentVisiblePathPerBackend:
         from tools.credential_files import to_agent_visible_cache_path
         assert to_agent_visible_cache_path(staged) == "/root/.hermes/attachments/drop.zip"
 
-    def test_ssh_maps_to_tilde_hermes(self, tmp_path, monkeypatch):
+    @pytest.mark.parametrize("backend", ["ssh", "daytona", "vercel_sandbox"])
+    def test_remote_backend_maps_to_tilde_loki(self, tmp_path, monkeypatch, backend):
         staged = self._staged(tmp_path, monkeypatch)
-        monkeypatch.setenv("TERMINAL_ENV", "ssh")
+        monkeypatch.setenv("TERMINAL_ENV", backend)
         from tools.credential_files import to_agent_visible_cache_path
-        assert to_agent_visible_cache_path(staged) == "~/.hermes/attachments/drop.zip"
+        assert to_agent_visible_cache_path(staged) == "~/.loki/attachments/drop.zip"
 
     @pytest.mark.parametrize("backend", ["local", "singularity", ""])
     def test_untranslated_backends_keep_host_path(self, tmp_path, monkeypatch, backend):

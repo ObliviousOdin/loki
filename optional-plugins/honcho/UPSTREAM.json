@@ -1,0 +1,151 @@
+{
+  "repository": "https://github.com/plastic-labs/honcho",
+  "commit": "e2d2aba182862deeb846e5cd4a30a41bce0ed82a",
+  "subdir": "hermes-plugin-honcho",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2025 Nous Research",
+  "provider_maintainer": "Plastic Labs",
+  "loki_compatibility_version": "0.1.0a1",
+  "files": [
+    {
+      "upstream_path": "LICENSE",
+      "path": "LICENSE",
+      "upstream_git_blob": "75410e73319c72cd3e991a501c5455eb78f38375",
+      "upstream_sha256": "821556e6336796450ab852d375117b48a4887e71d255794fd6318d99982a5ab6"
+    },
+    {
+      "upstream_path": "README.md",
+      "path": "UPSTREAM-README.md",
+      "upstream_git_blob": "6dea11e1423697a64d10919062c2351ba8b95261",
+      "upstream_sha256": "58c12155dc7fba90dab89b34447049707a0a8e84108e9bee3556d7ff9c38ffdb"
+    },
+    {
+      "upstream_path": "__init__.py",
+      "path": "__init__.py",
+      "upstream_git_blob": "a6442a05a94f11669272ef3978fe8b1f1a819b20",
+      "upstream_sha256": "b439c9efb0de20f51239f1b4f8c1f37f98be985dd86deb496307705e39ba3688"
+    },
+    {
+      "upstream_path": "_shared_query_rewrite.py",
+      "path": "_shared_query_rewrite.py",
+      "upstream_git_blob": "9b3c0c22df9a0e4c74063d86676de04be6ee76bc",
+      "upstream_sha256": "968aed23fd2a0d6c79866d0ed0c997be0a01b56282c37fece622d50033ca1ca4"
+    },
+    {
+      "upstream_path": "cli.py",
+      "path": "cli.py",
+      "upstream_git_blob": "ff905429249e9b4169493dbac84ef8f2aed4b9ea",
+      "upstream_sha256": "92d7769ae60c1e69568e51a11e38d11e466e581b5503cebca0ea606cb4e2b917"
+    },
+    {
+      "upstream_path": "client.py",
+      "path": "client.py",
+      "upstream_git_blob": "63ec93e93a255f9caae72218f0582bc931a1e6d2",
+      "upstream_sha256": "1ac859689b5c177d1686c817d5c4cb767b1b7905124ab0cb146e05d094ea87ce"
+    },
+    {
+      "upstream_path": "client_cache.py",
+      "path": "client_cache.py",
+      "upstream_git_blob": "c6462ab3a3128ab1ba6fd5fcecbd2522939f8042",
+      "upstream_sha256": "c4e6b5b6bd615651211fde01084a880022db248c7e466060a0730399d38f20d0"
+    },
+    {
+      "upstream_path": "config_schema.py",
+      "path": "config_schema.py",
+      "upstream_git_blob": "878dcd3a959fea1082bd5d81c53d11cd5738c6c0",
+      "upstream_sha256": "d9c755a50f8b7da8108e27d87826f00dac3d9f9e3c65605340171ecf5983c1c3"
+    },
+    {
+      "upstream_path": "dialectic.py",
+      "path": "dialectic.py",
+      "upstream_git_blob": "beb89f82a0699cf5939c3af49c2583596e12d7ae",
+      "upstream_sha256": "6808f2758d99f7bf01f8d12595943069da98e06eb7088a89c507590b366cac5b"
+    },
+    {
+      "upstream_path": "oauth.py",
+      "path": "oauth.py",
+      "upstream_git_blob": "e6000210f0d37f87c91badcda8fe7f4230aa3120",
+      "upstream_sha256": "4c6c1ace252b298a630cf47f6a0f01d33d46e0624bb8960209972057b848dddd"
+    },
+    {
+      "upstream_path": "oauth_flow.py",
+      "path": "oauth_flow.py",
+      "upstream_git_blob": "f236edaf59621db8094f092a1e08d835e000478c",
+      "upstream_sha256": "bc2d2c77be725c84bae2e0ed66fe45f5ea9119df87999d3c6d50f66bfd493135"
+    },
+    {
+      "upstream_path": "plugin.yaml",
+      "path": "plugin.yaml",
+      "upstream_git_blob": "38a0612c9774ce7b722f45f6d287835d70528ee6",
+      "upstream_sha256": "bf592e7539f22d49abd149bd023bc03bd00f9efd574cec1d1c6500c5ad1f8572"
+    },
+    {
+      "upstream_path": "pyproject.toml",
+      "path": "pyproject.toml",
+      "upstream_git_blob": "c6024eddfdd4001167e6342f48835cfb44710e7b",
+      "upstream_sha256": "26210f755f59c48544e98f85d07b18f1a9b9a9a1a3c70af857cdf6053b5e48e0"
+    },
+    {
+      "upstream_path": "recall_sync.py",
+      "path": "recall_sync.py",
+      "upstream_git_blob": "7a6e6e9831d992c21befefed5b78cc577d307fac",
+      "upstream_sha256": "8b0ed81b4218b31d4df08cb78634167c1e384244733e46e4e65c2c81d1213803"
+    },
+    {
+      "upstream_path": "session.py",
+      "path": "session.py",
+      "upstream_git_blob": "d3a4cd9725c152271d99a2463c959c75da4ac2dc",
+      "upstream_sha256": "2df19a6caa7ebb324577deb9c935d507ccf19824bb928b31407e95f83b8fe60c"
+    },
+    {
+      "upstream_path": "session_auth.py",
+      "path": "session_auth.py",
+      "upstream_git_blob": "8e05f35f8cbd8e42d35c5d1cadc7348a6d5b0304",
+      "upstream_sha256": "b75857a39e7e8bca0009d9d6166a61dccfda2eaac17d68132d4c8067771f6e52"
+    },
+    {
+      "upstream_path": "session_context.py",
+      "path": "session_context.py",
+      "upstream_git_blob": "021789fb51213ac89fb50ec415ebff28fb62ce32",
+      "upstream_sha256": "0beb8664a058eda95ed48eef67f586577854ca3d9f8f65e1e41e68fa7f537ef7"
+    },
+    {
+      "upstream_path": "session_migration.py",
+      "path": "session_migration.py",
+      "upstream_git_blob": "317869d95a442b208bda5b8561cd8ca91e1e7fd1",
+      "upstream_sha256": "4c9e651614af6fff457ffb4aff8c1cacf853bd26afeea1dd19d176dd88068598"
+    },
+    {
+      "upstream_path": "session_peers.py",
+      "path": "session_peers.py",
+      "upstream_git_blob": "8ce2e91b0c9fe8f7670757d5bad700ab536ba467",
+      "upstream_sha256": "37b3d895ee1d3ba96e64e772ea5b453384c4fc597d0d905e3fe3c31c31a3a481"
+    },
+    {
+      "upstream_path": "tool_schemas.py",
+      "path": "tool_schemas.py",
+      "upstream_git_blob": "d10902854338161bb9b41ac3c5e6a29f22e13c12",
+      "upstream_sha256": "904059718e3dcb6963ef54abb0a8f83ef667f4395b3b438e3892b945ccfe6d03"
+    }
+  ],
+  "excluded": [
+    "docs/ (documentation assets)",
+    "HANDOFF.md (upstream development handoff)",
+    ".gitignore (development configuration)"
+  ],
+  "modifications": [
+    "Loki-only default host/profile/workspace/AI-peer and local configuration roots; no global ~/.honcho fallback",
+    "Provider backup does not include another application shared configuration",
+    "Explicit owned OAuth client required before socket/browser/network; API-key setup default; context-bound OAuth helper threads",
+    "Own plugin distribution/version and authored Loki commands; internal module/API/provider identifiers retained",
+    "Previously silent broad-exception fallbacks log sanitized tracebacks with exception class and call stack; provider messages omitted",
+    "Original license and complete runtime/dependency declarations retained; original README preserved separately",
+    "Enabled injection audit defaults to the active Loki home logs directory; explicit destinations retained",
+    "Profile rename freezes resolved implicit workspace/AI-peer identity and never probes global Honcho configuration",
+    "Mechanical lint compliance: equivalent modern annotations, dead-noqa removal, explicit subprocess check=False and missing-timestamp sorting without naive datetime sentinel; public exported imports retained",
+    "Fallback session/assistant IDs use Loki; explicit existing strings stay unchanged",
+    "Wizard Enter defaults and enabled injection audit use active Loki profile; explicit configuration paths and destinations retained",
+    "Retained one-time auth/peer error notice behavior while log diagnostics omit raw exception payloads",
+    "Missing SDK repair uses the supported consented PM environment sync and safe generation adoption, replacing the retired dependency installer stub"
+  ]
+}

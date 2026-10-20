@@ -27,9 +27,9 @@ export function platformDefaultHermesHome(home, env = process.env, platform = pr
   const suffix = env.HERMES_DATA_DIR_SUFFIX || ''
   if (platform === 'win32') {
     const base = (env.LOCALAPPDATA || '').trim() || path.win32.join(home, 'AppData', 'Local')
-    return path.win32.join(base, 'hermes') + suffix
+    return path.win32.join(base, 'loki') + suffix
   }
-  return path.posix.join(home, '.hermes') + suffix
+  return path.posix.join(home, '.loki') + suffix
 }
 
 export function resolveDesktopUserData(defaultPath, env = process.env) {
@@ -38,14 +38,14 @@ export function resolveDesktopUserData(defaultPath, env = process.env) {
     : defaultPath + (env.HERMES_DATA_DIR_SUFFIX || '')
 }
 
-export function resolveDesktopHermesHome({ home, env = process.env, platform = process.platform, directoryExists = () => false, readWindowsHome = () => null }) {
+export function resolveDesktopHermesHome({ home, env = process.env, platform = process.platform, readWindowsHome = () => null }) {
   const paths = platform === 'win32' ? path.win32 : path.posix
   if (env.HERMES_HOME) {
     return normalizeHermesHomeRoot(env.HERMES_HOME, paths)
   }
   // Fresh-install rehearsals must not touch the real Hermes home.
   if (env.HERMES_DESKTOP_USER_DATA_DIR) {
-    return paths.join(paths.resolve(env.HERMES_DESKTOP_USER_DATA_DIR), 'hermes-home')
+    return paths.join(paths.resolve(env.HERMES_DESKTOP_USER_DATA_DIR), 'loki-home')
   }
   if (platform === 'win32' && env.HERMES_HOME === undefined) {
     // Explorer can miss setx changes. An explicit empty value opts out of that fallback.
@@ -55,12 +55,5 @@ export function resolveDesktopHermesHome({ home, env = process.env, platform = p
     }
   }
   const defaultHome = platformDefaultHermesHome(home, env, platform)
-  // Keep the legacy migration for ordinary installs, not isolated suffix runs.
-  if (platform === 'win32' && !env.HERMES_DATA_DIR_SUFFIX) {
-    const legacy = paths.join(home, '.hermes')
-    if (!directoryExists(defaultHome) && directoryExists(legacy)) {
-      return legacy
-    }
-  }
   return defaultHome
 }

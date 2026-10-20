@@ -3,7 +3,11 @@ import os from 'node:os'
 import path from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
+import { createRequire } from 'node:module'
 import { listPackage } from '@electron/asar'
+import { productIdentity } from './bundle-electron-main.mjs'
+import { isMain } from './utils.mjs'
+import { verifyElectronLicenseNotices } from './prepared-packaging.mjs'
 
 import PACKAGE_JSON from '../package.json' with { type: 'json' }
 
@@ -12,49 +16,55 @@ const ARCH = process.arch === 'arm64' ? 'arm64' : 'x64'
 const DESKTOP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const RELEASE_ROOT = path.join(DESKTOP_ROOT, 'release')
 const PLATFORM = process.platform
+// A prebuilt artifact's declared names come from its immutable stamp, not
+// selectors left in the inspecting shell. New builds use the selected variant.
+const IDENTITY = process.env.LOKI_DESKTOP_SKIP_BUILD === '1'
+  ? JSON.parse(productIdentity(path.resolve(DESKTOP_ROOT, '../..'), JSON.parse(fs.readFileSync(path.join(DESKTOP_ROOT, 'build/install-stamp.json'), 'utf8'))))
+  : createRequire(import.meta.url)('../product-identity.cjs')
 
 // Platform-specific packaged-app layout. The bundled app ships an Electron
 // shell and the PM payload under resources/agent-payload.
-const APP = (() => {
-  if (PLATFORM === 'darwin') {
-    const appPath = path.join(RELEASE_ROOT, `mac-${ARCH}`, 'Hermes.app')
+export function desktopTestApp({ identity = IDENTITY, platform = PLATFORM, arch = ARCH, releaseRoot = RELEASE_ROOT } = {}) {
+  if (platform === 'darwin') {
+    const appPath = path.join(releaseRoot, `mac-${arch}`, `${identity.displayName}.app`)
     return {
       appPath,
-      binary: path.join(appPath, 'Contents', 'MacOS', 'Hermes'),
+      binary: path.join(appPath, 'Contents', 'MacOS', identity.displayName),
       resourcesPath: path.join(appPath, 'Contents', 'Resources'),
       asarPath: path.join(appPath, 'Contents', 'Resources', 'app.asar'),
       unpackedDistIndex: path.join(appPath, 'Contents', 'Resources', 'app.asar.unpacked', 'dist', 'index.html')
     }
   }
-  if (PLATFORM === 'win32') {
+  if (platform === 'win32') {
     // electron-builder names the unpacked output per-arch: win-arm64-unpacked
     // on arm64, plain win-unpacked on x64. Accept either so the harness works
     // on both hosts instead of hardcoding the x64 layout.
-    const unpacked = ['win-unpacked', `win-${ARCH}-unpacked`]
-      .map(name => path.join(RELEASE_ROOT, name))
+    const unpacked = ['win-unpacked', `win-${arch}-unpacked`]
+      .map(name => path.join(releaseRoot, name))
       .find(exists)
     return {
       appPath: unpacked,
-      binary: unpacked ? path.join(unpacked, 'Hermes.exe') : path.join(RELEASE_ROOT, 'win-unpacked', 'Hermes.exe'),
-      resourcesPath: unpacked ? path.join(unpacked, 'resources') : path.join(RELEASE_ROOT, 'win-unpacked', 'resources'),
-      asarPath: unpacked ? path.join(unpacked, 'resources', 'app.asar') : path.join(RELEASE_ROOT, 'win-unpacked', 'resources', 'app.asar'),
+      binary: path.join(unpacked || path.join(releaseRoot, 'win-unpacked'), `${identity.windowsExecutableName}.exe`),
+      resourcesPath: unpacked ? path.join(unpacked, 'resources') : path.join(releaseRoot, 'win-unpacked', 'resources'),
+      asarPath: unpacked ? path.join(unpacked, 'resources', 'app.asar') : path.join(releaseRoot, 'win-unpacked', 'resources', 'app.asar'),
       unpackedDistIndex: unpacked
         ? path.join(unpacked, 'resources', 'app.asar.unpacked', 'dist', 'index.html')
-        : path.join(RELEASE_ROOT, 'win-unpacked', 'resources', 'app.asar.unpacked', 'dist', 'index.html')
+        : path.join(releaseRoot, 'win-unpacked', 'resources', 'app.asar.unpacked', 'dist', 'index.html')
     }
   }
   // linux unpacked layout matches windows but with different binary name
-  const unpacked = path.join(RELEASE_ROOT, 'linux-unpacked')
+  const unpacked = path.join(releaseRoot, 'linux-unpacked')
   return {
     appPath: unpacked,
-    binary: path.join(unpacked, 'Hermes'),
+    binary: path.join(unpacked, identity.displayName),
     resourcesPath: path.join(unpacked, 'resources'),
     asarPath: path.join(unpacked, 'resources', 'app.asar'),
     unpackedDistIndex: path.join(unpacked, 'resources', 'app.asar.unpacked', 'dist', 'index.html')
   }
-})()
+}
+const APP = desktopTestApp()
 
-const FRESH_SANDBOX_ROOT = path.join(os.tmpdir(), 'hermes-desktop-fresh-install')
+const FRESH_SANDBOX_ROOT = path.join(os.tmpdir(), 'loki-desktop-fresh-install')
 
 function die(message) {
   console.error(`\n${message}`)
@@ -109,7 +119,7 @@ function ensurePlatformBuilds() {
 }
 
 function ensurePackagedApp() {
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && exists(APP.binary)) {
+  if (process.env.LOKI_DESKTOP_SKIP_BUILD === '1' && exists(APP.binary)) {
     return
   }
 
@@ -118,10 +128,10 @@ function ensurePackagedApp() {
 
 function resolveDmgPath() {
   if (!exists(RELEASE_ROOT)) {
-    return path.join(RELEASE_ROOT, `Hermes-${PACKAGE_JSON.version}-${ARCH}.dmg`)
+    return path.join(RELEASE_ROOT, `${IDENTITY.artifactNamePascal}-${PACKAGE_JSON.version}-darwin-${ARCH}.dmg`)
   }
 
-  const prefix = `Hermes-${PACKAGE_JSON.version}`
+  const prefix = `${IDENTITY.artifactNamePascal}-${PACKAGE_JSON.version}`
   const candidates = fs
     .readdirSync(RELEASE_ROOT)
     .filter(name => name.endsWith('.dmg'))
@@ -135,7 +145,7 @@ function resolveDmgPath() {
 
   return candidates.length > 0
     ? path.join(RELEASE_ROOT, candidates[0])
-    : path.join(RELEASE_ROOT, `Hermes-${PACKAGE_JSON.version}-${ARCH}.dmg`)
+    : path.join(RELEASE_ROOT, `${IDENTITY.artifactNamePascal}-${PACKAGE_JSON.version}-darwin-${ARCH}.dmg`)
 }
 
 function resolveMsixPath() {
@@ -155,7 +165,7 @@ function ensureDmg() {
   if (PLATFORM !== 'darwin') {
     die('DMG mode is macOS-only; on Windows use the `msix` mode instead.')
   }
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && exists(resolveDmgPath())) {
+  if (process.env.LOKI_DESKTOP_SKIP_BUILD === '1' && exists(resolveDmgPath())) {
     return
   }
   run('npm', ['run', 'dist:mac:dmg'])
@@ -165,7 +175,7 @@ function ensureMsix() {
   if (PLATFORM !== 'win32') {
     die('MSIX mode is win32-only; on macOS use the `dmg` mode instead.')
   }
-  if (process.env.HERMES_DESKTOP_SKIP_BUILD === '1' && resolveMsixPath()) {
+  if (process.env.LOKI_DESKTOP_SKIP_BUILD === '1' && resolveMsixPath()) {
     return
   }
   run('npm', ['run', 'dist:win:msix'])
@@ -224,8 +234,14 @@ const CREDENTIAL_ENV_NAMES = new Set([
 ])
 
 function isCredentialEnvVar(name) {
-  if (CREDENTIAL_ENV_NAMES.has(name)) return true
-  return CREDENTIAL_ENV_SUFFIXES.some(suffix => name.endsWith(suffix))
+  const canonical = name.toUpperCase()
+  if (CREDENTIAL_ENV_NAMES.has(canonical)) return true
+  return CREDENTIAL_ENV_SUFFIXES.some(suffix => canonical.endsWith(suffix))
+}
+
+export function isolatedTestEnvironment(inherited = process.env) {
+  return Object.fromEntries(Object.entries(inherited).filter(([name]) =>
+    !isCredentialEnvVar(name) && !/^(?:HERMES_|LOKI_|__HERMES_|__LOKI_)/i.test(name)))
 }
 
 function launchFresh() {
@@ -235,7 +251,7 @@ function launchFresh() {
 
   const sandbox = fs.mkdtempSync(`${FRESH_SANDBOX_ROOT}-`)
   const userDataDir = path.join(sandbox, 'electron-user-data')
-  const hermesHome = path.join(sandbox, 'hermes-home')
+  const hermesHome = path.join(sandbox, 'loki-home')
   const cwd = path.join(sandbox, 'workspace')
 
   fs.mkdirSync(userDataDir, { recursive: true })
@@ -243,19 +259,15 @@ function launchFresh() {
   fs.mkdirSync(cwd, { recursive: true })
 
   // Strip every credential-shaped env var so the sandbox is actually fresh.
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (isCredentialEnvVar(key)) continue
-    env[key] = value
-  }
+  const env = isolatedTestEnvironment()
 
-  env.HERMES_DESKTOP_CWD = cwd
-  env.HERMES_DESKTOP_IGNORE_EXISTING = '1'
-  env.HERMES_DESKTOP_TEST_MODE = 'fresh-install'
-  env.HERMES_DESKTOP_USER_DATA_DIR = userDataDir
-  env.HERMES_HOME = hermesHome
-  delete env.HERMES_DESKTOP_HERMES
-  delete env.HERMES_DESKTOP_HERMES_ROOT
+  env.LOKI_DESKTOP_CWD = cwd
+  env.LOKI_DESKTOP_IGNORE_EXISTING = '1'
+  env.LOKI_DESKTOP_TEST_MODE = 'fresh-install'
+  env.LOKI_DESKTOP_USER_DATA_DIR = userDataDir
+  env.LOKI_HOME = hermesHome
+  delete env.LOKI_DESKTOP_HERMES
+  delete env.LOKI_DESKTOP_HERMES_ROOT
 
   const child = spawn(APP.binary, [], {
     cwd: os.homedir(),
@@ -268,7 +280,7 @@ function launchFresh() {
   console.log('\nFresh install sandbox:')
   console.log(`  root: ${sandbox}`)
   console.log(`  electron userData: ${userDataDir}`)
-  console.log(`  HERMES_HOME: ${hermesHome}`)
+  console.log(`  LOKI_HOME: ${hermesHome}`)
   console.log(`  cwd: ${cwd}`)
 
 }
@@ -277,49 +289,45 @@ function launchFresh() {
 // (launch / firstWindow / app.close() — the app's own exact quit path, backend
 // teardown included), so the harness never kills a process itself. Isolation
 // and identity come from the flags main.ts already honors: sandboxed Electron
-// userData (own single-instance lock) + sandboxed HERMES_HOME + an explicit
+// userData (own single-instance lock) + sandboxed LOKI_HOME + an explicit
 // backend root (main.ts backend-resolution rung 1). Readiness is the serve
 // protocol — a python backend child LISTENING on 127.0.0.1 answering
 // GET /api/health — never gateway.pid (that file is the messaging gateway's
 // record, a different surface) and never a mock.
-const LIFECYCLE_BACKEND_ROOT = process.env.HERMES_DESKTOP_LIFECYCLE_BACKEND_ROOT
-const LIFECYCLE_TIMEOUT_MS = Number(process.env.HERMES_DESKTOP_LIFECYCLE_TIMEOUT_MS) || 150_000
-const LIFECYCLE_KEEP = process.env.HERMES_DESKTOP_LIFECYCLE_KEEP === '1'
+const LIFECYCLE_BACKEND_ROOT = process.env.LOKI_DESKTOP_LIFECYCLE_BACKEND_ROOT
+const LIFECYCLE_TIMEOUT_MS = Number(process.env.LOKI_DESKTOP_LIFECYCLE_TIMEOUT_MS) || 150_000
+const LIFECYCLE_KEEP = process.env.LOKI_DESKTOP_LIFECYCLE_KEEP === '1'
 
 function lifecycleEnv(sandbox) {
   const userDataDir = path.join(sandbox, 'electron-user-data')
-  const hermesHome = path.join(sandbox, 'hermes-home')
+  const hermesHome = path.join(sandbox, 'loki-home')
   const cwd = path.join(sandbox, 'workspace')
   for (const dir of [userDataDir, hermesHome, cwd]) fs.mkdirSync(dir, { recursive: true })
 
-  const env = {}
-  for (const [key, value] of Object.entries(process.env)) {
-    if (isCredentialEnvVar(key)) continue
-    env[key] = value
-  }
-  env.HERMES_DESKTOP_CWD = cwd
-  env.HERMES_DESKTOP_USER_DATA_DIR = userDataDir
-  env.HERMES_HOME = hermesHome
-  env.HERMES_DESKTOP_SKIP_QUIT_CONFIRM = '1'
+  const env = isolatedTestEnvironment()
+  env.LOKI_DESKTOP_CWD = cwd
+  env.LOKI_DESKTOP_USER_DATA_DIR = userDataDir
+  env.LOKI_HOME = hermesHome
+  env.LOKI_DESKTOP_SKIP_QUIT_CONFIRM = '1'
   // Window-title label only — NOT package identity; package identity is build-
   // time. Identity isolation here is the sandboxed userData (single-instance
-  // lock is scoped to it), so a live Hermes instance can never be contacted.
-  env.HERMES_DESKTOP_APP_NAME = 'HermesLifecycleProbe'
+  // lock is scoped to it), so a live Loki instance can never be contacted.
+  env.LOKI_DESKTOP_APP_NAME = 'LokiLifecycleProbe'
   // REQUIRED: with a thin (external-payload) build there is no sealed runtime,
   // and an unresolved backend would fall through to first-run bootstrap —
   // install.ps1, which writes User PATH, Start-Menu shortcuts and ACLs on a
   // real host. This harness must never let that happen.
   if (LIFECYCLE_BACKEND_ROOT) {
-    env.HERMES_DESKTOP_HERMES_ROOT = path.resolve(LIFECYCLE_BACKEND_ROOT)
+    env.LOKI_DESKTOP_HERMES_ROOT = path.resolve(LIFECYCLE_BACKEND_ROOT)
   }
-  delete env.HERMES_DESKTOP_HERMES
-  delete env.HERMES_DESKTOP_TEST_MODE
+  delete env.LOKI_DESKTOP_HERMES
+  delete env.LOKI_DESKTOP_TEST_MODE
   return { env, userDataDir, hermesHome, cwd }
 }
 
 // Readiness, the app's own way: the Electron main logs
 // `HERMES_BACKEND_READY port=<N>` (backend-ready.ts's announcement contract)
-// into <HERMES_HOME>/logs/desktop.log once uvicorn has bound the serve socket.
+// into <LOKI_HOME>/logs/desktop.log once uvicorn has bound the serve socket.
 // Parse that, then confirm externally that the announced port answers
 // GET /api/health with 200 — the same anonymous health route the app probes.
 // No process enumeration, no kills.
@@ -423,13 +431,13 @@ async function runLifecycle() {
       throw new Error(`preserved-state check FAILED — entries missing after relaunch:\n  ${lost.join('\n  ')}`)
     }
     console.log('  preservation: all pre-relaunch home entries survived the quit + relaunch cycle')
-    console.log(JSON.stringify({ sandbox, userDataDir, hermesHome, backendRoot: env.HERMES_DESKTOP_HERMES_ROOT || null, sessions, preserved: { before: preservedBefore.length, after: preservedAfter.length, lost: 0 } }, null, 2))
+    console.log(JSON.stringify({ sandbox, userDataDir, hermesHome, backendRoot: env.LOKI_DESKTOP_HERMES_ROOT || null, sessions, preserved: { before: preservedBefore.length, after: preservedAfter.length, lost: 0 } }, null, 2))
   } finally {
     if (!LIFECYCLE_KEEP) {
       fs.rmSync(sandbox, { recursive: true, force: true })
       console.log(`  sandbox removed: ${sandbox}`)
     } else {
-      console.log(`  sandbox kept (HERMES_DESKTOP_LIFECYCLE_KEEP=1): ${sandbox}`)
+      console.log(`  sandbox kept (LOKI_DESKTOP_LIFECYCLE_KEEP=1): ${sandbox}`)
     }
   }
 }
@@ -438,6 +446,13 @@ function validateBundle() {
   if (!exists(APP.binary)) {
     die(`Missing packaged app binary: ${APP.binary}`)
   }
+
+  for (const notice of ['Hermes-LICENSE.txt', 'Loki-NOTICE.txt', 'hermes-bots-LICENSE.txt', 'npm/react/LICENSE']) {
+    const file = path.join(APP.resourcesPath, 'licenses', notice)
+    if (!exists(file)) die(`Missing packaged license notice: ${file}`)
+  }
+  verifyElectronLicenseNotices(path.join(APP.resourcesPath, 'licenses/electron'),
+    path.join(DESKTOP_ROOT, 'build/electron-runtime-licenses'))
 
   // The payload may be the real pm bundle (staged by scripts/bundles/desktop.py /
   // `hermes pm bundle --out build/agent-payload`) or the external stub
@@ -470,7 +485,9 @@ function validateBundle() {
       die(`Missing bundled payload Python: ${payloadPython}`)
     }
     if (PLATFORM === 'win32') {
-      const payloadShim = path.join(payloadRoot, payloadManifest.venv, 'Scripts', 'hermes.exe')
+      const command = payloadManifest.runtime?.commands?.hermes
+      if (typeof command !== 'string') die('Missing canonical PM payload command contract')
+      const payloadShim = path.join(payloadRoot, command)
       if (!exists(payloadShim)) {
         die(`Missing bundled payload shim: ${payloadShim}`)
       }
@@ -551,60 +568,62 @@ function printArtifacts(options = {}) {
 
 function help() {
   console.log(`Usage:
-  npm run test:desktop:existing  # build packaged app, launch with normal PATH/existing Hermes
-  npm run test:desktop:fresh     # build packaged app, launch with temp userData + HERMES_HOME
+  npm run test:desktop:existing  # build packaged app, launch with normal PATH/existing Loki
+  npm run test:desktop:fresh     # build packaged app, launch with temp userData + LOKI_HOME
   npm run test:desktop:dmg       # (macOS only) build DMG and open it
   npm run test:desktop:msix      # (win32 only) build MSIX package
   npm run test:desktop:all       # build the platform package and validate the payload
 
 Fast rerun (skip rebuild if the packaged app already exists):
-  HERMES_DESKTOP_SKIP_BUILD=1 npm run test:desktop:fresh
+  LOKI_DESKTOP_SKIP_BUILD=1 npm run test:desktop:fresh
 
-Automated packaged lifecycle (no host side effects; isolated userData + HERMES_HOME):
+Automated packaged lifecycle (no host side effects; isolated userData + LOKI_HOME):
   npm run test:desktop:lifecycle
   # start packaged app → real serve backend ready (/api/health 200) → graceful
   # quit → relaunch → preserved-home check → full teardown of our own processes.
   # Requires a backend root the packaged app may use (backend-resolution rung 1):
-  #   HERMES_DESKTOP_LIFECYCLE_BACKEND_ROOT=<hermes checkout with .venv|venv>
-  # Knobs: HERMES_DESKTOP_LIFECYCLE_TIMEOUT_MS and
-  # HERMES_DESKTOP_LIFECYCLE_KEEP=1 to keep the sandbox for inspection.
+  #   LOKI_DESKTOP_LIFECYCLE_BACKEND_ROOT=<hermes checkout with .venv|venv>
+  # Knobs: LOKI_DESKTOP_LIFECYCLE_TIMEOUT_MS and
+  # LOKI_DESKTOP_LIFECYCLE_KEEP=1 to keep the sandbox for inspection.
 `)
 }
 
-ensurePlatformBuilds()
+if (isMain(import.meta.url)) {
+  ensurePlatformBuilds()
 
-if (MODE === 'existing') {
-  ensurePackagedApp()
-  const result = validateBundle()
-  openApp()
-  printArtifacts(result)
-} else if (MODE === 'fresh') {
-  ensurePackagedApp()
-  const result = validateBundle()
-  printArtifacts({ ...launchFresh(), ...result })
-} else if (MODE === 'dmg') {
-  ensureDmg()
-  openDmg()
-  printArtifacts()
-} else if (MODE === 'msix') {
-  ensureMsix()
-  printArtifacts(validateBundle())
-} else if (MODE === 'all') {
-  if (PLATFORM === 'darwin') {
-    ensureDmg()
-  } else if (PLATFORM === 'win32') {
-    ensureMsix()
-  } else {
+  if (MODE === 'existing') {
     ensurePackagedApp()
+    const result = validateBundle()
+    openApp()
+    printArtifacts(result)
+  } else if (MODE === 'fresh') {
+    ensurePackagedApp()
+    const result = validateBundle()
+    printArtifacts({ ...launchFresh(), ...result })
+  } else if (MODE === 'dmg') {
+    ensureDmg()
+    openDmg()
+    printArtifacts()
+  } else if (MODE === 'msix') {
+    ensureMsix()
+    printArtifacts(validateBundle())
+  } else if (MODE === 'all') {
+    if (PLATFORM === 'darwin') {
+      ensureDmg()
+    } else if (PLATFORM === 'win32') {
+      ensureMsix()
+    } else {
+      ensurePackagedApp()
+    }
+    printArtifacts(validateBundle())
+  } else if (MODE === 'lifecycle') {
+    ensurePackagedApp()
+    printArtifacts(validateBundle())
+    runLifecycle().catch(err => {
+      console.error(err && err.message ? err.message : err)
+      process.exit(1)
+    })
+  } else {
+    help()
   }
-  printArtifacts(validateBundle())
-} else if (MODE === 'lifecycle') {
-  ensurePackagedApp()
-  printArtifacts(validateBundle())
-  runLifecycle().catch(err => {
-    console.error(err && err.message ? err.message : err)
-    process.exit(1)
-  })
-} else {
-  help()
 }

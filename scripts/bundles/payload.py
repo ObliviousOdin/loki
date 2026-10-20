@@ -96,6 +96,19 @@ def rehash_tools(root: Path) -> int:
     return count
 
 
+def seal_environment_config(root: Path, python: Path, environment: str) -> None:
+    """Keep version/config flags while removing build-host interpreter paths."""
+    root, python = root.resolve(), python.resolve()
+    if not python.is_relative_to(root) or not python.is_file():
+        raise ValueError(f"interpreter must belong to the payload: {python}")
+    cfg = _payload_file(root, f"{environment}/pyvenv.cfg")
+    lines = cfg.read_text(encoding="utf-8-sig").splitlines()
+    lines = [line for line in lines if line.partition("=")[0].strip() not in
+             {"home", "executable", "base-executable", "base-prefix", "base-exec-prefix", "command"}]
+    lines.insert(0, f"home = {os.path.relpath(python.parent, cfg.parent)}")
+    cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def seal_pm_runtime(root: Path, python: Path) -> dict:
     """Record a resident PM runtime without Windows' CWD-bound redirector.
 
@@ -113,13 +126,8 @@ def seal_pm_runtime(root: Path, python: Path) -> dict:
         "python": Path(os.path.relpath(python, runtime)).as_posix(),
         "sitePackages": sites[0].relative_to(runtime).as_posix(),
     }
-    cfg = _payload_file(root, "pm-runtime/pyvenv.cfg")
     marker_path = _payload_file(root, "pm-runtime/pm-runtime.json")
-    lines = cfg.read_text(encoding="utf-8-sig").splitlines()
-    lines = [line for line in lines if line.partition("=")[0].strip() not in
-             {"home", "executable", "base-executable", "base-prefix", "base-exec-prefix", "command"}]
-    lines.insert(0, f"home = {os.path.relpath(python.parent, runtime)}")
-    cfg.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    seal_environment_config(root, python, "pm-runtime")
     # A sealed runtime is not activated, and copied Windows redirectors cannot
     # follow its relative home from arbitrary working directories.
     bindir = runtime / ("Scripts" if os.name == "nt" else "bin")

@@ -14,6 +14,7 @@ import pytest
 
 from tests.gateway.fixtures.local_recovery_probe import Model
 from tests.gateway.test_normal_runtime_boot import control
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 @pytest.mark.platforms("linux")
@@ -38,6 +39,7 @@ def test_continue_latest_footer_and_tool_listing(tmp_path):
     env = {k: os.environ[k] for k in ("PATH", "LANG", "TZ") if k in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED="1", OPENAI_API_KEY="loopback-only", OPENAI_BASE_URL=url)
+    env = bind_fixture_child_env(env)
 
     def hermes(*args, cwd, module="hermes_cli.main"):
         result = subprocess.run([sys.executable, "-m", module, *args], cwd=cwd, env=env,
@@ -67,7 +69,7 @@ def test_continue_latest_footer_and_tool_listing(tmp_path):
             first, sid_a = hermes("chat", "-q", "in repo a", cwd=repo_a)
             assert first.returncode == 0 and "RECOVERY_ACK_in repo a" in first.stdout and sid_a, first
             # Main's single-query exit block: how to continue the session it just printed.
-            assert f"Resume this session with:\n  hermes --resume {sid_a}" in first.stdout, first.stdout
+            assert f"Resume this session with:\n  loki --resume {sid_a}" in first.stdout, first.stdout
             quiet, sid_b = hermes("chat", "-q", "in repo b", "-Q", cwd=repo_b)
             assert quiet.returncode == 0 and "Resume this session" not in quiet.stdout, quiet
 

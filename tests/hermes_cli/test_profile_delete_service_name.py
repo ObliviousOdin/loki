@@ -20,23 +20,26 @@ from hermes_cli import profiles
 @pytest.fixture
 def two_homes(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    launch = tmp_path / ".hermes"
+    launch = tmp_path / ".loki"
     victim = launch / "profiles" / "victim"
     victim.mkdir(parents=True)
     monkeypatch.setenv("HERMES_HOME", str(launch))
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     unit_dir = tmp_path / "xdg" / "systemd" / "user"
     unit_dir.mkdir(parents=True)
-    host_unit = unit_dir / "hermes-gateway.service"
-    victim_unit = unit_dir / "hermes-gateway-victim.service"
+    host_unit = unit_dir / "loki-gateway.service"
+    victim_unit = unit_dir / "loki-gateway-victim.service"
+    foreign_unit = unit_dir / "hermes-gateway-victim.service"
     host_unit.write_text("[Service]\n")
     victim_unit.write_text("[Service]\n")
-    return launch, victim, host_unit, victim_unit
+    foreign_unit.write_text("[Service]\n# Foreign service must survive\n")
+    return launch, victim, host_unit, victim_unit, foreign_unit
 
 
 @pytest.mark.platforms("linux")
 def test_delete_from_a_pinned_multiplexer_targets_the_victims_unit_only(two_homes, monkeypatch):
-    launch, victim, host_unit, victim_unit = two_homes
+    launch, victim, host_unit, victim_unit, foreign_unit = two_homes
+    foreign_bytes = foreign_unit.read_bytes()
     calls: list[list[str]] = []
     monkeypatch.setattr(profiles.subprocess, "run", lambda cmd, **kw: calls.append(list(cmd)))
     set_multiplex_active(True)  # the dashboard has served a second profile: launch home pinned
@@ -45,7 +48,9 @@ def test_delete_from_a_pinned_multiplexer_targets_the_victims_unit_only(two_home
 
     assert not victim_unit.exists()
     assert host_unit.exists(), "the host multiplexer's own unit must survive a profile delete"
-    assert ["systemctl", "--user", "disable", "hermes-gateway-victim"] in calls
-    assert not any(c[:3] == ["systemctl", "--user", "disable"] and c[3] == "hermes-gateway" for c in calls)
+    assert ["systemctl", "--user", "disable", "loki-gateway-victim"] in calls
+    assert foreign_unit.read_bytes() == foreign_bytes
+    assert not any("hermes-gateway-victim" in c for c in calls)
+    assert not any(c[:3] == ["systemctl", "--user", "disable"] and c[3] == "loki-gateway" for c in calls)
     # The caller's process home is restored: the process still is the launch profile afterwards.
     assert profiles.os.environ["HERMES_HOME"] == str(launch)

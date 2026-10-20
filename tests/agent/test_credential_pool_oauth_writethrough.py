@@ -429,3 +429,10 @@ def test_manual_hermes_pkce_refresh_does_not_create_duplicate_singleton(
     assert matching[0].source == "manual:hermes_pkce"
     assert matching[0].refresh_token == "manual-rt-1"
 
+
+
+@pytest.mark.parametrize("product_home", [".loki", ".hermes"])
+def test_pytest_root_write_guard_protects_both_products(tmp_path, monkeypatch, product_home):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    assert CP._guarded_global_root(tmp_path / product_home / "auth.json") is None
+    assert CP._guarded_global_root(tmp_path / "explicit-test-store" / "auth.json") is not None

@@ -28,7 +28,7 @@ from utils import fast_safe_load, file_signature
 logger = logging.getLogger(__name__)
 
 # POSIX default. Other-platform locations belong ONLY inside get_managed_dir().
-_DEFAULT_MANAGED_DIR = Path("/etc/hermes")
+_DEFAULT_MANAGED_DIR = Path("/etc/loki")
 
 _CACHE_LOCK = threading.Lock()
 # path_key -> (*file_signature, parsed)

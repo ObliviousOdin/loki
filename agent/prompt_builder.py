@@ -91,7 +91,7 @@ def _scan_context_content(content: str, filename: str, *, user_authored: bool = 
     protected-instruction approval gate (``tools/file_tools_write_guards.py``) and project checkouts never
     supply it — so a user who *documents* "ignore previous instructions" in their security guidance
     must not lose their whole identity file to a one-line log entry (#112570). Project-dir files
-    (repo AGENTS.md / .cursorrules / .hermes.md) arrive with the checkout and keep blocking, and so does
+    (repo AGENTS.md / .cursorrules / .loki.md) arrive with the checkout and keep blocking, and so does
     a SOUL.md owned by a profile distribution (``hermes profile install <git-url>`` copies it in unscanned;
     ``load_soul_md`` passes ``user_authored=False`` when ``distribution.yaml`` owns the file).
     """
@@ -138,12 +138,12 @@ def _is_dir_or_denied(path: Path) -> bool:
 
 
 def _find_hermes_md(cwd: Path) -> Optional[Path]:
-    """Nearest ``.hermes.md`` / ``HERMES.md`` from *cwd* up to the git root, else None."""
+    """Nearest ``.loki.md`` / ``LOKI.md`` from *cwd* up to the git root, else None."""
     stop_at = _find_git_root(cwd)
     current = cwd.resolve()
     # No git root: cwd only — walking parents could pick up a file planted in /tmp, /home, etc.
     for directory in [current, *current.parents] if stop_at else [current]:
-        found = next((directory / n for n in (".hermes.md", "HERMES.md") if _is_file_or_denied(directory / n)), None)
+        found = next((directory / n for n in (".loki.md", "LOKI.md") if _is_file_or_denied(directory / n)), None)
         if found or directory == stop_at:
             return found
     return None
@@ -159,7 +159,7 @@ def _strip_yaml_frontmatter(content: str) -> str:
 DEFAULT_AGENT_IDENTITY = (
     # A behavior spec (sizing rule, named prohibitions, earned-depth escape hatch), not a trait list — trait
     # lists change nothing. Maintainer rule: models UNDER-explore by default; never re-add an exploration-thrift line.
-    "You are Hermes Agent, built by Nous Research. Be direct: match the length of your reply to the weight of the ask "
+    "You are Loki, a personal AI agent. Be direct: match the length of your reply to the weight of the ask "
     "— a one-line question gets a one-line answer, and finished work gets a short report of what changed, what's "
     "verified, and what's left, never a replay of the process. No filler (\"Great question,\" \"I'd be happy to\"), no "
     "restating the request back, no re-summarizing what you already said, no narrating tool calls the user can see. "
@@ -168,25 +168,22 @@ DEFAULT_AGENT_IDENTITY = (
 )
 
 HERMES_AGENT_HELP_GUIDANCE = (
-    # Injected only when skill_view exists AND the hermes-agent skill is installed (system_prompt.py slot
-    # resolution). No "when the two differ" clause: docs-are-authoritative already carries the precedence.
-    "You run on Hermes Agent (by Nous Research). When the user needs help with Hermes itself — configuring, "
-    "setting up, using, extending, or troubleshooting it — or when you need to understand your own features, "
-    "tools, or capabilities, the documentation at https://hermes-agent.nousresearch.com/docs is your "
-    "authoritative reference and always holds the latest, most up-to-date information. The `hermes-agent` "
-    "skill has the actual commands and proven workflows — load it with skill_view(name='hermes-agent') "
-    "before configuring, modifying, or troubleshooting Hermes so you don't guess or invent workarounds."
+    "You run on Loki. For installation, configuration, "
+    "updates and preview limitations, first read this checkout's docs/loki/INSTALL.md, MAINTENANCE.md and "
+    "VERIFICATION.md. They describe Loki's own commands, data directories, credentials and release source. "
+    "The retained `hermes-agent` skill is an upstream architecture and workflow reference; load it with "
+    "skill_view(name='hermes-agent') when relevant, adapting examples to `loki`, `LOKI_*` and Loki directories. "
+    "Never run upstream installers or assume upstream hosted accounts, OAuth applications or signing credentials. "
+    "Upstream documentation is reference material for the pinned baseline, not proof of current Loki behavior."
 )
 
-# Variant for sessions without the skills toolset (e.g. Blank Slate): naming skill_view() there would dangle.
+# Sessions without the skills toolset must not advertise an unavailable tool.
 HERMES_AGENT_HELP_GUIDANCE_NO_SKILLS = (
-    "You run on Hermes Agent (by Nous Research). When the user needs help with Hermes itself — configuring, "
-    "setting up, using, extending, or troubleshooting it — or when you need to understand your own features, "
-    "tools, or capabilities, the documentation at https://hermes-agent.nousresearch.com/docs is the "
-    "authoritative reference and always holds the latest, most up-to-date information. Point the user there "
-    "(or read it yourself if you have a way to fetch web content)."
+    "You run on Loki. For setup, configuration, updates "
+    "and preview limitations, read this checkout's docs/loki/INSTALL.md, MAINTENANCE.md and VERIFICATION.md. "
+    "Use `loki`, `LOKI_*` and Loki directories. Upstream Hermes documentation is reference material for the "
+    "pinned baseline; never run upstream installers or assume upstream hosted or signing credentials."
 )
-
 
 # Keep the every-session memory scope even when task knowledge cannot be saved as a skill.
 def build_memory_guidance(
@@ -1607,7 +1604,7 @@ def _context_section(content: str, label: str, warn_name: str, path: Path, conte
 
 
 def _hermes_md_candidates(cwd_path: Path) -> list[tuple[str, Path, str]]:
-    """.hermes.md / HERMES.md — nearest match walking up to the git root."""
+    """.loki.md / LOKI.md — nearest match walking up to the git root."""
     path = _find_hermes_md(cwd_path)
     if path is None:
         return []
@@ -1695,10 +1692,10 @@ def _project_context_suppressed(cwd: Optional[str], cwd_path: Path, allow_instal
 
 
 def _load_hermes_md(cwd_path: Path, context_length: Optional[int] = None) -> str:
-    """.hermes.md / HERMES.md — nearest match walking up to the git root."""
+    """.loki.md / LOKI.md — nearest match walking up to the git root."""
     for label, path, content in _hermes_md_candidates(cwd_path):
         if content:
-            return _context_section(_strip_yaml_frontmatter(content), label, ".hermes.md", path, context_length)
+            return _context_section(_strip_yaml_frontmatter(content), label, ".loki.md", path, context_length)
     return ""
 
 
@@ -1752,7 +1749,7 @@ def build_context_files_prompt(
 ) -> str:
     """Discover and load context files for the system prompt (each capped, see ``_get_context_file_max_chars``).
 
-    Only ONE project context type loads, first found wins: .hermes.md/HERMES.md (walk to git root) →
+    Only ONE project context type loads, first found wins: .loki.md/LOKI.md (walk to git root) →
     AGENTS.md chain (git root → cwd) → CLAUDE.md (cwd) → .cursorrules + .cursor/rules/*.mdc (cwd). SOUL.md
     from HERMES_HOME is independent and always included unless *skip_soul* (already the identity slot).
     """

@@ -18,7 +18,9 @@ it.each([
   })
   const config = JSON.parse(result)
   const feed = feedContract.darwinFeed(channel, light)
-  expect(config.publish).toEqual([{ provider: 'generic', url: `https://updates.example/${feed.directory}/`, channel: feed.channel }])
+  expect(feed.channel).toBe(channel)
+  expect(feed.directory).toBe(`releases/darwin/${light ? 'light/' : ''}${channel}`)
+  expect(config.publish).toBeNull()
   expect(config.targets).toContain('zip')
   expect(config.notarize).toBe(false)
 })
@@ -34,6 +36,6 @@ it('bakes only a canonical https feed base into the updater config', () => {
     cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     env: { ...process.env, HERMES_DESKTOP_VARIANT: 'bundled', HERMES_PAYLOAD_TAG: 'v0.28.0', CLOUDFLARE_R2_PUBLIC_URL: url }
   })
-  expect(JSON.parse(build('https://updates.example/'))).toEqual([{ provider: 'generic', url: 'https://updates.example', channel: 'latest' }])
-  expect(() => build('http://updates.example')).toThrow(/canonical https/)
+  expect(JSON.parse(build('https://updates.example/'))).toBeNull()
+  expect(JSON.parse(build('http://updates.example'))).toBeNull()
 })

@@ -6,6 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("loki_oauth_test_apps")
+
 from hermes_cli.auth import (
     AuthError,
     DEFAULT_CODEX_BASE_URL,

@@ -24,6 +24,7 @@ import pytest
 from hermes_cli.observability.shared_metrics_consent import OFFER_VERSION
 from tests.gateway.fixtures.local_recovery_probe import Model
 from tests.gateway.test_normal_runtime_boot import control
+from tests.loki_child_fixture import bind_fixture_child_env
 
 
 @contextlib.contextmanager
@@ -48,6 +49,7 @@ def classic_session(tmp_path):
     env = {k: os.environ[k] for k in ("PATH", "LANG", "TZ") if k in os.environ}
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED="1", OPENAI_API_KEY="loopback-only", OPENAI_BASE_URL=url)
+    env = bind_fixture_child_env(env)
     tmux_name = "hermes-cli-cmds-" + uuid.uuid4().hex
 
     def tmux(*args):
@@ -110,7 +112,7 @@ def classic_session(tmp_path):
             # The banner prints before prompt_toolkit owns the tty: keys typed then are echoed raw and
             # reach the app in one burst with their Enter (a newline, not a submit). The drawn
             # composer row means the app is reading keys.
-            while not ("Welcome to Hermes Agent" in screen() and composer_shows("")):
+            while not ("Welcome to Loki Agent" in screen() and composer_shows("")):
                 assert time.monotonic() < deadline, (screen(), (home / "gw.log").read_text())
                 time.sleep(.1)
             yield send, screen, db, session_id

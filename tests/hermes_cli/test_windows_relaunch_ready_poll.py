@@ -65,7 +65,7 @@ def test_one_gateway_never_retires_two_unmapped_debts(running, monkeypatch, tmp_
 
     from hermes_cli import gateway
     monkeypatch.setattr(update_cmd_windows, "_RELAUNCH_VERIFY_TIMEOUT_S", 3.0)
-    entry = tmp_path / "bin" / "hermes"
+    entry = tmp_path / "bin" / "loki"
     entry.parent.mkdir()
     entry.write_text("import time\ntime.sleep(60)\n", encoding="utf-8")
     argv = [sys.executable, str(entry), "gateway", "run"]

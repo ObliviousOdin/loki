@@ -412,7 +412,7 @@ def record_build_stage(followups) -> None:
     record_stage("build", "failed" if any(step in BUILD_FOLLOWUPS for step, _ in followups) else "success")
 
 
-def record_followup(step: str, reason: str, *, retry: str = "the next launch or `hermes update` retries it") -> None:
+def record_followup(step: str, reason: str, *, retry: str = "the next launch or `loki update` retries it") -> None:
     """A post-commit step failed: print ⚠, keep the run a success, and say what is still owed.
 
     The code already committed, so the update does not fail; the step's own obligation (the
@@ -925,7 +925,7 @@ def finalize_interrupted_update_receipt(stop_reason: str, *, exit_code: int = 13
     along (the completion child persisted stages this process never saw).
     """
     print("⚠ Interrupted after the code was updated: the new code is in place; its remaining steps are owed "
-          "and the next launch or `hermes update` finishes them.", flush=True)
+          "and the next launch or `loki update` finishes them.", flush=True)
     if _current.get() is None:
         return None
     closed = resume_run_record()

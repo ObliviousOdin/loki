@@ -88,3 +88,18 @@ def test_write_through_failure_does_not_break_profile_save(profile_and_root, mon
 
     profile = _read_store(profile_path)
     assert profile["providers"]["xai-oauth"]["tokens"]["refresh_token"] == "r"
+
+
+def test_write_through_never_touches_the_real_loki_root_under_pytest(tmp_path, monkeypatch):
+    from unittest.mock import Mock
+    from hermes_cli.auth_xai import _write_through_xai_oauth_to_global_root
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setattr(auth, "_global_auth_file_path", lambda: tmp_path / ".loki" / "auth.json")
+    persist = Mock()
+    monkeypatch.setattr(auth, "_persist_provider_state_to_store", persist)
+
+    _write_through_xai_oauth_to_global_root({"tokens": {"access_token": "fixture"}})
+
+    persist.assert_not_called()
+    assert not (tmp_path / ".loki").exists()

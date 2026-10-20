@@ -1,17 +1,17 @@
 import assert from 'node:assert/strict'
-import { exec as execCallback, spawn } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import { mkdtemp, readFile, rm } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
-import { promisify } from 'node:util'
 
 import { test } from 'vitest'
 
 import {
   assertWindowsRemoteInstallUpdateClear,
-  atomicWindowsSpawnCommand,
+  atomicWindowsSpawn,
+  atomicWindowsSpawnScript,
   buildWindowsInteractiveCommand,
   connectWindowsRemote,
   detectRemotePlatform,
@@ -19,8 +19,10 @@ import {
   helper,
   helperCommand,
   powerShellCommand,
+  powerShellStdinCommand,
   probeWindowsRemote,
   psLiteral,
+  resolveWindowsRemoteRuntime,
   reusableWindowsLock,
   terminateOwnedWindowsDashboardForUpdate,
   validLock
@@ -29,23 +31,23 @@ import {
 const ownershipId = '0123456789abcdef0123456789abcdef'
 
 test('Windows spawn holds the update mutex across marker check and helper spawn', () => {
-  const command = atomicWindowsSpawnCommand({
+  const command = atomicWindowsSpawnScript({
     hermesHome: 'C:\\Users\\andre\\.hermes',
     python: 'C:\\Users\\andre\\.hermes\\python.exe'
   })
 
-  const encoded = command.match(/-EncodedCommand\s+([^\s]+)$/)?.[1]
-  const script = encoded ? Buffer.from(encoded, 'base64').toString('utf16le') : ''
+  const script = command
   assert.match(script, /\.hermes-update-in-progress/)
   assert.match(
     script,
     /\$marker\+"\.lock",\[IO\.FileMode\]::OpenOrCreate,\[IO\.FileAccess\]::ReadWrite,\[IO\.FileShare\]::None/
   )
-  assert.match(script, /windows_ssh_runtime.*spawn/)
+  assert.match(script, /\$runtimeArgs=@\('-m','hermes_cli.windows_ssh_runtime'\)/)
+  assert.match(script, /& \$runtimeExe @runtimeArgs 'spawn'/)
 })
 
 test('Windows spawn publishes the initial ownership record before releasing the mutex', () => {
-  const command = atomicWindowsSpawnCommand(
+  const command = atomicWindowsSpawnScript(
     {
       hermesHome: 'C:\\Users\\andre\\.hermes',
       python: 'C:\\Users\\andre\\.hermes\\python.exe'
@@ -61,8 +63,7 @@ test('Windows spawn publishes the initial ownership record before releasing the 
     }
   )
 
-  const encoded = command.split(' ').at(-1) || ''
-  const script = encoded ? Buffer.from(encoded, 'base64').toString('utf16le') : ''
+  const script = command
 
   assert.match(script, /read-lock/)
   assert.match(script, /write-lock/)
@@ -76,8 +77,9 @@ test.runIf(process.platform === 'win32')(
   async () => {
     const root = await mkdtemp(path.join(os.tmpdir(), 'hermes-win-marker-'))
     const marker = path.join(root, '.hermes-update-in-progress')
-    const run = (command: string) => promisify(execCallback)(command, { timeout: 30_000 })
-    const command = atomicWindowsSpawnCommand({ hermesHome: root, python: path.join(root, 'missing-python.exe') })
+    const python = path.join(root, 'venv', 'Scripts', 'python.exe')
+    const run = (script: string) => runLocalWindowsCommand(powerShellStdinCommand(), `${encodedPowerShell(script)}\r\n`, 30_000)
+    const command = atomicWindowsSpawnScript({ hermesHome: root, python })
 
     // An updater: hold <marker>.lock sharing nothing (marker.ps1 Open-MarkerLock),
     // write its v2 claim, release, and stay alive as the live owner.
@@ -107,14 +109,15 @@ test.runIf(process.platform === 'win32')(
     try {
       await new Promise(resolve => updater.stdout.once('data', resolve))
       await assert.rejects(run(command), (error: any) =>
-        String(error.stderr).includes(`remote update marker is LIVE:${updater.pid}`)
+        String(error.message).includes(`remote update marker is LIVE:${updater.pid}`)
       )
 
       updater.kill()
       await new Promise(resolve => updater.once('exit', resolve))
       await assertWindowsRemoteInstallUpdateClear(
-        sshWith(async (probe: string) => (await run(probe)).stdout),
-        root
+        sshWith(async (probe: string, options: SshExecOptions) => runLocalWindowsCommand(probe, options.stdinData)),
+        root,
+        python
       )
       // The dead claim is deleted inside the hold; the missing python then fails the spawn itself.
       await assert.rejects(run(command))
@@ -140,7 +143,7 @@ function scriptFromInvocation(command: string, options: SshExecOptions = {}) {
     return Buffer.from(encoded, 'base64').toString('utf16le')
   }
 
-  return Buffer.from(String(options.stdinData || '').trim(), 'base64').toString('utf16le')
+  return options.stdinData ? Buffer.from(String(options.stdinData).trim(), 'base64').toString('utf16le') : command
 }
 
 test('PowerShell transport uses UTF-16LE encoded commands and literal escaping', () => {
@@ -174,7 +177,7 @@ test('every emitted PowerShell script keeps try blocks attached to their catch/f
     'C:\\Users\\alice\\.hermes'
   )
   scripts.push(
-    decode(atomicWindowsSpawnCommand({ hermesHome: 'C:\\Users\\alice\\.hermes', python: 'C:\\py\\python.exe' })),
+    decode(atomicWindowsSpawnScript({ hermesHome: 'C:\\Users\\alice\\.hermes', python: 'C:\\py\\python.exe' })),
     decode(buildWindowsInteractiveCommand('C:\\work'))
   )
 
@@ -201,7 +204,7 @@ test('Windows relaunch gate refuses live and uncertain markers before executing 
       const script = scriptFromInvocation(command, options)
       scripts.push(script)
 
-      if (script.includes('Get-Command hermes.exe')) {
+      if (script.includes('Get-Command $name')) {
         return JSON.stringify({
           os: 'Windows',
           arch: 'AMD64',
@@ -244,7 +247,7 @@ test('Windows gates keep a dead marker while the checkout lock or a lease byte i
   // 1048576 -- of the installer checkout and the runtime python's checkout is free.
   const decode = (command: string, options: SshExecOptions = {}) => scriptFromInvocation(command, options)
   const runtime = { hermesHome: 'C:\\Users\\alice\\.hermes', python: 'C:\\src\\hermes\\venv\\Scripts\\python.exe' }
-  const spawnScript = decode(atomicWindowsSpawnCommand(runtime))
+  const spawnScript = decode(atomicWindowsSpawnScript(runtime))
   let probeScript = ''
 
   const observed = await assertWindowsRemoteInstallUpdateClear(
@@ -298,7 +301,7 @@ test('Windows relaunch gate uses strict install-wide marker parsing and fail-clo
   assert.doesNotMatch(script, /ErrorAction SilentlyContinue/)
 })
 
-test('Windows probe validates Hermes and Python topology before selection', async () => {
+test('Windows probe validates launcher topology without assuming adjacent Python', async () => {
   let script = ''
   await probeWindowsRemote(
     sshWith(async (command, options) => {
@@ -315,29 +318,79 @@ test('Windows probe validates Hermes and Python topology before selection', asyn
     'C:\\\\h\\\\hermes.exe'
   )
 
-  const explicitCheck = script.indexOf('if($explicit){Assert-NoReparse $explicit $false;')
-  const explicitPythonCheck = script.indexOf('Assert-NoReparse $explicitPython $false')
-  const envHome = script.indexOf('$hermesHome=$env:HERMES_HOME')
-  // #118988: HERMES_HOME is trusted only when it is a directory on the remote; anything else
-  // (stale User-scope value, client path leaked over SSH) falls back to the remote default.
+  const explicitCheck = script.indexOf('if($explicit){Assert-NoReparse $explicit $false}')
+  const envHome = script.indexOf('$hermesHome=$env:LOKI_HOME')
+  // The public override must actually be a directory on the remote.
   const envHomeGuard = script.indexOf('Test-Path -LiteralPath $hermesHome -PathType Container')
   const fallbackJoin = script.indexOf('Join-Path $hermesHome')
-  const candidatePythonCheck = script.indexOf('Assert-NoReparse $candidatePython $true')
+  const candidateCheck = script.indexOf('Assert-NoReparse $candidate $true')
   const candidateSelection = script.indexOf('Get-Item -LiteralPath $candidate')
-  const pythonJoin = script.indexOf('$python=[IO.Path]::Combine')
-  const pythonCheck = script.indexOf('Assert-NoReparse $python $false')
   const output = script.indexOf('[ordered]@{')
 
   assert.ok(explicitCheck >= 0)
-  assert.ok(explicitCheck < explicitPythonCheck)
-  assert.ok(explicitPythonCheck < envHome)
+  assert.ok(explicitCheck < envHome)
   assert.ok(envHome < envHomeGuard)
   assert.ok(envHomeGuard < fallbackJoin)
-  assert.ok(candidatePythonCheck >= 0)
-  assert.ok(candidatePythonCheck < candidateSelection)
-  assert.ok(pythonJoin >= 0)
-  assert.ok(pythonJoin < pythonCheck)
-  assert.ok(pythonCheck < output)
+  assert.ok(candidateCheck >= 0)
+  assert.ok(candidateCheck < candidateSelection)
+  assert.ok(candidateSelection < output)
+  assert.doesNotMatch(script, /candidatePython|explicitPython|cmdPython/)
+})
+
+test('Windows runtime query is marker-gated and helpers use the published launcher', async () => {
+  const calls: string[] = []
+  const moduleCommand = ['C:\\tools\\python.exe', '-I', '-c', "import runpy; runpy.run_module('hermes_cli.windows_ssh_runtime',run_name='__main__')"]
+
+  const runtime = await resolveWindowsRemoteRuntime(sshWith(async (command, options) => {
+    const script = scriptFromInvocation(command, options)
+
+    calls.push(script)
+
+    return script.includes('--print-runtime-command')
+      ? JSON.stringify({ python: moduleCommand[0], moduleCommand })
+      : 'CLEAR'
+  }), { hermesPath: 'C:\\loki\\bin\\loki.exe', hermesHome: 'C:\\loki' })
+
+  assert.equal(calls.length, 3)
+  assert.match(calls[0], /\.hermes-update-in-progress/)
+  assert.match(calls[1], /--print-runtime-command --module hermes_cli.windows_ssh_runtime/)
+  assert.match(calls[2], /\.hermes-update-in-progress/)
+  assert.equal(runtime.python, moduleCommand[0])
+
+  for (const command of [helperCommand(runtime, 'probe'), atomicWindowsSpawnScript(runtime)]) {
+    const script = scriptFromInvocation(command)
+
+    assert.ok(script.includes(psLiteral(runtime.hermesPath)))
+    assert.ok(script.includes(psLiteral('--run-module')))
+    assert.ok(script.includes(psLiteral('hermes_cli.windows_ssh_runtime')))
+    assert.match(script, /\$env:LOKI_HOME='C:\\loki'/)
+    assert.doesNotMatch(script, /'-m' 'hermes_cli.windows_ssh_runtime'/)
+  }
+})
+
+test('Windows runtime query never executes a launcher behind a held or uncertain marker', async () => {
+  for (const verdict of ['LIVE:4242', 'UNCERTAIN', 'HELD']) {
+    const calls: string[] = []
+
+    await assert.rejects(resolveWindowsRemoteRuntime(sshWith(async (command, options) => {
+      calls.push(scriptFromInvocation(command, options))
+
+      return verdict
+    }), { hermesPath: 'C:\\loki\\bin\\loki.exe', hermesHome: 'C:\\loki' }), (error: any) => error.kind === 'update-in-progress')
+    assert.equal(calls.length, 1)
+    assert.doesNotMatch(calls[0], /--print-runtime-command/)
+  }
+})
+
+test('Windows runtime query refuses object-shaped command wrappers from the wire', async () => {
+  const python = 'C:\\tools\\python.exe'
+  const wrapped = { value: [python, '-I', '-c', 'pass'], Count: 4 }
+
+  await assert.rejects(resolveWindowsRemoteRuntime(sshWith(async (command, options) =>
+    scriptFromInvocation(command, options).includes('--print-runtime-command')
+      ? JSON.stringify({ python, moduleCommand: wrapped })
+      : 'CLEAR'
+  ), { hermesPath: 'C:\\loki\\bin\\loki.exe', hermesHome: 'C:\\loki' }), /did not report a valid runtime command/)
 })
 
 const CLEAN_PROBE_RESULT = JSON.stringify({
@@ -434,7 +487,7 @@ test('every parsed Windows PowerShell script silences the progress stream', asyn
     'C:\\h'
   )
   scripts.push(
-    decode(atomicWindowsSpawnCommand({ hermesHome: 'C:\\h', python: 'C:\\py\\python.exe' })),
+    decode(atomicWindowsSpawnScript({ hermesHome: 'C:\\h', python: 'C:\\py\\python.exe' })),
     decode(helperCommand({ python: 'C:\\py\\python.exe' }, 'inspect', []))
   )
 
@@ -527,6 +580,10 @@ test('every Windows probe command fits the cmd.exe 8191-char limit (#106716)', a
 
     const script = scriptFromInvocation(command, options)
 
+    if (script.includes('$payload=')) {
+      return JSON.stringify({ pid: 4242, creationTimeNs: '1234567890' })
+    }
+
     if (script.includes('.hermes-update-in-progress')) {
       return 'CLEAR'
     }
@@ -547,12 +604,13 @@ test('every Windows probe command fits the cmd.exe 8191-char limit (#106716)', a
 
   await probeWindowsRemote(ssh, longExplicit)
   await assertWindowsRemoteInstallUpdateClear(ssh, longHome)
+  await atomicWindowsSpawn(ssh, { hermesHome: longHome, python: `${longHome}\\python.exe` }, JSON.stringify({ profile: "o'neil\n한글", hermesPath: longExplicit }))
   commands.push(
     helperCommand({ python: `${longHome}\\python.exe` }, 'inspect', [longExplicit]),
     buildWindowsInteractiveCommand(longHome)
   )
 
-  assert.ok(commands.length >= 4)
+  assert.ok(commands.length >= 5)
 
   for (const command of commands) {
     assert.ok(
@@ -562,16 +620,21 @@ test('every Windows probe command fits the cmd.exe 8191-char limit (#106716)', a
   }
 })
 
-function runLocalWindowsCommand(command, stdinData) {
+function runLocalWindowsCommand(command, stdinData, timeoutMs = 30_000) {
   return new Promise((resolve, reject) => {
     const child = spawn('cmd.exe', ['/d', '/s', '/c', command], { windowsHide: true })
     const stdout: Buffer[] = []
     const stderr: Buffer[] = []
+    const timer = setTimeout(() => child.kill(), timeoutMs)
 
     child.stdout.on('data', chunk => stdout.push(chunk))
     child.stderr.on('data', chunk => stderr.push(chunk))
-    child.once('error', reject)
+    child.once('error', error => {
+      clearTimeout(timer)
+      reject(error)
+    })
     child.once('close', code => {
+      clearTimeout(timer)
       const out = Buffer.concat(stdout).toString('utf8')
 
       if (code === 0) {
@@ -593,7 +656,6 @@ test.skipIf(process.platform !== 'win32')('Windows platform probe executes in re
 
   try {
     fs.writeFileSync(hermesPath, '')
-    fs.writeFileSync(path.join(tempDir, 'python.exe'), '')
 
     const result = await probeWindowsRemote(
       {
@@ -604,7 +666,8 @@ test.skipIf(process.platform !== 'win32')('Windows platform probe executes in re
 
     assert.equal(result.os, 'Windows')
     assert.equal(result.hermesPath, hermesPath)
-    assert.equal(result.python, path.join(tempDir, 'python.exe'))
+    // Interpreter discovery is a separate marker-gated launcher query.
+    assert.equal(result.python, undefined)
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true })
   }

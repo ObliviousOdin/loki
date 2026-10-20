@@ -9,8 +9,11 @@ from fastapi.testclient import TestClient
 def test_message_pages_identify_the_serving_profile(tmp_path, monkeypatch, serving_profile):
     from hermes_state import SessionDB
 
+    from hermes_constants import _get_platform_default_hermes_home
+
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
-    default_home = tmp_path / ".hermes"
+    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "appdata"))
+    default_home = _get_platform_default_hermes_home()
     work_home = default_home / "profiles" / "work" if serving_profile else default_home / "custom-home"
     default_home.mkdir(parents=True)
     work_home.mkdir(parents=True)

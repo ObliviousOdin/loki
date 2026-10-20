@@ -65,7 +65,7 @@ def completion(tmp_path, monkeypatch):
     # A real venv: isolated build children (icon generation, npm lifecycle scripts) run on the
     # selected generation's own interpreter, not on the store Python that hosts the completion.
     generation = install_state_dir(source) / "environments/prepared"
-    subprocess.run([str(python), "-m", "venv", "--without-pip", str(generation)],
+    subprocess.run([str(python), "-m", "venv", "--without-pip", "--symlinks", str(generation)],
                    check=True, capture_output=True)
     site = site_packages(generation)
     assert site.is_dir()
@@ -359,8 +359,8 @@ def test_missing_desktop_observation_uses_installed_products(completion, capture
     if installed == "renderer":
         _put(source, "apps/desktop/dist/index.html", "old renderer")
     elif installed == "packaged":
-        executable = ("mac-arm64/Hermes.app/Contents/MacOS/Hermes" if sys.platform == "darwin"
-                      else "linux-unpacked/hermes")
+        executable = ("mac-arm64/Loki.app/Contents/MacOS/Loki" if sys.platform == "darwin"
+                      else "linux-unpacked/loki")
         _put(source, f"apps/desktop/release/{executable}", "old packaged app")
     before = context.read_bytes()
     child = run()
@@ -417,6 +417,8 @@ def _npm_graph(source):
     '''))
     _put(source, "packages/value/index.js", "export const value = 'compiled local graph';\n")
     _put(source, "packages/value/index.d.ts", "export const value: string;\n")
+    shutil.copytree(ROOT / "ui-tui/scripts", source / "ui-tui/scripts",
+                    ignore=shutil.ignore_patterns("__pycache__"))
     _put(source, "ui-tui/src/entry.tsx", "import { value } from 'fixture-value'; console.log(value);\n")
     _put(source, "web/src/main.ts", "import { value } from 'fixture-value'; document.body.textContent = value;\n")
     _put(source, "web/index.html", '<html><body><script type="module" src="/src/main.ts"></script></body></html>')
@@ -443,6 +445,7 @@ def test_selected_child_builds_and_finalizes_under_parent_lock(completion):
         child = run()
         assert child.returncode == 0, child.stdout + child.stderr
         assert lock.path.read_bytes() == marker, "completion must not release its parent's lock"
+    assert (source / "ui-tui/dist/entry.js").is_file(), child.stdout + child.stderr
     built = subprocess.run([node, str(source / "ui-tui/dist/entry.js")],
                            capture_output=True, text=True, check=True)
     assert built.stdout.strip() == "compiled local graph"
@@ -491,7 +494,7 @@ def test_real_compiler_failure_is_owed_build_and_completion_continues(completion
     assert child.returncode == 0, child.stdout + child.stderr
     assert "TypeScript build failed" in child.stdout + child.stderr
     assert (source / "npm-python.json").is_file()
-    assert (source / "ui-tui/dist/entry.js").is_file()
+    assert (source / "ui-tui/dist/entry.js").is_file(), child.stdout + child.stderr
     assert not (source / "hermes_cli/web_dist/index.html").exists()
     # Maintenance and the fleet restart were not skipped by the build failure.
     config = hermes_yaml.safe_load((home / "config.yaml").read_text())

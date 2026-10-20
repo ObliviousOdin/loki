@@ -1021,7 +1021,7 @@ def test_find_windows_gateway_services_ignores_task_scheduler_ancestor(monkeypat
         )
 
     assert run(FakeService("Schedule", r"C:\Windows\system32\svchost.exe -k netsvcs -p -s Schedule")) == []
-    owned = run(FakeService("gw", r'"C:\hermes\hermes-agent\venv\Scripts\hermes.exe" gateway run'))
+    owned = run(FakeService("gw", r'"C:\hermes\hermes-agent\venv\Scripts\loki.exe" gateway run'))
     assert [(s.name, s.service_pid, s.gateway_pid) for s in owned] == [("gw", 2360, 18480)]
 
     # QueryServiceConfig unreadable to this user (hardened or malformed third-party service): not
@@ -1036,8 +1036,8 @@ def test_find_windows_gateway_services_ignores_task_scheduler_ancestor(monkeypat
 
     assert run(UnreadableConfigService("Hardened", psutil.AccessDenied(2360, "Hardened"))) == []
     assert run(UnreadableConfigService("BrokenMui", OSError(15100, "MUI file missing"))) == []
-    named = run(UnreadableConfigService("HermesGateway", OSError(15100, "MUI file missing")))
-    assert [(s.name, s.service_pid, s.gateway_pid) for s in named] == [("HermesGateway", 2360, 18480)]
+    named = run(UnreadableConfigService("LokiGateway", OSError(15100, "MUI file missing")))
+    assert [(s.name, s.service_pid, s.gateway_pid) for s in named] == [("LokiGateway", 2360, 18480)]
 
 
 

@@ -266,7 +266,7 @@ class CodexAppServerSession:
             return self._thread_id
         if self._client is None:
             self._client = self._client_factory(codex_bin=self._codex_bin, codex_home=self._codex_home)
-            self._client.initialize(client_name="hermes", client_title="Hermes Agent", client_version=_get_hermes_version())
+            self._client.initialize(client_name="loki", client_title="Loki", client_version=_get_hermes_version())
         # Permissions are NOT sent on thread/start: codex gates ``thread/start.permissions``
         # behind experimentalApi + a matching ``[permissions]`` table in ~/.codex/config.toml.
         # Hermes supplies the agent identity through its own system prompt; ``personality: "none"`` strips
@@ -840,10 +840,12 @@ def _has_turn_aborted_marker(text: str) -> bool:
 
 
 def _get_hermes_version() -> str:
-    """Best-effort Hermes version string for codex's userAgent line."""
+    """Owned Loki version string for the external client identity."""
+    from loki_identity import DISTRIBUTION, VERSION
+
     try:
         from importlib.metadata import version
 
-        return version("hermes-agent")
+        return version(DISTRIBUTION)
     except Exception:  # pragma: no cover
-        return "0.0.0"
+        return VERSION

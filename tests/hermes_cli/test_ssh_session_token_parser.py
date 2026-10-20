@@ -10,7 +10,7 @@ from hermes_cli.main_dashboard import _read_ssh_session_token_file
 def test_token_file_is_read_and_unlinked_through_private_directory(tmp_path, monkeypatch):
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    hermes_home = home / ".hermes"
+    hermes_home = home / ".loki"
     token_dir = hermes_home / "desktop-ssh" / ("a" * 32)
     token_dir.mkdir(parents=True, mode=0o700)
     token_path = token_dir / "0123456789abcdef.token"
@@ -27,21 +27,21 @@ def test_token_file_is_read_and_unlinked_through_private_directory(tmp_path, mon
 @pytest.mark.platforms("posix")  # POSIX desktop-ssh token path
 def test_token_anchor_is_os_home_not_active_profile(tmp_path, monkeypatch):
     """Regression for #69551: the Desktop client always writes the token under
-    ``$HOME/.hermes/desktop-ssh`` (a literal ``~/.hermes/desktop-ssh`` in
+    ``$HOME/.loki/desktop-ssh`` (a literal ``~/.loki/desktop-ssh`` in
     apps/desktop/electron/remote-lifecycle.ts, expanded against the account's
     $HOME). A non-default sticky profile re-homes ``get_hermes_home()`` to
     ``<root>/profiles/<name>``, and a Docker-style ``HERMES_HOME`` can point
     elsewhere entirely — neither must move the validator off
-    ``$HOME/.hermes/desktop-ssh``, or the token is wrongly rejected."""
+    ``$HOME/.loki/desktop-ssh``, or the token is wrongly rejected."""
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    token_dir = home / ".hermes" / "desktop-ssh" / ("a" * 32)
+    token_dir = home / ".loki" / "desktop-ssh" / ("a" * 32)
     token_dir.mkdir(parents=True, mode=0o700)
     token_path = token_dir / "0123456789abcdef.token"
 
     # A sticky profile and a custom (Docker) root both point get_hermes_home()
     # away from $HOME/.hermes; the anchor must ignore both.
-    for elsewhere in (home / ".hermes" / "profiles" / "coder", tmp_path / "opt" / "data"):
+    for elsewhere in (home / ".loki" / "profiles" / "coder", tmp_path / "opt" / "data"):
         token_path.write_text("b" * 64)
         token_path.chmod(0o600)
         override = set_hermes_home_override(elsewhere)
@@ -59,7 +59,7 @@ def test_token_under_profile_desktop_ssh_is_rejected(tmp_path, monkeypatch):
     anchor is the OS home, not the active profile (#69551)."""
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    profile_home = home / ".hermes" / "profiles" / "coder"
+    profile_home = home / ".loki" / "profiles" / "coder"
     token_dir = profile_home / "desktop-ssh" / ("a" * 32)
     token_dir.mkdir(parents=True, mode=0o700)
     token_path = token_dir / "0123456789abcdef.token"
@@ -77,14 +77,14 @@ def test_token_under_profile_desktop_ssh_is_rejected(tmp_path, monkeypatch):
 def test_token_file_rejects_symlink(tmp_path, monkeypatch):
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    token_dir = home / ".hermes" / "desktop-ssh" / ("a" * 32)
+    token_dir = home / ".loki" / "desktop-ssh" / ("a" * 32)
     token_dir.mkdir(parents=True, mode=0o700)
     target = tmp_path / "token"
     target.write_text("b" * 64)
     target.chmod(0o600)
     token_path = token_dir / "0123456789abcdef.token"
     token_path.symlink_to(target)
-    override = set_hermes_home_override(home / ".hermes")
+    override = set_hermes_home_override(home / ".loki")
     try:
         with pytest.raises(SystemExit, match="symlink|not accessible"):
             _read_ssh_session_token_file(str(token_path))
@@ -98,12 +98,12 @@ def test_token_file_rejects_symlink(tmp_path, monkeypatch):
 def test_token_file_rejects_parent_escape(tmp_path, monkeypatch):
     home = tmp_path / "home"
     monkeypatch.setenv("HOME", str(home))
-    token_root = home / ".hermes" / "desktop-ssh"
+    token_root = home / ".loki" / "desktop-ssh"
     token_root.mkdir(parents=True, mode=0o700)
     escaped = token_root.parent / "0123456789abcdef.token"
     escaped.write_text("b" * 64)
     escaped.chmod(0o600)
-    override = set_hermes_home_override(home / ".hermes")
+    override = set_hermes_home_override(home / ".loki")
     try:
         with pytest.raises(SystemExit, match="invalid runtime path"):
             _read_ssh_session_token_file(str(token_root / ".." / escaped.name))

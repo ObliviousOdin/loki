@@ -212,7 +212,8 @@ def test_offer_first_run_setup_re_resolves_reasoning_for_picked_model(monkeypatc
     assert shell.reasoning_config["effort"] == "high"
 
 
-def test_offer_first_run_setup_declined(monkeypatch):
+def test_offer_first_run_setup_declined(monkeypatch, capsys):
+    monkeypatch.setenv("HERMES_LANGUAGE", "en")
     cli = _import_cli()
     shell = _make_shell(cli, monkeypatch)
 
@@ -222,6 +223,11 @@ def test_offer_first_run_setup_declined(monkeypatch):
     monkeypatch.setattr("hermes_cli.main.select_provider_and_model", _fail_picker)
     monkeypatch.setattr("builtins.input", lambda *a, **k: "n")
     assert shell._offer_first_run_setup() is False
+    output = capsys.readouterr().out
+    assert "your own API key or local provider" in output
+    assert "your account and a Loki-authorized client" in output
+    assert "'loki model' or 'loki setup'" in output
+    assert "OAuth is the fastest" not in output
 
 
 def test_offer_first_run_setup_picker_cancel_is_graceful(monkeypatch):
@@ -271,7 +277,7 @@ def test_empty_key_error_names_actual_provider(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert "fireworks" in out
     assert "OPENROUTER_API_KEY" not in out
-    assert "hermes model" in out or "hermes setup" in out
+    assert "loki model" in out or "loki setup" in out
 
 
 # ---------------------------------------------------------------------------

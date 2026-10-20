@@ -120,6 +120,18 @@ def install_portal(monkeypatch, tmp_path, fake: FakePortal | None = None) -> Fak
     from hermes_cli import anon_auth, free_tier_bootstrap
     from hermes_cli import auth as auth_mod
 
+    # The fake service is explicitly provisioned for these protocol tests.
+    from copy import deepcopy
+    from hermes_cli import config
+
+    original_config = config.load_config_readonly
+
+    def hosted_config(*args, **kwargs):
+        cfg = deepcopy(original_config(*args, **kwargs) or {})
+        cfg.setdefault("auth", {})["hosted_services"] = True
+        return cfg
+
+    monkeypatch.setattr(config, "load_config_readonly", hosted_config)
     fake = fake or FakePortal()
     monkeypatch.setenv("HERMES_PORTAL_BASE_URL", PORTAL)
     monkeypatch.setenv("HERMES_ANON_API_SECRET", "test-secret")

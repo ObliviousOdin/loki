@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 #: environment variable: AGENTS.md reserves HERMES_* for secrets, and an inherited variable
 #: could silently redirect consented metrics to any host with nothing visible in config.
 #: Tests and the staging E2E write this key into a throwaway profile instead.
-DEFAULT_ENDPOINT = "https://telemetry.nousresearch.com/v1/telemetry"
+DEFAULT_ENDPOINT = ""  # Loki has no telemetry ingest service configured by default.
 
 _LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1", "[::1]"})
 

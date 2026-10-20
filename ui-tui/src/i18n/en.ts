@@ -9,6 +9,8 @@
 //
 // `locales/_keys.tui.json` is generated from this object by `npm run i18n:keys`.
 
+import { brandCatalog } from '@hermes/shared/branding'
+
 import { appEn } from './en/app.js'
 import { billingEn } from './en/billing.js'
 import { canonicalEn } from './en/canonical.js'
@@ -30,7 +32,7 @@ import { slashCmdEn } from './en/slashCmd.js'
 import { subscriptionEn } from './en/subscription.js'
 import { userMessagesEn } from './en/userMessages.js'
 
-export const en = {
+export const en = brandCatalog({
   ...chromeEn,
   ...overlaysEn,
   ...appEn,
@@ -51,7 +53,7 @@ export const en = {
   ...connectionEn,
   ...canonicalEn,
   ...connectorsEn
-}
+})
 
 /** The sibling catalogs `en` is composed from, for the disjointness test. */
 export const EN_SIBLINGS: readonly Record<string, unknown>[] = [

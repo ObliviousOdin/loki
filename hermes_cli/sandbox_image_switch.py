@@ -6,7 +6,7 @@ this module is where the user decides: approve (pin the new image; the next term
 recreates the container — ``/root`` and ``/workspace`` are host mounts and carry over, system
 packages get reinstalled, 3.11 venvs need a rebuild) or keep (pin the image the container runs,
 which also ends the notice). Surfaces: the interactive CLI startup offer here, the Screen pane's
-switch action (``display.switchSandboxImage``) and the plain ``hermes config set``. Headless
+switch action (``display.switchSandboxImage``) and the plain ``loki config set``. Headless
 surfaces (gateway, cron) never decide; they keep the sandbox and log.
 
 Modal restores its snapshot and Daytona reuses its labeled sandbox regardless of the configured
@@ -36,7 +36,7 @@ def pending() -> Optional[PendingSwitch]:
     unpinned default, and a container labeled for this profile runs another image. ``docker`` is
     consulted (one ``ps``); any failure is "nothing pending"."""
     from hermes_cli.config import load_config_readonly
-    from tools.environments.docker import _container_identity, _docker_query, find_docker
+    from tools.environments.docker import _CONTAINER_OWNER_LABEL, _container_identity, _docker_query, find_docker
 
     terminal = (load_config_readonly() or {}).get("terminal") or {}
     if terminal.get("backend") != "docker":
@@ -48,7 +48,7 @@ def pending() -> Optional[PendingSwitch]:
     if not docker or not target:
         return None
     listing = _docker_query(
-        [docker, "ps", "-a", "--filter", "label=hermes-agent=1",
+        [docker, "ps", "-a", "--filter", f"label={_CONTAINER_OWNER_LABEL}=1",
          "--filter", f"label=hermes-profile={_container_identity(str(terminal.get('docker_shared_container_key') or ''))}",
          "--format", "{{.Names}}\t{{.Image}}"],
         timeout=10, fail="sandbox image switch probe failed: %s", nonzero="docker ps exited %s: %s")
@@ -138,5 +138,5 @@ def offer_interactive(*, cprint, ask=input) -> Optional[bool]:
         decide(switch, approve=False)
         cprint(f"  ✓ terminal.docker_image = {switch.current_image}; unset it in config.yaml to be asked again.")
         return False
-    cprint("  Later. `hermes config set terminal.docker_image <image>` decides it any time.")
+    cprint("  Later. `loki config set terminal.docker_image <image>` decides it any time.")
     return None

@@ -9,6 +9,8 @@ The test spawns only its own child and reads the process table. Nothing is signa
 child, and it exits on its own once its parent is gone.
 """
 
+from tests.loki_child_fixture import bind_fixture_child_env
+
 import os
 import subprocess
 import sys
@@ -32,7 +34,7 @@ while os.getppid() == parent and time.monotonic() < deadline:
 def _gateway_argv(tmp_path: Path) -> list[str]:
     bin_dir = tmp_path / "bin"
     bin_dir.mkdir(exist_ok=True)
-    script = bin_dir / "hermes"
+    script = bin_dir / "loki"
     script.write_text(_GATEWAY_STUB, encoding="utf-8")
     return [sys.executable, str(script), "gateway", "run"]
 
@@ -54,7 +56,7 @@ def test_scan_claims_a_bare_gateway_only_for_the_home_its_environment_names(tmp_
     monkeypatch.setattr(gateway, "_get_service_pids", lambda all_profiles=False: set())
     proc = subprocess.Popen(
         _gateway_argv(tmp_path),
-        env={**os.environ, "HERMES_HOME": str(home_a), "STUB_READY": str(ready)},
+        env=bind_fixture_child_env({**os.environ, "HERMES_HOME": str(home_a), "STUB_READY": str(ready)}),
         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
     )
     # Any other gateway on the host reads as an unreadable environment, so resolving it never

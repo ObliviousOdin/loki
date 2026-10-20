@@ -499,7 +499,7 @@ def is_quoted_injection_phrase(finding: Finding, line: str) -> bool:
 # keeps full severity.
 _TRAVERSAL_RUN = re.compile(r"(?:\.\./)+\.\.")
 _SENSITIVE_AFTER_TRAVERSAL = re.compile(
-    r"(?:/|\\)*(?:etc\b|passwd\b|shadow\b|\.ssh\b|\.aws\b|\.env\b|\.hermes\b|\.gnupg\b|\.kube\b"
+    r"(?:/|\\)*(?:etc\b|passwd\b|shadow\b|\.ssh\b|\.aws\b|\.env\b|\.(?:hermes|loki)\b|\.gnupg\b|\.kube\b"
     r"|\.docker\b|\.netrc\b|\.npmrc\b|\.pypirc\b|\.config\b|proc\b|root\b|home\b|var\b|usr\b|sys\b)",
     re.IGNORECASE)
 

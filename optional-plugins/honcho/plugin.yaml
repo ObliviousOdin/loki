@@ -1,0 +1,7 @@
+name: honcho
+version: 0.1.0a1
+description: "Loki compatibility copy of Honcho AI-native memory — cross-session modeling, dialectic Q&A, semantic search, and persistent conclusions."
+pip_dependencies:
+  - honcho-ai
+hooks:
+  - on_session_end

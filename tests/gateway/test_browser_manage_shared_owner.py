@@ -9,6 +9,7 @@ import sys
 import pytest
 
 from tests.gateway.fixtures.local_recovery_probe import child_env
+from tests.loki_child_fixture import bind_fixture_child_env
 
 _OTHER_CHAT = 'http://127.0.0.1:9333'
 
@@ -24,7 +25,7 @@ def receipt(tmp_path_factory):
     env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home), PYTHONPATH=str(root),
                PYTHONUNBUFFERED='1')
     result = subprocess.run([sys.executable, str(root / 'tests/gateway/fixtures/browser_scope_peer.py')],
-                            cwd=root, env=env, capture_output=True, text=True, timeout=90, check=False)
+                            cwd=root, env=bind_fixture_child_env(env), capture_output=True, text=True, timeout=90, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
     return json.loads((home / 'receipt.json').read_text())
 

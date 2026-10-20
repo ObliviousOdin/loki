@@ -46,7 +46,7 @@ def test_killed_app_swap_recovers_to_a_complete_bundle(tmp_path: Path) -> None:
         env={
             "PATH": "/usr/bin:/bin:/usr/sbin:/sbin",
             "HOME": str(home),
-            "HERMES_HOME": str(home),
+            "LOKI_HOME": str(home),
             "TMPDIR": str(tmp_path),
         },
         capture_output=True,

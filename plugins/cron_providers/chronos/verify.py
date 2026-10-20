@@ -7,6 +7,8 @@ auth mode (direct per-job cron-key) can swap in without a handler change.
 
 from __future__ import annotations
 
+from loki_identity import CLIENT_USER_AGENT
+
 import logging
 import threading
 from typing import Any, Callable, Dict, Optional
@@ -33,7 +35,7 @@ def _get_jwk_client(jwks_url: str) -> Any:
             from jwt import PyJWKClient
             # Explicit Accept + User-Agent: the portal WAF 403s the default urllib fingerprint.
             client = PyJWKClient(
-                jwks_url, headers={"Accept": "application/json", "User-Agent": "HermesAgent/1.0"})
+                jwks_url, headers={"Accept": "application/json", "User-Agent": CLIENT_USER_AGENT})
             _JWK_CLIENTS[jwks_url] = client
         return client
 

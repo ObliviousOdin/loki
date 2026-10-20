@@ -614,6 +614,10 @@ def prune_old_canaries(args) -> None:
 
 
 def main():
+    raise SystemExit("The inherited Hermes release driver is disabled in Loki. Use the Loki preview workflow.")
+
+
+def _upstream_reference_main():
     parser = argparse.ArgumentParser(description="Hermes Agent Release Tool")
     parser.add_argument("--canary", action="store_true",
                         help="Tag + publish a stable-core canary "

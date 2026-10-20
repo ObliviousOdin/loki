@@ -2098,7 +2098,7 @@ jobs:
           # The candidate phase keys the pool by the attempt ref: the pool
           # upload is immutable with a one-year cache header, so a recut of
           # the same version must never reuse a pool key.
-          stage_args=(--pool termux-build/deb --out termux-build/apt --suite "hermes-$CHANNEL")
+          stage_args=(--pool termux-build/deb --out termux-build/apt --suite "loki-$CHANNEL")
           if [ "$RELEASE_PHASE" = candidate ]; then
             stage_args+=(--pool-subdir "$RELEASE_CLAIM_TAG")
           fi
@@ -2113,7 +2113,7 @@ jobs:
             -v "$PWD/termux-build/apt:/apt:ro" \
             -v "$PWD/scripts/termux/check_apt.sh:/tmp/check-apt.sh:ro" \
             -v "$PWD/scripts/termux/validate_installed.py:/tmp/validate_installed.py:ro" \
-            "termux/termux-docker@$digest" bash /tmp/check-apt.sh "hermes-$CHANNEL" "$version"
+            "termux/termux-docker@$digest" bash /tmp/check-apt.sh "loki-$CHANNEL" "$version"
           if [ -n "$PREVIOUS_TAG" ]; then
             previous=(termux-build/previous/deb/*.deb)
             test "${#previous[@]}" -eq 1
@@ -2122,7 +2122,7 @@ jobs:
               -v "$PWD/${previous[0]}:/previous.deb:ro" \
               -v "$PWD/scripts/termux/check_apt.sh:/tmp/check-apt.sh:ro" \
               -v "$PWD/scripts/termux/validate_installed.py:/tmp/validate_installed.py:ro" \
-              "termux/termux-docker@$digest" bash /tmp/check-apt.sh "hermes-$CHANNEL" "$version"
+              "termux/termux-docker@$digest" bash /tmp/check-apt.sh "loki-$CHANNEL" "$version"
           fi
 
           args=(--include 'deb/*.deb' --include 'apt/**/*')
@@ -2145,12 +2145,12 @@ jobs:
           # cwd and a bare `python -m scripts.releases.r2` would ENOENT.
           export PYTHONPATH="$GITHUB_WORKSPACE"
           cd termux-build/apt
-          files=(pool/**/*.deb "dists/hermes-$CHANNEL"/main/binary-aarch64/by-hash/*/* key.asc
-                 "dists/hermes-$CHANNEL/main/binary-aarch64/Packages"
-                 "dists/hermes-$CHANNEL/main/binary-aarch64/Packages.gz"
-                 "dists/hermes-$CHANNEL/Release"
-                 "dists/hermes-$CHANNEL/Release.gpg"
-                 "dists/hermes-$CHANNEL/InRelease")
+          files=(pool/**/*.deb "dists/loki-$CHANNEL"/main/binary-aarch64/by-hash/*/* key.asc
+                 "dists/loki-$CHANNEL/main/binary-aarch64/Packages"
+                 "dists/loki-$CHANNEL/main/binary-aarch64/Packages.gz"
+                 "dists/loki-$CHANNEL/Release"
+                 "dists/loki-$CHANNEL/Release.gpg"
+                 "dists/loki-$CHANNEL/InRelease")
           # APT reads InRelease first. Publish it only after every referenced
           # index and package has been uploaded and read back successfully.
           for f in "${files[@]}"; do
@@ -2170,7 +2170,7 @@ jobs:
             -v "$PWD:/apt:ro" \
             -v "$GITHUB_WORKSPACE/scripts/termux/check_apt.sh:/tmp/check-apt.sh:ro" \
             -v "$GITHUB_WORKSPACE/scripts/termux/validate_installed.py:/tmp/validate_installed.py:ro" \
-            "termux/termux-docker@$digest" bash /tmp/check-apt.sh "hermes-$CHANNEL" "$version" "$public_repo"
+            "termux/termux-docker@$digest" bash /tmp/check-apt.sh "loki-$CHANNEL" "$version" "$public_repo"
 
   builds-pending:
     name: Mark the builds table as in progress

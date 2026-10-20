@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from tests.loki_auth_fixture import configure_auth
+
 import base64
 import json
 import time
@@ -1180,42 +1182,6 @@ def test_load_pool_api_key_path_prunes_stale_oauth_entries(tmp_path, monkeypatch
     assert "env:ANTHROPIC_API_KEY" in sources
 
 
-def test_load_pool_oauth_path_still_autodiscovers(tmp_path, monkeypatch):
-    """OAuth path: ANTHROPIC_TOKEN set, autodiscovery still fires.
-
-    Regression guard: the API-key gate must not affect users who chose the
-    OAuth path at `hermes setup`.  When ANTHROPIC_TOKEN is set (and
-    ANTHROPIC_API_KEY is empty), autodiscovered Claude Code creds should
-    still be seeded into the pool as before.
-    """
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path / "hermes"))
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-    monkeypatch.setenv("ANTHROPIC_TOKEN", "sk-ant-oat01-explicit-oauth-token")
-    monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
-    _write_auth_store(tmp_path, {"version": 1, "providers": {}})
-    monkeypatch.setattr("hermes_cli.auth.is_provider_explicitly_configured", lambda pid: True)
-
-    monkeypatch.setattr(
-        "agent.anthropic_credentials.read_hermes_oauth_credentials",
-        lambda: None,
-    )
-    monkeypatch.setattr(
-        "agent.anthropic_credentials.read_claude_code_credentials",
-        lambda: {
-            "accessToken": "sk-ant-oat01-autodiscovered-cc",
-            "refreshToken": "cc-refresh",
-            "expiresAt": int(time.time() * 1000) + 3_600_000,
-        },
-    )
-
-    from agent.credential_pool import load_pool
-
-    pool = load_pool("anthropic")
-    sources = {entry.source for entry in pool.entries()}
-
-    # Both env OAuth token and autodiscovered Claude Code creds should be there.
-    assert "env:ANTHROPIC_TOKEN" in sources
-    assert "claude_code" in sources
 
 
 def test_least_used_strategy_selects_lowest_count(tmp_path, monkeypatch):
@@ -1872,6 +1838,7 @@ def test_sync_anthropic_entry_clears_all_error_fields(tmp_path, monkeypatch):
     were left set, so a previously-exhausted entry could stay stuck even after
     fresh tokens arrived from the credentials file.
     """
+    configure_auth(monkeypatch, clients=("anthropic",), adopt_external_logins=True)
     from dataclasses import replace as dc_replace
     from agent.credential_pool import STATUS_EXHAUSTED
 

@@ -57,9 +57,10 @@ describe('ugitGitBinaries (#61494)', () => {
 
 describe('managedGitBinaries', () => {
   test('finds the newest PM-managed Git under Hermes tools', () => {
-    const managed = path.join(LAD, 'hermes', 'tools', 'git-2.53.0+3-win32-x64', 'cmd', 'git.exe')
+    const managed = path.join(LAD, 'loki', 'tools', 'git-2.53.0+3-win32-x64', 'cmd', 'git.exe')
+
     const fs = fakeFs(
-      { [path.join(LAD, 'hermes', 'tools')]: ['git-2.52.0+2-win32-x64', 'git-2.53.0+3-win32-x64'] },
+      { [path.join(LAD, 'loki', 'tools')]: ['git-2.52.0+2-win32-x64', 'git-2.53.0+3-win32-x64'] },
       [managed]
     )
 
@@ -89,7 +90,7 @@ describe('windowsGitCandidates (#61494)', () => {
     // Ordered after the hermes-bundled portable git (preferred), before the
     // system-wide defaults.
     assert.ok(
-      candidates.indexOf(ugitGit) > candidates.indexOf(path.join(env.localAppData, 'hermes', 'git', 'cmd', 'git.exe'))
+      candidates.indexOf(ugitGit) > candidates.indexOf(path.join(env.localAppData, 'loki', 'git', 'cmd', 'git.exe'))
     )
     assert.ok(candidates.indexOf(ugitGit) < candidates.indexOf(path.join(env.programFiles, 'Git', 'cmd', 'git.exe')))
 
@@ -98,10 +99,11 @@ describe('windowsGitCandidates (#61494)', () => {
   })
 
   test('selects PM-managed Git before the hermes-bundled portable git', () => {
-    const managed = path.join(LAD, 'hermes', 'tools', 'git-2.53.0+3-win32-x64', 'cmd', 'git.exe')
-    const portable = path.join(env.localAppData, 'hermes', 'git', 'cmd', 'git.exe')
+    const managed = path.join(LAD, 'loki', 'tools', 'git-2.53.0+3-win32-x64', 'cmd', 'git.exe')
+    const portable = path.join(env.localAppData, 'loki', 'git', 'cmd', 'git.exe')
+
     const fs = fakeFs(
-      { [path.join(LAD, 'hermes', 'tools')]: ['git-2.53.0+3-win32-x64'] },
+      { [path.join(LAD, 'loki', 'tools')]: ['git-2.53.0+3-win32-x64'] },
       [managed, portable]
     )
 
@@ -112,7 +114,7 @@ describe('windowsGitCandidates (#61494)', () => {
 
   test('still prefers the hermes-bundled portable git over UGit', () => {
     const ugitGit = ugitGitExe('5.50.1')
-    const portable = path.join(env.localAppData, 'hermes', 'git', 'cmd', 'git.exe')
+    const portable = path.join(env.localAppData, 'loki', 'git', 'cmd', 'git.exe')
     const fs = fakeFs({ [path.join(LAD, 'UGit')]: ['app-5.50.1'] }, [portable, ugitGit])
 
     const candidates = windowsGitCandidates(env, fs)
@@ -124,8 +126,8 @@ describe('windowsGitCandidates (#61494)', () => {
     const candidates = windowsGitCandidates(env, fakeFs({}, []))
 
     assert.deepEqual(candidates, [
-      path.join(env.localAppData, 'hermes', 'git', 'cmd', 'git.exe'),
-      path.join(env.localAppData, 'hermes', 'git', 'bin', 'git.exe'),
+      path.join(env.localAppData, 'loki', 'git', 'cmd', 'git.exe'),
+      path.join(env.localAppData, 'loki', 'git', 'bin', 'git.exe'),
       path.join(env.programFiles, 'Git', 'cmd', 'git.exe'),
       path.join(env.programFilesX86, 'Git', 'cmd', 'git.exe'),
       path.join(env.localAppData, 'Programs', 'Git', 'cmd', 'git.exe')

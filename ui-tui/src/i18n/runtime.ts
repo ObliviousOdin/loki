@@ -5,6 +5,7 @@
 // maps of strings; a string overriding a function-valued en leaf is wrapped into
 // `(...args) => format(str, args)` with positional `{0}`, `{1}` placeholders.
 
+import { brandCatalog, brandText } from '@hermes/shared/branding'
 import { atom } from 'nanostores'
 
 import { en } from './en.js'
@@ -54,14 +55,14 @@ export function translateFrom(
   const active = render(resolvePath(source(locale), key), args)
 
   if (active !== null) {
-    return active
+    return brandText(active)
   }
 
   if (locale !== DEFAULT_LOCALE) {
     const fallback = render(resolvePath(source(DEFAULT_LOCALE), key), args)
 
     if (fallback !== null) {
-      return fallback
+      return brandText(fallback)
     }
   }
 
@@ -113,7 +114,7 @@ export function catalogFromPack(messages: Record<string, string> | undefined): T
     return en
   }
 
-  return mergeTranslations<Translations>(en, nestPack(en, messages) as TranslationOverride<Translations>)
+  return brandCatalog(mergeTranslations<Translations>(en, nestPack(en, messages) as TranslationOverride<Translations>))
 }
 
 /** Install a language: `pack` may be null when the backend has no TUI strings

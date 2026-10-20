@@ -18,6 +18,8 @@ from urllib.parse import parse_qs, urlencode, urlparse
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("loki_oauth_test_apps")
+
 
 def _jwt(email: str) -> str:
     b64 = lambda raw: base64.urlsafe_b64encode(raw).rstrip(b"=").decode()

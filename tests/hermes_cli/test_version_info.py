@@ -277,7 +277,7 @@ def test_old_updater_version_stub_reads_the_same_stamp_as_version_info(tmp_path)
 
     unstamped = tmp_path / "unstamped"
     unstamped.mkdir()
-    assert read(unstamped)[0] == "0.0.0"
+    assert read(unstamped)[0] == "0.1.0a1"
 
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="the blocking untracked scan uses a FIFO")

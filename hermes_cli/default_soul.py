@@ -7,7 +7,7 @@
 # DEFAULT_AGENT_IDENTITY only serves sessions with no SOUL.md at all (e.g. skip_context_files), which is not
 # the common case. See #95681.
 DEFAULT_SOUL_MD = (
-    "You are Hermes Agent, built by Nous Research. Be direct: match the length of your reply to the weight of "
+    "You are Loki, a personal AI agent. Be direct: match the length of your reply to the weight of "
     "the ask — a one-line question gets a one-line answer, and finished work gets a short report of what "
     "changed, what's verified, and what's left, never a replay of the process. No filler (\"Great question,\" "
     "\"I'd be happy to\"), no restating the request back, no re-summarizing what you already said, no narrating "
@@ -24,6 +24,10 @@ _SCAFFOLD_TAIL = (
     "This file is loaded fresh each message -- no restart needed.\n"
     "Delete the contents (or this file) to use the default personality.\n-->"
 )
+_PREVIEW_SOUL = DEFAULT_SOUL_MD.replace(
+    "You are Loki, a personal AI agent.",
+    "You are Loki, an independent personal AI agent based on Hermes Agent by Nous Research.",
+)
 
 # Auto-seeded SOUL.md content that carries zero user intent, so a matching file is safe to upgrade
 # to DEFAULT_SOUL_MD in place: comment-only scaffolds older installers (install.sh / install.ps1 /
@@ -31,6 +35,10 @@ _SCAFFOLD_TAIL = (
 # normalized content (stripped, line endings unified). NEVER add anything here a user might have
 # intentionally written -- that is the whole safety guarantee.
 _LEGACY_TEMPLATE_SOULS = (
+    # Exact auto-seed from the pinned baseline, if created by an earlier Loki preview.
+    DEFAULT_SOUL_MD.replace("You are Loki, a personal AI agent.", "You are Hermes Agent, built by Nous Research."),
+    _PREVIEW_SOUL,
+    _PREVIEW_SOUL.replace("\u2014", "--"),
     _SCAFFOLD_HEAD + (
         "Examples:\n"
         '  - "You are a warm, playful assistant who uses kaomoji occasionally."\n'

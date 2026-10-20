@@ -76,8 +76,8 @@ def _launcher_bound_root(project_root: Path, candidates: list[Path]) -> Path | N
     """The candidate whose ``tools/`` holds the live interpreter the checkout's launcher execs."""
     from hermes_cli._launchers import _launcher_python
 
-    local = project_root / ".hermes" / "bin"
-    for name in (("hermes.exe", "hermes.cmd") if os.name == "nt" else ("hermes",)):
+    local = project_root / ".loki" / "bin"
+    for name in (("loki.exe", "loki.cmd") if os.name == "nt" else ("loki",)):
         python = _launcher_python(local / name)
         if python is None or not python.is_file():
             continue
@@ -163,7 +163,7 @@ def _payload_manifest(root: Path) -> dict | None:
     runtime = manifest.get("runtime", {})
     commands = runtime.get("commands", {}) if isinstance(runtime, dict) else None
     well_formed = (isinstance(commands, dict)
-                   and isinstance(commands.get("hermes", ""), str)
+                   and isinstance(commands.get("loki", commands.get("hermes", "")), str)
                    and all(isinstance(manifest.get(key, ""), str) for key in ("venv", "store")))
     return manifest if well_formed and (root.parent / manifest["repo"]).resolve() == root else None
 
@@ -184,7 +184,8 @@ def payload_venv(project_root: Path) -> Path | None:
 
 
 def _payload_hermes_command(root: Path) -> Path | None:
-    command = (_payload_manifest(root) or {}).get("runtime", {}).get("commands", {}).get("hermes")
+    commands = (_payload_manifest(root) or {}).get("runtime", {}).get("commands", {})
+    command = commands.get("loki") or commands.get("hermes")
     return _payload_path(root, command, "launcher") if command else None
 
 
@@ -201,7 +202,7 @@ def cli_command_name(project_root: Path) -> str:
     (``hermes-canary``) so it never shadows another install's ``hermes``.
     """
     command = _payload_hermes_command(Path(project_root).resolve())
-    return command.name.removesuffix(".exe") if command else "hermes"
+    return command.name.removesuffix(".exe") if command else "loki"
 
 
 def base_venv(project_root: Path) -> Path:
@@ -505,7 +506,7 @@ def activate_dependencies(project_root: Path) -> None:
     # the build-time source snapshot, not this checkout (#124627): a child that resolves
     # `hermes` off PATH must hit the checkout's own launcher first, never the venv's copy.
     # A sealed payload's launchers live in <payload>/bin instead.
-    directories = [payload_command_dir(project_root) or project_root.resolve() / ".hermes" / "bin"]
+    directories = [payload_command_dir(project_root) or project_root.resolve() / ".loki" / "bin"]
     # A sealed payload's Windows venv redirectors never go on PATH: a shipped venv's still
     # names the build machine, and a generation built since names PM's writable Python copy,
     # which cannot start the package's executables (see venv_command).
@@ -518,10 +519,20 @@ def activate_dependencies(project_root: Path) -> None:
 
 def activation_environment(project_root: Path) -> dict[str, str]:
     """Read the installed PM environment; do not provision or switch imports."""
+    from loki_identity import ENV_BOUND, bind_loki_environment
+
+    # Source activation is an entry point too. Bind before env_for resolves a
+    # dependency store, so a foreign activated shell cannot choose its bytes.
+    bind_loki_environment()
     from pm.install import env_for
     from pm.registry import all_packages
 
     env = env_for(*all_packages())
+    from hermes_constants import get_hermes_home
+
+    env["LOKI_HOME"] = os.environ.get("HERMES_HOME") or str(get_hermes_home())
+    env["HERMES_HOME"] = env["LOKI_HOME"]
+    env[ENV_BOUND] = "1"
     environment = committed_venv(project_root)
     env.pop("PYTHONHOME", None)
     env.pop("VIRTUAL_ENV", None)

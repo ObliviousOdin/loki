@@ -93,25 +93,36 @@ def test_release_parser_preserves_plain_oneoff_dispatch(monkeypatch):
     calls = []
     monkeypatch.setattr(commit_build, "cmd_build_commit", lambda args: calls.append(("oneoff", args.build_commit)))
     monkeypatch.setattr(sys, "argv", ["release.py", "--build-commit", "main"])
-    release.main()
+    release._upstream_reference_main()
     assert calls == [("oneoff", "main")]
     monkeypatch.setattr(sys, "argv", ["release.py", "--channel", "bad/name", "--build-commit", "main"])
     with pytest.raises(SystemExit) as rejected:
-        release.main()
+        release._upstream_reference_main()
     assert rejected.value.code == 2
     from scripts.releases import channel_build
     monkeypatch.setattr(channel_build, "cmd_channel", lambda args: calls.append(("channel", args.channel)))
     monkeypatch.setattr(sys, "argv", ["release.py", "--channel", "unknown-name", "--build-commit", "main"])
-    release.main()
+    release._upstream_reference_main()
     assert calls[-1] == ("channel", "unknown-name")
     monkeypatch.setattr(sys, "argv", ["release.py", "--channels", "--bundle-env", "X=y"])
     with pytest.raises(SystemExit) as incompatible:
-        release.main()
+        release._upstream_reference_main()
     assert incompatible.value.code == 2
     monkeypatch.setattr(sys, "argv", ["release.py", "--branding", "stable", "--build-commit", "main"])
     with pytest.raises(SystemExit) as orphan:
-        release.main()
+        release._upstream_reference_main()
     assert orphan.value.code == 2
     monkeypatch.setattr(sys, "argv", ["release.py", "--channel", "unknown-name", "--branding", "stable", "--build-commit", "main"])
-    release.main()
+    release._upstream_reference_main()
     assert calls[-1] == ("channel", "unknown-name")
+
+
+def test_public_release_driver_refuses_without_dispatch(monkeypatch):
+    from scripts import release
+    from scripts.releases import commit_build
+
+    calls = []
+    monkeypatch.setattr(commit_build, "cmd_build_commit", calls.append)
+    with pytest.raises(SystemExit, match="inherited Hermes release driver is disabled in Loki"):
+        release.main()
+    assert calls == []

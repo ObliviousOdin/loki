@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from hermes_cli.update_contract import COMMIT_BUILD_UPDATE_MESSAGE
+from hermes_cli.steward import STEWARD_APT_TERMUX, STEWARD_UPDATE_MESSAGES
 
 
 @pytest.mark.platforms("posix")
@@ -63,7 +64,7 @@ def test_validator_accepts_real_cli_refusal_for_installed_identity(artifact, mon
     output = capsys.readouterr()
     status = stopped.value.code
     assert isinstance(status, int) and status == 2
-    expected = COMMIT_BUILD_UPDATE_MESSAGE if source == "commit-build" else "pkg upgrade hermes-agent"
+    expected = COMMIT_BUILD_UPDATE_MESSAGE if source == "commit-build" else STEWARD_UPDATE_MESSAGES[STEWARD_APT_TERMUX]
     assert expected in output.out + output.err
     result = subprocess.CompletedProcess(["hermes", "update"], status, output.out, output.err)
     validate_update_refusal(root, result)
@@ -76,8 +77,8 @@ def test_validator_rejects_wrong_refusal_or_exit_status(artifact):
     from scripts.termux.validate_installed import validate_update_refusal
 
     root, source = artifact
-    expected = COMMIT_BUILD_UPDATE_MESSAGE if source == "commit-build" else "pkg upgrade hermes-agent"
-    other = "pkg upgrade hermes-agent" if source == "commit-build" else COMMIT_BUILD_UPDATE_MESSAGE
+    expected = COMMIT_BUILD_UPDATE_MESSAGE if source == "commit-build" else STEWARD_UPDATE_MESSAGES[STEWARD_APT_TERMUX]
+    other = STEWARD_UPDATE_MESSAGES[STEWARD_APT_TERMUX] if source == "commit-build" else COMMIT_BUILD_UPDATE_MESSAGE
     for status, message in ((0, expected), (1, expected), (2, other), (2, "unrelated startup failure")):
         result = subprocess.CompletedProcess(["hermes", "update"], status, message, "")
         with pytest.raises(RuntimeError, match="wrong updater refusal"):

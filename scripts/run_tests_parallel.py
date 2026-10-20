@@ -100,7 +100,7 @@ def _runner_scratch_root() -> str:
     later makedirs/mkdtemp here fail with EPERM for every other user on the host, with no way
     back that does not need root. Keying by uid means no run is blocked by another's leftovers.
     """
-    name = "hermes-pytest" + (f"-{os.getuid()}" if hasattr(os, "getuid") else "")
+    name = "loki-pytest" + (f"-{os.getuid()}" if hasattr(os, "getuid") else "")
     if os.name == "nt" or not os.path.isdir("/var/tmp"):  # no-tmp: ok — probing the disk-backed FHS root
         root = os.path.join(tempfile.gettempdir(), name)
     else:
@@ -646,6 +646,15 @@ def _run_one_file_once(
     # Every tempfile.* call inside the test process lands in the same per-run root, so the
     # parent's cleanup of ``temproot`` removes them too instead of leaving them in /tmp.
     env["TMPDIR"] = temproot
+    # This is an owned test child before pytest or any plugin imports product code.
+    # Bind both public entry and retained internal selectors to its private scratch
+    # home; conftest can then select narrower per-test profiles. Fresh-entry tests
+    # explicitly remove this marker when they exercise the external boundary.
+    # Declare this new sandbox rather than inheriting a caller's sandbox claim.
+    child_home = os.path.join(temproot, "loki-home")
+    os.mkdir(child_home, mode=0o700)
+    env.update(LOKI_HOME=child_home, HERMES_HOME=child_home, __LOKI_ENV_BOUND="1",
+               HERMES_TEST_SANDBOX_HOME=child_home)
 
     subproc_start = time.monotonic()
     # launch the pytest process

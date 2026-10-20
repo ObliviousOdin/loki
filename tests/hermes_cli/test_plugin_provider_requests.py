@@ -140,6 +140,14 @@ def test_undeclared_plugin_and_non_plugin_callers_are_refused(stubs):
 
 def test_not_signed_in_names_the_sign_in_command(stubs):
     allowed, _ = stubs
-    with pytest.raises(ppr.ProviderNotSignedIn, match="hermes auth add openai-codex"):
+    with pytest.raises(ppr.ProviderNotSignedIn, match="loki auth add openai-codex") as caught:
         _plugin(declares=True).mint(allowed.url)
+    assert "Codex in Loki" in str(caught.value) and "Loki desktop app" in str(caught.value)
     assert allowed.seen == []
+
+
+def test_auth_notice_preserves_explicit_provider_names():
+    text = ppr.requires_auth_notice({"requires_auth": ["openai-codex", "Hermes-provider"]})
+    assert "openai-codex, Hermes-provider" in text
+    assert "(Loki sends the requests;" in text
+    assert "the plugin never receives the token" in text

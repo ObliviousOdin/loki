@@ -96,7 +96,7 @@ def _systemd(home: Path, deadline: float) -> ExistingService | None:
     if _s6_running():
         raise RuntimeStartError("external_supervisor")
     suffix = service_suffix(home)
-    unit = f"hermes-gateway{'-' + suffix if suffix else ''}.service"
+    unit = f"loki-gateway{'-' + suffix if suffix else ''}.service"
     paths = (Path.home() / ".config/systemd/user" / unit, Path("/etc/systemd/system") / unit)
     # On non-systemd hosts there is no manager to own transient units. Installed
     # definitions still count: a broken manager is not permission to bypass one.
@@ -186,7 +186,7 @@ def _s6(home: Path, deadline: float) -> ExistingService | None:
 def _launchd(home: Path, deadline: float) -> ExistingService | None:
     import pwd
     suffix = service_suffix(home)
-    label = f"ai.hermes.gateway{'-' + suffix if suffix else ''}"
+    label = f"com.obliviousodin.loki.gateway{'-' + suffix if suffix else ''}"
     account = pwd.getpwuid(os.getuid())  # windows-footgun: ok — native launchd only
     account_home = Path(account.pw_dir)
     plist = account_home / "Library/LaunchAgents" / f"{label}.plist"

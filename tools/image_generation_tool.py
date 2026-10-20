@@ -288,7 +288,7 @@ _CONTAINER_HOME_ENVS = {"DockerEnvironment", "SingularityEnvironment", "ModalEnv
 # No env yet: only deterministic cache roots translate side-effect free (SSH: tilde path; its
 # first sync uploads the cache file).
 _CACHE_BASE_BY_BACKEND = {"docker": "/root/.hermes", "singularity": "/root/.hermes",
-                          "modal": "/root/.hermes", "ssh": "~/.hermes"}
+                          "modal": "/root/.hermes", "ssh": "~/.loki"}
 
 
 def _looks_like_absolute_file_path(value: str) -> bool:
@@ -319,7 +319,7 @@ def _agent_cache_base_for_env(env: Any) -> str | None:
                 logger.debug("active env agent_visible_cache_base failed: %s", exc)
         remote_home = getattr(env, "_remote_home", None)
         if remote_home:
-            return f"{str(remote_home).rstrip('/')}/.hermes"
+            return f"{str(remote_home).rstrip('/')}/.loki"
         if env.__class__.__name__ in _CONTAINER_HOME_ENVS:
             return "/root/.hermes"
     from tools.terminal_scope import terminal_env

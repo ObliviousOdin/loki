@@ -29,7 +29,7 @@ def _gateway_state(home: Path) -> None:
     )
     (home / "gateway_state.json").write_text(json.dumps({
         "pid": os.getpid(), "hermes_home": str(home), "gateway_state": "running",
-        "kind": "hermes-gateway", "start_time": start_time,
+        "kind": "loki-gateway", "start_time": start_time,
         "updated_at": "2026-01-01T00:00:00+00:00",
         "platforms": {"telegram": {"state": "connected", "writer_pid": os.getpid()}},
     }), encoding="utf-8")
@@ -52,7 +52,7 @@ def client(monkeypatch, _isolate_hermes_home):
     # only while its probed command line matches the home being asked about
     # (``_command_line_belongs_to_profile``). The worker test below re-points the
     # faked command line at ``-p worker`` before its request.
-    cmdline = {"current": "hermes gateway run"}
+    cmdline = {"current": "loki gateway run"}
     monkeypatch.setattr(
         _gw_status, "_read_process_cmdline", lambda pid: cmdline["current"]
     )
@@ -172,7 +172,7 @@ def test_profile_scoped_posture_ignores_root_env_and_reports_profile_grants(
     # run" belongs to the default profile, so the worker's liveness probe needs the
     # ``-p worker`` command line (same identity check ``hermes -p worker status`` runs).
     monkeypatch.setattr(
-        _gw_status, "_read_process_cmdline", lambda pid: "hermes gateway run -p worker"
+        _gw_status, "_read_process_cmdline", lambda pid: "loki gateway run -p worker"
     )
 
     payload = _test(client, profile="worker")

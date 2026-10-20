@@ -3078,8 +3078,8 @@ def _two_repo_project_skill_sessions(tmp_path, monkeypatch) -> tuple[Path, Path]
     def repo(name: str, skill: str) -> Path:
         r = tmp_path / name
         (r / ".git").mkdir(parents=True)
-        (r / ".hermes" / "skills" / skill).mkdir(parents=True)
-        (r / ".hermes" / "skills" / skill / "SKILL.md").write_text(
+        (r / ".loki" / "skills" / skill).mkdir(parents=True)
+        (r / ".loki" / "skills" / skill / "SKILL.md").write_text(
             f"---\nname: {skill}\ndescription: from {name}\n---\n\n# {skill}\n\nBODY OF {skill.upper()}\n")
         return r
 
@@ -11892,7 +11892,7 @@ def test_file_attach_quotes_ref_with_spaces(monkeypatch, tmp_path):
 def test_file_attach_workspace_storage_follows_the_owning_profiles_config(monkeypatch, tmp_path):
     """``attachments.storage: workspace`` is read from the SESSION's profile config.
 
-    Opt-in profiles stage under ``<workspace>/.hermes/attachments`` (inside the
+    Opt-in profiles stage under ``<workspace>/.loki/attachments`` (inside the
     allowed ref root, #110662); a profile without the opt-in keeps the
     bind-mounted ``<profile home>/attachments`` — one serve process, two homes,
     each session follows its own profile's config.
@@ -11928,13 +11928,13 @@ def test_file_attach_workspace_storage_follows_the_owning_profiles_config(monkey
             },
         )
 
-        staged_a = workspace_a / ".hermes" / "attachments" / "report.txt"
+        staged_a = workspace_a / ".loki" / "attachments" / "report.txt"
         assert resp["result"]["attached"] is True
         assert resp["result"]["path"] == str(staged_a)
         assert staged_a.read_text(encoding="utf-8") == "hello"
         # Workspace staging lands inside the allowed ref root: the ref is
         # workspace-relative, not an absolute out-of-workspace path.
-        assert resp["result"]["ref_text"] == "@file:.hermes/attachments/report.txt"
+        assert resp["result"]["ref_text"] == "@file:.loki/attachments/report.txt"
         assert not (home_a / "attachments").exists()
 
         # Same serve process, second profile WITHOUT the opt-in: staging stays

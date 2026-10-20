@@ -1,0 +1,84 @@
+name: Loki preview artifacts
+
+on:
+  workflow_dispatch:
+    inputs:
+      commit:
+        description: Exact merged main commit to package
+        required: true
+        type: string
+      retain_ci_artifacts:
+        description: Retain build artifacts only when the existing storage budget permits it
+        required: true
+        default: false
+        type: boolean
+      native_macos:
+        description: Build an unsigned macOS bundled preview on the runner architecture
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  source:
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+      - name: Require merged main ancestry
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+        run: |
+          test "$(git rev-parse HEAD)" = "$LOKI_COMMIT"
+          git fetch origin main
+          git merge-base --is-ancestor "$LOKI_COMMIT" origin/main
+      - name: Package exact Loki source, locked Pilk source and required notices
+        run: python3 scripts/loki/package_preview.py --out "$RUNNER_TEMP/loki-preview"
+      - if: inputs.retain_ci_artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-source-preview
+          path: ${{ runner.temp }}/loki-preview/*
+          if-no-files-found: error
+          retention-days: 1
+
+  macos:
+    needs: source
+    if: github.repository == 'ObliviousOdin/loki' && inputs.native_macos
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.commit }}
+          fetch-depth: 0
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki
+      - name: Build unsigned owned application from exact source
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          LOKI_PREVIEW_PRIMARY: '1'
+          HERMES_DESKTOP_VARIANT: bundled
+          GITHUB_REPOSITORY: ObliviousOdin/loki
+        run: |
+          test "$(git rev-parse HEAD)" = "$LOKI_COMMIT"
+          python scripts/bundles/desktop.py --commit "$LOKI_COMMIT" --variant bundled -- --publish never --mac zip
+      - if: inputs.retain_ci_artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: loki-macos-${{ runner.arch }}-UNSIGNED
+          path: |
+            apps/desktop/release/*.zip
+          if-no-files-found: error
+          retention-days: 1

@@ -15,6 +15,7 @@ from hermes_cli import update_cmd_fleet_verify as fleet_verify, update_cmd_zip, 
 from hermes_cli.config_defaults import DEFAULT_CONFIG
 from hermes_cli.update_inventory import RuntimeRecord, UpdatePlan
 import hermes_yaml
+from tests.hermes_cli.loki_update_fixtures import archive_loki_source
 
 
 def _swap_leftovers(root):
@@ -53,7 +54,7 @@ def zip_update(tmp_path, monkeypatch, isolated_source_completion):
         path.write_text("retained", encoding="utf-8")
     archive = tmp_path / "source.zip"
     with zipfile.ZipFile(archive, "w") as out:
-        out.writestr("hermes-agent-main/pyproject.toml", '[project]\nversion="2.0"\n')
+        archive_loki_source(out)
         out.writestr("hermes-agent-main/payload.txt", "new")
         for name in ("new-entry/data", "tools/code.py", "apps/desktop/source.js",
                      "venv/keep", "node_modules/keep", ".env"):
@@ -453,6 +454,7 @@ def test_unpinned_zip_update_owes_the_restart_for_the_archive_commit(tmp_path, m
     (root / "payload.txt").write_text("old", encoding="utf-8")
     archive = tmp_path / "source.zip"
     with zipfile.ZipFile(archive, "w") as out:
+        archive_loki_source(out)
         out.writestr("hermes-agent-main/payload.txt", "new")
         out.comment = sha.encode()
     monkeypatch.setattr("urllib.request.urlretrieve", lambda url, dst: urlretrieve(archive.as_uri(), dst))

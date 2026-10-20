@@ -78,7 +78,7 @@ def _patch_list_profiles(names: list[str]):
 
 def test_decompose_with_fanout_creates_children(kanban_home):
     with kbc.connect() as conn:
-        tid = kb.create_task(conn, title="ship a feature", triage=True)
+        tid = kb.create_task(conn, title="Hermes project", triage=True)
 
     llm_payload = jsonlib.dumps({
         "fanout": True,
@@ -93,13 +93,16 @@ def test_decompose_with_fanout_creates_children(kanban_home):
     for p in patches:
         p.start()
     try:
-        with _patch_aux_client(llm_payload), _patch_extra_body():
+        with _patch_aux_client(llm_payload) as called, _patch_extra_body():
             outcome = decomp.decompose_task(tid, author="me")
     finally:
         for p in patches:
             p.stop()
 
     assert outcome.ok, outcome.reason
+    messages = called.call_args.kwargs["messages"]
+    assert messages[0]["content"].startswith("You are the Kanban decomposer for the Loki board.")
+    assert "Hermes project" in messages[1]["content"]
     assert outcome.fanout is True
     assert outcome.child_ids and len(outcome.child_ids) == 2
 

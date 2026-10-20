@@ -37,7 +37,7 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # See #77173.
     # Windows spells the CLI with a launcher suffix (`hermes.exe`, npm-style `hermes.cmd`/`.ps1`);
     # same command, so the suffix is optional here.
-    r"(?:(?<![/\w.\-])hermes(?:\.(?:exe|cmd|bat|com|ps1))?\s+gateway\s+(?:restart|stop|uninstall)\b)"
+    r"(?:(?<![/\w.\-])(?:hermes|loki)(?:\.(?:exe|cmd|bat|com|ps1))?\s+gateway\s+(?:restart|stop|uninstall)\b)"
     # Branch B: launchctl ops anchored on a hermes-gateway label so unrelated hermes services stay
     # unblocked. `submit`/`bootstrap` register a NEW keepalive job wrapping an arbitrary helper (a
     # laundered restart); neutral-label submissions are caught by
@@ -54,16 +54,16 @@ _GATEWAY_LIFECYCLE_PATTERN = re.compile(
     # makes an unload durable across boots. Omitting them left the bypassable approval layer
     # (tools/approval.py, skipped on force=True) as the only cover, while this hard block — documented as
     # "force=True cannot help here" — let them through (#80260).
-    r"|(?:launchctl\s+(?:kickstart|unload|load|stop|restart|submit|bootstrap|bootout|remove|disable)\b[^\n]*\bhermes[.\-]?gateway)"
+    r"|(?:launchctl\s+(?:kickstart|unload|load|stop|restart|submit|bootstrap|bootout|remove|disable)\b[^\n]*\b(?:hermes|loki)[._\-]?gateway)"
     # Branch C: systemctl ops on a hermes-gateway unit.
-    r"|(?:systemctl\s+(?:-\S+\s+)*(?:restart|stop|start)\b[^\n]*\bhermes[.\-]?gateway)"
+    r"|(?:systemctl\s+(?:-\S+\s+)*(?:restart|stop|start)\b[^\n]*\b(?:hermes|loki)[._\-]?gateway)"
     # Branch D: pkill/kill of the gateway process, both token orders. Leading \b keeps "skill" from
     # matching as "kill".
     # `taskkill` / `Stop-Process` are the Windows spellings of the same operation; `\bp?kill\b`
     # cannot reach inside `taskkill`, so they are named outright. Service-control forms (`net stop`,
     # `sc stop`) presuppose a service install this guard has no evidence of and stay uncovered.
-    r"|(?:\b(?:p?kill|taskkill|stop-process)\b[^\n]*\bhermes\b[^\n]*\bgateway)"
-    r"|(?:\b(?:p?kill|taskkill|stop-process)\b[^\n]*\bgateway\b[^\n]*\bhermes)"
+    r"|(?:\b(?:p?kill|taskkill|stop-process)\b[^\n]*\b(?:hermes|loki)\b[^\n]*\bgateway)"
+    r"|(?:\b(?:p?kill|taskkill|stop-process)\b[^\n]*\bgateway\b[^\n]*\b(?:hermes|loki))"
 )
 
 # Branch E: process killers whose TARGET is the interpreter image hosting the gateway. A supervised
@@ -97,7 +97,7 @@ _KILL_VERB_RE = re.compile(r"(?i)\b(?:kill|taskkill|stop-process)\b")
 # (`python -m hermes_cli.main gateway run` / `hermes gateway run`) only through its own tokens;
 # an unrelated script that merely contains "hermes" (`hermes-polis/run.sh`, `my_hermes_bot.py`)
 # cannot match it. Same hermes+gateway pairing as Branch D, plus the module path.
-_GATEWAY_CMDLINE_TOKEN_RE = re.compile(r"(?i)hermes_cli|\bhermes\b[^\n]*\bgateway\b|\bgateway\b[^\n]*\bhermes\b")
+_GATEWAY_CMDLINE_TOKEN_RE = re.compile(r"(?i)hermes_cli|\b(?:hermes|loki)\b[^\n]*\bgateway\b|\bgateway\b[^\n]*\b(?:hermes|loki)\b")
 # Rejection text for Branch E, shared by every tool surface that runs the guard so the agent is
 # pointed at the ownership-scoped route (proc_* id / explicit PID) rather than the shell.
 HOST_INTERPRETER_KILL_REJECTION = (
@@ -139,7 +139,7 @@ def _pattern_reaches_host_interpreter(pattern: str, *, full_cmdline: bool, exact
         head = head[: match.start()]
     if not _is_interpreter_image(head, substring=not exact):
         return full_cmdline and bool(_GATEWAY_CMDLINE_TOKEN_RE.search(core))
-    return not rest.strip() or bool(_ERE_WILDCARD_ONLY.match(rest)) or "hermes" in rest.lower()
+    return not rest.strip() or bool(_ERE_WILDCARD_ONLY.match(rest)) or any(name in rest.lower() for name in ("hermes", "loki"))
 
 
 def _killer_targets_host_interpreter(name: str, args: list[str]) -> bool:
@@ -244,7 +244,7 @@ _ARGV_LIST_PUNCTUATION = re.compile(r"[\[\],]+")
 # the self-targeting shape (named profile == the profile running the guard). See #78028.
 _PROFILE_FLAG_LIFECYCLE_PATTERN = re.compile(
     r"(?i)"
-    r"hermes\s+"
+    r"(?:hermes|loki)(?:\.(?:exe|cmd|bat|com|ps1))?\s+"
     # Each flag has one parse: '-' plus its remainder, never two ways to split
     # '--'. A following flag cannot also be an optional value (#129281).
     # Possessive token/space runs avoid repartitioning whitespace on failure;
@@ -267,7 +267,7 @@ _PROFILE_FLAG_LIFECYCLE_PATTERN = re.compile(
 _LAUNCHCTL_LIFECYCLE_VERBS_RE = re.compile(
     r"(?i)\blaunchctl\s+(?:kickstart|unload|load|stop|restart|bootout|kill|disable|remove)\b"
 )
-_HERMES_GATEWAY_LABEL_RE = re.compile(r"(?i)\bhermes[.\-]?gateway\b")
+_HERMES_GATEWAY_LABEL_RE = re.compile(r"(?i)\b(?:hermes|loki)[._\-]?gateway\b")
 
 _SHELL_EXECUTABLES = frozenset({"sh", "bash", "dash", "ksh", "zsh"})
 _SHELL_OPTIONS_WITH_VALUES = frozenset({"-O", "+O", "-o", "+o"})

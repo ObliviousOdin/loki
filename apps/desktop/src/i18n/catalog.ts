@@ -1,3 +1,5 @@
+import { brandCatalog } from '@hermes/shared/branding'
+
 import { ar } from './ar'
 import { de } from './de'
 import { en } from './en'
@@ -14,14 +16,14 @@ import { zhHant } from './zh-hant'
  *  `resolveTranslations()` in `./registry`, which layers them over these. */
 export const TRANSLATIONS: Record<BundledLocale, Translations> = {
   en,
-  zh,
-  'zh-hant': zhHant,
-  ja,
-  ar,
-  ru,
-  fr,
-  de,
-  es
+  zh: brandCatalog(zh),
+  'zh-hant': brandCatalog(zhHant),
+  ja: brandCatalog(ja),
+  ar: brandCatalog(ar),
+  ru: brandCatalog(ru),
+  fr: brandCatalog(fr),
+  de: brandCatalog(de),
+  es: brandCatalog(es)
 }
 
 export const BUNDLED_LOCALES = Object.keys(TRANSLATIONS) as readonly BundledLocale[]

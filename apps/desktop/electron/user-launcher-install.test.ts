@@ -21,7 +21,7 @@ function sourceTree(root: string): void {
 
 function publishLauncher(dir: string, reported: string): string {
   fs.mkdirSync(dir, { recursive: true })
-  const launcher: string = path.join(dir, process.platform === 'win32' ? 'hermes.cmd' : 'hermes')
+  const launcher: string = path.join(dir, process.platform === 'win32' ? 'loki.cmd' : 'loki')
 
   const body: string =
     process.platform === 'win32'
@@ -34,7 +34,7 @@ function publishLauncher(dir: string, reported: string): string {
 }
 
 // The reported machine: setup-hermes.sh published ~/.local/bin/hermes for a
-// clone outside ~/.hermes/hermes-agent, and a Finder/Dock launch inherited
+// clone outside ~/.loki/hermes-agent, and a Finder/Dock launch inherited
 // launchd's PATH, which has no ~/.local/bin. Desktop must still find it.
 test.skipIf(process.platform === 'win32')(
   'a ~/.local/bin launcher resolves its non-canonical install on a GUI PATH without ~/.local/bin',
@@ -49,12 +49,12 @@ test.skipIf(process.platform === 'win32')(
       vi.stubEnv('HOME', home)
       vi.stubEnv('PATH', '/usr/bin:/bin:/usr/sbin:/sbin')
 
-      const found = userLauncherInstallRoot(false, path.join(home, '.hermes'))
+      const found = userLauncherInstallRoot(false, path.join(home, '.loki'))
       assert.deepEqual(found, { launcher, root })
 
       const backend = await resolveSourceInstallationBackend(root, ['serve'], {
         isWindows: false,
-        hermesHome: path.join(home, '.hermes')
+        hermesHome: path.join(home, '.loki')
       })
 
       assert.equal(backend?.command, launcher)
@@ -71,7 +71,7 @@ test('a user-bin launcher is ignored when it reports no Hermes source tree', ():
 
   try {
     const home: string = path.join(base, 'home')
-    const hermesHome: string = path.join(home, '.hermes')
+    const hermesHome: string = path.join(home, '.loki')
     const notSource: string = path.join(base, 'elsewhere')
     fs.mkdirSync(notSource)
     publishLauncher(path.join(hermesHome, 'bin'), notSource)

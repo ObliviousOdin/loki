@@ -658,7 +658,7 @@ def test_python_package_stably_signs_macos_runtime(tmp_path):
                    check=True, capture_output=True, timeout=30)
     identity = subprocess.run(["codesign", "-d", "-r-", str(binary)],
                               check=True, capture_output=True, text=True, timeout=30)
-    assert 'designated => identifier "com.nousresearch.hermes.managed-python"' in identity.stdout + identity.stderr
+    assert 'designated => identifier "com.obliviousodin.loki.managed-python"' in identity.stdout + identity.stderr
 
 
 @pytest.mark.platforms("not macos")

@@ -2581,7 +2581,7 @@ def _resolve_hermes_argv() -> list[str]:
     (path-like -> absolute; bare names keep PATH semantics, never a
     same-directory file), then the running interpreter's ``sys.executable -m
     hermes_cli.main`` (exactly this install; also covers shim-less cron,
-    systemd ``User=``, launchd), then ``which("hermes")`` (Windows: safe PATH
+    systemd ``User=``, launchd), then ``which("loki")`` (Windows: safe PATH
     search, batch shims fall back to the module form) only when ``hermes_cli``
     is not importable. The module argv must win over PATH: a PATH-first lookup
     lets an attacker-planted ``hermes`` shadow the running install (#111569).
@@ -2606,7 +2606,7 @@ def _resolve_hermes_argv() -> list[str]:
     except Exception:
         pass
 
-    hermes_bin = _safe_which_no_cwd("hermes") if _kb._IS_WINDOWS else shutil.which("hermes")
+    hermes_bin = _safe_which_no_cwd("loki") if _kb._IS_WINDOWS else shutil.which("loki")
     if hermes_bin:
         return _hermes_path_argv(hermes_bin)
     return _module_hermes_argv()
@@ -2936,8 +2936,8 @@ def _default_spawn(task: Task, workspace: str, *, board: Optional[str] = None) -
     except FileNotFoundError:
         log_f.close()
         raise RuntimeError(
-            "`hermes` executable not found on PATH. "
-            "Install Hermes Agent or activate its venv before running the kanban dispatcher."
+            "`loki` executable not found on PATH. "
+            "Install Loki or activate its venv before running the kanban dispatcher."
         )
     # Intentionally NOT closing log_f: the child keeps writing after return;
     # the OS-level FD stays open in the child until it exits.

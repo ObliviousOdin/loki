@@ -502,12 +502,12 @@ def _hermes_cli() -> str:
     """
     # Do not select batch shims: cmd.exe reinterprets otherwise literal argv
     # (for example an ampersand in a query-file path), even with shell=False.
-    name = "hermes.exe" if sys.platform == "win32" else "hermes"
-    published = Path(__file__).resolve().parents[1] / ".hermes" / "bin" / name
+    name = "loki.exe" if sys.platform == "win32" else "loki"
+    published = Path(__file__).resolve().parents[1] / ".loki" / "bin" / name
     if published.is_file():
         return str(published)
     sibling = Path(sys.executable or "").parent / name
-    return str(sibling) if sibling.is_file() else shutil.which("hermes") or "hermes"
+    return str(sibling) if sibling.is_file() else shutil.which("loki") or "loki"
 
 
 class DeliveryAuthor:

@@ -95,3 +95,11 @@ def test_fetch_file_round_trips_bytes_and_enforces_the_in_sandbox_size_cap(tmp_p
         env.fetch_file(str(src), dest, max_bytes=100)
     with pytest.raises(FileFetchError, match="could not read"):
         env.fetch_file(str(tmp_path), dest, max_bytes=100)  # a directory is not a regular file
+
+
+@pytest.mark.parametrize("product_home", [".loki", ".hermes"])
+@pytest.mark.parametrize("remote_home", ["/home/agent", None])
+@pytest.mark.parametrize("credential", ["auth.json", "config.yaml", "mcp-tokens/provider.json"])
+def test_remote_media_cannot_export_either_products_credentials(product_home, remote_home, credential):
+    assert media_fetch.remote_path_is_denied(f"/home/agent/{product_home}/{credential}", remote_home)
+    assert not media_fetch.remote_path_is_denied("/home/agent/out/report.pdf", remote_home)

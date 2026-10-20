@@ -93,6 +93,8 @@ export interface InstallStamp {
   channelBuild?: Readonly<ChannelBuildRequest>
   /** Cross-application receiver shipped in this artifact, absent on older builds. */
   receiverProtocol?: 1
+  /** Build-only primary preview naming; grants no release or update authority. */
+  lokiPreviewPrimary?: true
   /** Pinned release tag; null for channel builds, one-offs and bootstrap. */
   tag: string | null
 }

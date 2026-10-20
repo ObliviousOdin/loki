@@ -194,7 +194,7 @@ WORKDIR /opt/hermes
 # here rather than by `npx playwright install`,
 # which fetched whatever revision the npm-resolved playwright wanted,
 # unverified, and recorded no fact. The resolved browser binary path is
-# baked to /etc/hermes/agent-browser-executable-path for stage2-hook.sh:
+# baked to /etc/loki/agent-browser-executable-path for stage2-hook.sh:
 # the layout differs per arch (chrome-linux64/chrome on amd64,
 # chromium-linux-arm64/chromium on arm64), so it is resolved at build time
 # and never hunted at boot.
@@ -217,8 +217,8 @@ RUN set -eu; \
     browser_bin="$(python3 -c 'from pm import installed_package; print(installed_package("chromium").binary)')"; \
     test -n "$browser_bin"; \
     "$browser_bin" --version; \
-    mkdir -p /etc/hermes; \
-    printf '%s' "$browser_bin" > /etc/hermes/agent-browser-executable-path
+    mkdir -p /etc/loki; \
+    printf '%s' "$browser_bin" > /etc/loki/agent-browser-executable-path
 
 # PM is resident too: never borrow application libraries or create its worker
 # environment under /root (unreachable to the runtime UID).
@@ -373,8 +373,8 @@ RUN /opt/hermes/.venv/bin/python -m docker.build_agent
 
 USER root
 RUN mkdir -p /opt/hermes/bin && \
-    cp /opt/hermes/docker/hermes-exec-shim.sh /opt/hermes/bin/hermes && \
-    chmod 0755 /opt/hermes /opt/hermes/bin/hermes && \
+    cp /opt/hermes/docker/hermes-exec-shim.sh /opt/hermes/bin/loki && \
+    chmod 0755 /opt/hermes /opt/hermes/bin/loki && \
     printf 'docker\n' > /opt/hermes/.install_method
 # The ``.install_method`` stamp is baked next to the running code (the install
 # tree), NOT into $HERMES_HOME. $HERMES_HOME (/opt/data) is a shared data
@@ -413,8 +413,8 @@ RUN set -eu; \
             > /opt/hermes/install-stamp.json; \
     fi; \
     python3 -c 'import json; from pathlib import Path; path = Path("/opt/hermes/install-stamp.json"); stamp = json.loads(path.read_text()); stamp["pmRuntime"] = "/opt/hermes/pm-runtime"; path.write_text(json.dumps(stamp) + "\n")'; \
-    mkdir -p /etc/hermes; \
-    python3 -c 'import json, pathlib, tomllib; project = tomllib.loads(pathlib.Path("/opt/hermes/pyproject.toml").read_text(encoding="utf-8"))["project"]; stamp = json.loads(pathlib.Path("/opt/hermes/install-stamp.json").read_text(encoding="utf-8")); commit = stamp.get("commit"); revision = commit if commit and set(commit) != {"0"} else None; marker = pathlib.Path("/etc/hermes/image-provenance.json"); marker.write_text(json.dumps({"schema": 1, "deployment_kind": "image", "manager": "docker", "image": "nousresearch/hermes-agent", "version": project["version"], "revision": revision}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"); marker.chmod(0o444)'
+    mkdir -p /etc/loki; \
+    python3 -c 'import json, pathlib, tomllib; project = tomllib.loads(pathlib.Path("/opt/hermes/pyproject.toml").read_text(encoding="utf-8"))["project"]; stamp = json.loads(pathlib.Path("/opt/hermes/install-stamp.json").read_text(encoding="utf-8")); commit = stamp.get("commit"); revision = commit if commit and set(commit) != {"0"} else None; marker = pathlib.Path("/etc/loki/image-provenance.json"); marker.write_text(json.dumps({"schema": 1, "deployment_kind": "image", "manager": "docker", "image": "loki:preview", "version": project["version"], "revision": revision}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8"); marker.chmod(0o444)'
 
 # ---------- s6-overlay service wiring ----------
 # Static services declared at build time: main-hermes + dashboard.
@@ -440,7 +440,7 @@ COPY --chmod=0755 docker/cont-init.d/015-supervise-perms /etc/cont-init.d/015-su
 COPY --chmod=0755 docker/cont-init.d/02-reconcile-profiles /etc/cont-init.d/02-reconcile-profiles
 
 # ---------- Runtime ----------
-ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
+ENV LOKI_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # Point the TUI launcher at the prebuilt bundle baked at build time (Layer 8:
 # `ui-tui && npm run build`). This makes _make_tui_argv take the prebuilt-bundle
 # fast path (`node --expose-gc /opt/hermes/ui-tui/dist/entry.js`) and skip the
@@ -457,9 +457,10 @@ ENV HERMES_WEB_DIST=/opt/hermes/hermes_cli/web_dist
 # embedded-chat (/api/pty) connections → ENOTEMPTY → the chat tab dies with a
 # 502 / "[session ended]". Pointing at the prebuilt bundle sidesteps the whole
 # check. (A separate launcher hardening is tracked independently.)
-ENV HERMES_TUI_DIR=/opt/hermes/ui-tui
-ENV HERMES_HOME=/opt/data
-ENV HERMES_WRITE_SAFE_ROOT=/opt/data
+ENV LOKI_TUI_DIR=/opt/hermes/ui-tui
+ENV LOKI_HOME=/opt/data
+ENV LOKI_RUNTIME_DIR=/opt/hermes/tools
+ENV LOKI_WRITE_SAFE_ROOT=/opt/data
 # Opt-in backend SDKs install on first use into PM dependency generations under
 # /opt/data/installs (the sealed /opt/hermes/.venv is never written); stage2
 # re-resolves them against each new image. security.allow_lazy_installs: false
@@ -475,14 +476,14 @@ ENV XDG_RUNTIME_DIR=/tmp/hermes-runtime
 # `docker exec <c> hermes ...` they default to root, and any file the
 # command writes under $HERMES_HOME (auth.json, .env, config.yaml) ends
 # up root-owned and unreadable to the supervised gateway (UID 10000).
-# The shim lives at /opt/hermes/bin/hermes, sits earliest on PATH, and
+# The shim lives at /opt/hermes/bin/loki, sits earliest on PATH, and
 # transparently re-exec's the real venv binary via `s6-setuidgid hermes`
 # when invoked as root. Non-root callers (supervised processes,
 # `--user hermes`, etc.) hit the short-circuit path with no overhead.
 # Recursion is impossible because the shim exec's the venv binary by
 # absolute path (/opt/hermes/.venv/bin/hermes). See the shim source for
 # the opt-out env var (HERMES_DOCKER_EXEC_AS_ROOT=1).
-COPY --chmod=0755 docker/hermes-exec-shim.sh /opt/hermes/bin/hermes
+COPY --chmod=0755 docker/hermes-exec-shim.sh /opt/hermes/bin/loki
 COPY --chmod=0755 docker/entrypoint-dispatch.sh /opt/hermes/docker/entrypoint-dispatch.sh
 
 # Pre-s6 entrypoint.sh did `source .venv/bin/activate` which exported
@@ -504,7 +505,7 @@ ENV PATH="/opt/hermes/bin:/opt/hermes/.venv/bin:/opt/data/.local/bin:${PATH}"
 RUN mkdir -p /opt/data && chmod 0644 /opt/hermes/tools/facts.json && \
     rm -f /opt/hermes/.venv/.lock /opt/hermes/pm-runtime/.lock
 # Build helpers use system Python above; TUI gateway children need the sealed runtime.
-ENV HERMES_PYTHON=/opt/hermes/.venv/bin/python
+ENV LOKI_PYTHON=/opt/hermes/.venv/bin/python
 VOLUME [ "/opt/data" ]
 
 # The image ENTRYPOINT is a tiny dispatcher rather than `/init` directly.
@@ -539,5 +540,7 @@ VOLUME [ "/opt/data" ]
 # supervised PID-1 path and the non-PID-1 fallback path. Without the
 # wrapper-as-ENTRYPOINT, leading-dash args like `--version` would be
 # intercepted by /init's POSIX shell.
-ENTRYPOINT [ "/opt/hermes/docker/entrypoint-dispatch.sh" ]
+# This pinned interpreter exists before the application venv is selected. Bind
+# public defaults/overrides before the dispatcher or s6 captures its environment.
+ENTRYPOINT [ "/usr/local/bin/python3", "-I", "-S", "-B", "/opt/hermes/docker/entrypoint-env.py" ]
 CMD [ ]

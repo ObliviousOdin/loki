@@ -3,7 +3,7 @@ label: A2A
 kind: platform
 version: 1.0.0
 description: >
-  A2A (Agent-to-Agent) protocol v1.0 support for Hermes Agent — both directions
+  A2A (Agent-to-Agent) protocol v1.0 support for Loki — both directions
   of the open Linux Foundation standard for inter-agent communication.
 
   OUTBOUND (client tools): a2a_discover, a2a_call, a2a_list, a2a_history, and
@@ -11,7 +11,7 @@ description: >
   tasks over JSON-RPC — works with any A2A-compliant peer (Hermes, LangChain,
   CrewAI, Google ADK, OpenClaw, ...).
 
-  INBOUND (platform adapter): exposes Hermes as an A2A-discoverable agent. An
+  INBOUND (platform adapter): exposes Loki as an A2A-discoverable agent. An
   Agent Card is served at /.well-known/agent-card.json (v1.0 canonical path;
   legacy agent.json also answers) and incoming tasks are routed
   into the agent's live gateway session like any other platform — so the agent

@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from hermes_cli import update_cmd
 from hermes_cli import main
+from tests.hermes_cli.loki_update_fixtures import write_loki_source
 import pytest
 import subprocess
 import sys
@@ -51,6 +52,7 @@ def test_pull_rolls_back_broken_critical_file_and_accepts_corrected_retry(tmp_pa
     git("init", "-b", "main")
     git("config", "user.email", "test@example.invalid")
     git("config", "user.name", "Test")
+    write_loki_source(tmp_path)
     source = tmp_path / "hermes_constants.py"
     source.write_text("print('runnable')\n", encoding="utf-8")
     git("add", ".")
@@ -180,8 +182,9 @@ def test_the_critical_inventory_covers_every_module_the_entry_paths_import_first
                 found |= {rel for rel in (f"{stem}.py", f"{stem}/__init__.py") if (root / rel).is_file()}
         return found
 
-    launcher = _launchers._launcher_script("hermes", root, None)
+    launcher = _launchers._launcher_script("loki", root, None)
     entry = files(launcher) | files((root / "hermes_bootstrap.py").read_text(encoding="utf-8"))
+    entry |= files((root / "loki.py").read_text(encoding="utf-8"))
     entry |= {"hermes_bootstrap.py", *RECOVERY_CLOSURE}
     assert "hermes_bootstrap.py" in entry and "hermes_cli/main.py" in entry
     assert entry <= set(update_cmd._UPDATE_CRITICAL_FILES), sorted(entry - set(update_cmd._UPDATE_CRITICAL_FILES))

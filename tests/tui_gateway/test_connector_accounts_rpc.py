@@ -8,13 +8,15 @@ import threading
 
 import pytest
 
+from tests.hermes_cli.anon_portal import install_portal
 from tools.connectors import live
 from tools.connectors.gateway.errors import IdempotencyConflict
 from tui_gateway import server
 
 
 @pytest.fixture(autouse=True)
-def _gate(monkeypatch):
+def _gate(monkeypatch, tmp_path):
+    install_portal(monkeypatch, tmp_path)  # Explicit fixture service; every HTTP call stays on MockTransport.
     live.reset_for_tests()
     monkeypatch.setattr("tools.connectors.connectors_available", lambda: True)
     yield

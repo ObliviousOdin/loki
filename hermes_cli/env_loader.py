@@ -366,13 +366,22 @@ def _load_dotenv_with_fallback(
                 lookup = {**lookup_env, **resolved} if override else {**resolved, **lookup_env}
                 value = "".join(atom.resolve(lookup) for atom in parse_variables(value))
             resolved[name] = value
+        from loki_identity import with_loki_aliases
+
+        resolved = with_loki_aliases(resolved)
         for name, value in resolved.items():
             if value is None or (not override and name in os.environ):
                 continue
             current = os.environ.get(name)
             record = _DOTENV_PUBLISHED.get(name)
             ours = record is not None and current == record[1]
-            if name in _SPAWN_CREDENTIAL_KEYS and current and not ours:
+            credential_name = "HERMES_" + name.removeprefix("LOKI_") if name.startswith("LOKI_") else name
+            parent_value = os.environ.get(credential_name)
+            parent_record = _DOTENV_PUBLISHED.get(credential_name)
+            parent_ours = parent_record is not None and parent_value == parent_record[1]
+            if credential_name in _SPAWN_CREDENTIAL_KEYS and parent_value and not parent_ours:
+                if name != credential_name:
+                    os.environ[name] = parent_value
                 continue  # parent-minted per-process credential: .env must not split it from the parent
             # Ours and untouched since → keep the original baseline; anything else is a newer outside value.
             baseline = record[0] if ours else current
@@ -381,7 +390,7 @@ def _load_dotenv_with_fallback(
     # Every key this file defines, for the launch-residue strip: dotenv never unsets, so a key later
     # removed from the launch .env stays in os.environ and a re-parse of the file no longer names it.
     # Managed keys are recorded separately: they are administrator policy, not launch-profile residue.
-    (_MANAGED_DOTENV_KEYS if managed else _LOADED_DOTENV_KEYS).update(name for name, _value in assignments)
+    (_MANAGED_DOTENV_KEYS if managed else _LOADED_DOTENV_KEYS).update(resolved)
     _sanitize_loaded_credentials()  # httpx encodes headers as ASCII
 
 
@@ -830,4 +839,4 @@ def _process_hermes_home() -> Path:
 
         return get_routing_process_hermes_home()
     except Exception:
-        return Path.home() / ".hermes"
+        return Path.home() / ".loki"

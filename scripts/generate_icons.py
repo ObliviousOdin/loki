@@ -1,93 +1,17 @@
 #!/usr/bin/env python3
-"""Generate every app icon in the repo from the nous-girl art + platform backgrounds.
+"""Generate Loki's desktop, setup, dashboard and documentation icons.
 
-Usage (from repo root):
-    node scripts/generate-icons.mjs           # write
-    node scripts/generate-icons.mjs --check   # verify structure
+Sources are assets/loki-mark-black.svg and assets/loki-mark-white.svg, composed
+with the inherited platform backgrounds. The generated PNG/ICO/ICNS, macOS
+Icon Composer layers, MSIX bitmaps and favicons are committed. Run:
 
-Sources of truth — two axes, composed per target:
-  Girl art (vector):  assets/nous-girl-black.svg  (black positive space)
-                      assets/nous-girl-white.svg  (white positive space)
-                      straight from the Nous brand kit (Inkscape exports,
-                      5487^2 viewBox, one path each).
+    node scripts/generate-icons.mjs
+    node scripts/generate-icons.mjs --check
 
-  Backgrounds (per platform surface, light/dark):
-                      assets/backgrounds/squircle-light.svg   white rounded
-                      assets/backgrounds/squircle-dark.svg    #0d1117 rounded
-                      assets/backgrounds/squircle-mac-light.svg   mac HIG grid
-                      assets/backgrounds/squircle-mac-dark.svg    mac HIG grid
-
-  The master SVGs (assets/icon-master.svg light, assets/icon-master-dark.svg
-  dark) are GENERATED artifacts — squircle background + scaled girl artwork.
-  The light master drives every squircle target;
-  the dark master drives the dark-appearance targets. macOS is the exception:
-  its icns targets render from an in-memory mac master that puts the same
-  squircle on Apple's 824x824 (r=185.4) grid — centered in 1024 with 100px
-  margins — so the icon matches the size of Apple-template neighbors.
-  macOS 26 additionally gets apps/desktop/assets/icon.icon, an Icon Composer
-  package of canvas-filling layers (girl light/dark, plus a grayscale mono
-  layer for Clear and Tinted) that the system masks into its own squircle;
-  electron-builder compiles it to Assets.car next to the .icns, which
-  macOS <= 15 keeps showing.
-
-Desktop build identity comes from HERMES_PAYLOAD_TAG / HERMES_BUILD_COMMIT:
-Canary uses yellow/dark-yellow backgrounds. Commit builds use red/dark-red
-and a seven-character SHA badge. The girl and tile geometry do not change.
-Only apps/desktop outputs use this identity. Website, bootstrap, dashboard,
-and the shared master SVGs retain the default brand.
-
-The girl's position and uniform scale are registered to the reference artwork.
-She is clipped only to the outer rounded silhouette. Only nodes near her bottom
-edge are dragged down (past the edge, or to the ring when BORDER_ENABLED); the
-fitted face and hair stay fixed. Standalone wordmarks remain centered.
-
-GENERATED OUTPUTS ARE COMMITTED. Regular builds and installs consume them and
-never render; flavored release bundles (canary/commit) render to a product dir.
-icons-freshness-check.yml regenerates, runs --check, and fails on any diff.
-
-Rendering: resvg (resvg-py) for SVG -> PNG fidelity at every size.
-Containers: Pillow for multi-size .ico and .icns.
-
-Dependencies:
-    Pillow and resvg-py are core runtime dependencies; run this file with a
-    Hermes runtime interpreter (scripts/generate-icons.mjs uses HERMES_PYTHON).
-
-Outputs (99 files):
-  assets/icon-master.svg                              generated light master
-  assets/icon-master-dark.svg                         generated dark master
-  apps/desktop/assets/icon.png                        1024x1024 squircle (light)
-  apps/desktop/assets/icon.ico                        16,24,32,48,64,128,256
-  apps/desktop/assets/icon.icns                       16..1024 (real ICNS)
-  apps/desktop/assets/icon-dark.png                   1024x1024 squircle (dark)
-  apps/desktop/assets/icon-dark.ico                   16,24,32,48,64,128,256
-  apps/desktop/assets/icon-dark.icns                  16..1024 (real ICNS)
-  apps/desktop/packaging/dmg-volume.icns                 16..1024, from assets/dmg-volume.png (DMG volume)
-  apps/desktop/assets/icon.icon/icon.json             Icon Composer manifest (macOS 26)
-  apps/desktop/assets/icon.icon/Assets/art-*.png      1024 girl (+ commit badge), light/dark
-  apps/desktop/assets/icon.icon/Assets/mono.png       1024 Clear/Tinted material (grayscale + opacity)
-  apps/bootstrap-installer/src-tauri/icons/icon.icon/**  same package, unbranded (Tauri bundle.icon)
-  apps/desktop/assets/appx/<Logo>[.scale-N].png       MSIX logos at 100/125/150/200/400% (wide: squircle centered)
-  apps/desktop/assets/appx/Square44x44Logo.targetsize-N[_altform-(light)unplated].png
-                                                      taskbar/Start bitmaps 16..256; unplated = dark tile
-  apps/desktop/public/apple-touch-icon.png            1024x1024 squircle
-  apps/desktop/public/nous-girl.png                   256x256 squircle, black girl (light mark)
-  apps/desktop/public/nous-girl-dark.png              256x256 squircle, white girl (dark mark)
-  apps/bootstrap-installer/src-tauri/icons/32x32.png       32x32
-  apps/bootstrap-installer/src-tauri/icons/128x128.png     128x128
-  apps/bootstrap-installer/src-tauri/icons/128x128@2x.png  256x256
-  apps/bootstrap-installer/src-tauri/icons/icon.ico        16,32,64,128,256
-  apps/bootstrap-installer/src-tauri/icons/icon.icns       16..1024
-  apps/bootstrap-installer/public/nous-girl.png   256x256 squircle mark (light)
-  website/static/img/logo.png                     1772x1799 girl alone, transparent (light)
-  website/static/img/logo-dark.png                1772x1799 girl alone, transparent (dark)
-  website/static/img/nous-logo.png                150x150 on white (opaque)
-  website/static/img/nous-logo-dark.png           150x150 on #0d1117 (opaque)
-  website/static/img/favicon-16x16.png            16x16
-  website/static/img/favicon-32x32.png            32x32
-  website/static/img/apple-touch-icon.png         180x180
-  website/static/img/favicon.ico                  16,32,48
-  website/static/img/favicon.svg                  copy of the light master
-  web/public/favicon.ico                          16,32,48
+Use the Loki runtime Python (LOKI_PYTHON) with Pillow and resvg-py. Internal
+``girl`` helper names and asset output filenames remain stable to minimize
+upstream merge conflicts; their pixels now contain Loki's original monogram.
+Canary and commit build badges retain the upstream geometry and flavor rules.
 """
 
 from __future__ import annotations
@@ -102,14 +26,14 @@ import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 try:
     import resvg_py
 except ImportError:
     sys.exit(
-        "resvg-py is missing: run the generator with a Hermes runtime interpreter\n"
-        "  (HERMES_PYTHON=<hermes venv python> node scripts/generate-icons.mjs)"
+        "resvg-py is missing: run the generator with a Loki runtime interpreter\n"
+        "  (LOKI_PYTHON=<Loki runtime python> node scripts/generate-icons.mjs)"
     )
 
 # Copy of hermes_cli.update_channel._CANARY_TAG_RE: builders run this renderer
@@ -136,12 +60,12 @@ EDGE_OVERSHOOT = 48 / 1024
 # uniform scaling about the tile center followed by an up-left translation.
 # Keep their y coordinate: bottom anchoring would undo the registration.
 GIRL_BOXES = {
-    "squircle-light.svg": (72.149433, 104.703674, 872.767801, 872.767801),
-    "squircle-dark.svg": (72.149433, 104.703674, 872.767801, 872.767801),
+    "squircle-light.svg": (170, 130, 684, 764),
+    "squircle-dark.svg": (170, 130, 684, 764),
     # Mac: the girl scaled 1.06x about the plate center; the plate stays on the
     # 824 grid, but a white tile with a ring reads small beside full-color peers.
-    "squircle-mac-light.svg": (140.19, 164.44, 744.68, 744.68),
-    "squircle-mac-dark.svg": (140.19, 164.44, 744.68, 744.68),
+    "squircle-mac-light.svg": (225, 200, 574, 624),
+    "squircle-mac-dark.svg": (225, 200, 574, 624),
 }
 # The macOS 26 layered icon's canvas is the plate itself (the system maps it
 # onto the 824 grid), so the same mac portrait lands in plate coordinates.
@@ -252,9 +176,8 @@ TARGETS: list[tuple[str, str, object]] = [
     ("apps/desktop/assets/icon-dark.png", "png_dark", 1024),
     ("apps/desktop/assets/icon-dark.ico", "ico_dark", [16, 24, 32, 48, 64, 128, 256]),
     ("apps/desktop/assets/icon-dark.icns", "icns_dark", None),
-    # The DMG volume icon: our own drive artwork with the girl on its face,
-    # one artwork for light and dark (volume icons have no appearance variants).
-    ("apps/desktop/packaging/dmg-volume.icns", "icns_from_png", "assets/dmg-volume.png"),
+    # The DMG volume keeps stable Loki artwork across all build channels.
+    ("apps/desktop/packaging/dmg-volume.icns", "icns", None),
     ("apps/desktop/assets/icon.icon/icon.json", "icon_manifest", None),
     *([("apps/desktop/assets/icon.icon/Assets/border-light.png", "icon_border", "#000000"),
        ("apps/desktop/assets/icon.icon/Assets/border-dark.png", "icon_border", "#ffffff")] if BORDER_ENABLED else []),
@@ -301,7 +224,7 @@ class IconArt:
         self.source = source
         self.colors = colors
         self.commit = commit
-        self.girls = {color: assets / f"nous-girl-{color}.svg" for color in ("black", "white")}
+        self.girls = {color: assets / f"loki-mark-{color}.svg" for color in ("black", "white")}
         self.backgrounds = assets / "backgrounds"
         self.paths: dict[str, str] = {}
         self.bboxes: dict[str, tuple[float, float, float, float]] = {}
@@ -458,19 +381,9 @@ def drag_bottom_nodes(path: ET.Element, *, cutoff: float, band: float, distance:
 
 
 def portrait_layer(art: IconArt, girl: str, bg: str, join_bottom: float) -> ET.Element:
-    """The registered girl with her lowest nodes dragged down to `join_bottom`
-    (the border's inner edge) so hair meets the ring instead of floating."""
+    """Fit the Loki monogram within the platform icon's safe area."""
     box = GIRL_BOXES[bg]
     portrait = ET.fromstring(girl_layer(art, girl, box, align="xMidYMax"))
-    _, y, portrait_width, portrait_height = box
-    _, by, bw, bh = girl_bbox(art, girl)
-    scale = min(portrait_width / bw, portrait_height / bh)
-    drag_bottom_nodes(
-        portrait[0], cutoff=by + bh * 0.97, band=bh * 0.02,
-        distance=max(0.0, join_bottom - (y + portrait_height)) / scale,
-    )
-    # Keep the fitted viewBox fixed, but let edited nodes reach into the border.
-    portrait.set("overflow", "visible")
     return portrait
 
 
@@ -506,7 +419,7 @@ def compose_svg(art: IconArt, girl: str, bg: str, *, badge: bool = True) -> str:
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}">\n'
         f'  <defs><clipPath id="icon-silhouette">{clip}</clipPath></defs>\n'
         f"  {inner.strip()}\n"
-        f'  <g clip-path="url(#icon-silhouette)">{badge_svg}{ET.tostring(portrait, encoding="unicode")}</g>\n'
+        f'  <g clip-path="url(#icon-silhouette)">{ET.tostring(portrait, encoding="unicode")}{badge_svg}</g>\n'
         "</svg>\n"
     )
 
@@ -639,8 +552,8 @@ def icon_art_svg(art: IconArt, girl: str) -> str:
     badge = f"  {commit_layer(art.commit, bg)}\n" if art.commit else ""
     return (
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {ICON_CANVAS} {ICON_CANVAS}">\n'
-        f"{badge}"
         f"  {ET.tostring(portrait, encoding='unicode')}\n"
+        f"{badge}"
         "</svg>\n"
     )
 
@@ -653,7 +566,7 @@ def icon_color(hex_color: str) -> str:
 
 
 # Mono (Clear/Tinted) materials, as luminance + opacity: the dark-ink parts of
-# the girl become a near-black frosted glass instead of black, her white parts
+# the mark become near-black frosted glass; actual highlights and badge glyphs
 # stay white, and the ring (when enabled) is a soft light glass.
 MONO_INK = (0.13, 0.90)
 MONO_RING = (0.82, 0.75)
@@ -673,7 +586,12 @@ def icon_mono_image(art: IconArt) -> Image.Image:
         return layer
 
     out = Image.new("RGBA", (ICON_CANVAS, ICON_CANVAS), (0, 0, 0, 0))
-    paints = [(coverage(icon_art_svg(art, "black")), MONO_INK), (coverage(icon_art_svg(art, "white")), (1.0, 1.0))]
+    # The light/dark Loki marks have the same silhouette. Classify the actual
+    # light artwork's ink and highlights instead of painting its inverse over it.
+    rendered = render_svg(icon_art_svg(art, "black"), ICON_CANVAS).convert("RGBA")
+    alpha = rendered.getchannel("A")
+    highlights = ImageChops.multiply(alpha, rendered.convert("L").point(lambda v: 255 if v >= 128 else 0))
+    paints = [(ImageChops.subtract(alpha, highlights), MONO_INK), (highlights, (1.0, 1.0))]
     if BORDER_ENABLED:
         paints.append((coverage(icon_border_svg("#ffffff")), MONO_RING))
     for alpha, (tone, opacity) in paints:
@@ -878,7 +796,7 @@ def cmd_write(source: Path, out: Path) -> int:
         path = out / rel
         try:
             path.parent.mkdir(parents=True, exist_ok=True)
-            selected = desktop_art if rel.startswith("apps/desktop/") else art
+            selected = desktop_art if rel.startswith("apps/desktop/") and rel != "apps/desktop/packaging/dmg-volume.icns" else art
             path.write_bytes(target_bytes(selected, kind, arg))
             written += 1
         except Exception as exc:
@@ -924,7 +842,7 @@ def cmd_check(source: Path, out: Path) -> int:
     # every target must generate without error
     for rel, kind, arg in TARGETS:
         try:
-            selected = desktop_art if rel.startswith("apps/desktop/") else art
+            selected = desktop_art if rel.startswith("apps/desktop/") and rel != "apps/desktop/packaging/dmg-volume.icns" else art
             target_bytes(selected, kind, arg)
         except Exception as exc:
             problems.append(f"{rel}: REGENERATE FAILED ({exc})")

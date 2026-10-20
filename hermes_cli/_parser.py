@@ -39,6 +39,14 @@ def _cfg_path() -> str:
     return f"{display_hermes_home(get_process_hermes_home())}/config.yaml"
 
 
+class _IgnoreUserConfigAction(argparse._StoreTrueAction):
+    """Supply the config path before argparse validates and formats the help."""
+
+    def __init__(self, *args, **kwargs):
+        self.config_path = _cfg_path()
+        super().__init__(*args, **kwargs)
+
+
 @lru_cache(maxsize=1)
 def top_level_value_flag_sets() -> tuple[frozenset[str], frozenset[str]]:
     """(required-value, optional-value) top-level flags, derived from the REAL parser.
@@ -89,55 +97,55 @@ def _inherited_flag(parser, *args, **kwargs):
 
 _EPILOGUE = """
 Examples:
-    hermes                        Start interactive chat
-    hermes chat -q "Hello"        Single query mode
-    hermes --tui                  Launch the modern TUI (or set display.interface: tui)
-    hermes --cli                  Force the classic REPL (overrides display.interface: tui)
-    hermes -c                     Resume the most recent session
-    hermes -c "my project"        Resume a session by name (latest in lineage)
-    hermes --resume <session_id>  Resume a specific session by ID
-    hermes --resume latest        Resume the most recent session (same as -c)
-    hermes --tui --resume latest --in ./dir   Resume ./dir's latest session in the TUI
-    hermes setup                  Run setup wizard
-    hermes logout                 Clear stored authentication
-    hermes auth add <provider>    Add a pooled credential
-    hermes auth list              List pooled credentials
-    hermes auth remove <p> <t>    Remove pooled credential by index, id, or label
-    hermes auth reset <p> [t]     Clear exhaustion status for a provider, or one credential
-    hermes auth priority <p> <t> <n>  Move a pooled credential to priority n (0 = tried first)
-    hermes auth refresh <p> [t]   Refresh a pooled OAuth credential and clear its cooldown
-    hermes model                  Select default model
-    hermes fallback [list]        Show fallback provider chain
-    hermes fallback add           Add a fallback provider (same picker as `hermes model`)
-    hermes fallback remove        Remove a fallback provider from the chain
-    hermes config                 View configuration
-    hermes config edit            Edit config in $EDITOR
-    hermes config set model gpt-4 Set a config value
-    hermes gateway                Run messaging gateway
-    hermes gateway install        Install gateway background service
-    hermes gateway start          Start the installed gateway service
-    hermes gateway stop           Stop the gateway service
-    hermes gateway status         Show gateway status
-    hermes -p <profile> <cmd>     Run any command against a named profile's
-                                  home (also --profile) — e.g. hermes -p coder gateway stop
-    hermes -s hermes-agent-dev,github-auth
-    hermes -w                     Start in isolated git worktree
-    hermes sessions list          List past sessions
-    hermes sessions browse        Interactive session picker
-    hermes sessions rename ID T   Rename/title a session
-    hermes logs                   View agent.log (last 50 lines)
-    hermes logs -f                Follow agent.log in real time
-    hermes logs errors            View errors.log
-    hermes logs --since 1h        Lines from the last hour
-    hermes debug share             Upload debug report for support
-    hermes console                Open the safe Hermes command console
-    hermes update                 Update to latest version
-    hermes dashboard              Start web UI dashboard (port 9119)
-    hermes dashboard --stop       Stop running dashboard processes
-    hermes dashboard --status     List running dashboard processes
+    loki                        Start interactive chat
+    loki chat -q "Hello"        Single query mode
+    loki --tui                  Launch the modern TUI (or set display.interface: tui)
+    loki --cli                  Force the classic REPL (overrides display.interface: tui)
+    loki -c                     Resume the most recent session
+    loki -c "my project"        Resume a session by name (latest in lineage)
+    loki --resume <session_id>  Resume a specific session by ID
+    loki --resume latest        Resume the most recent session (same as -c)
+    loki --tui --resume latest --in ./dir   Resume ./dir's latest session in the TUI
+    loki setup                  Run setup wizard
+    loki logout                 Clear stored authentication
+    loki auth add <provider>    Add a pooled credential
+    loki auth list              List pooled credentials
+    loki auth remove <p> <t>    Remove pooled credential by index, id, or label
+    loki auth reset <p> [t]     Clear exhaustion status for a provider, or one credential
+    loki auth priority <p> <t> <n>  Move a pooled credential to priority n (0 = tried first)
+    loki auth refresh <p> [t]   Refresh a pooled OAuth credential and clear its cooldown
+    loki model                  Select default model
+    loki fallback [list]        Show fallback provider chain
+    loki fallback add           Add a fallback provider (same picker as `loki model`)
+    loki fallback remove        Remove a fallback provider from the chain
+    loki config                 View configuration
+    loki config edit            Edit config in $EDITOR
+    loki config set model gpt-4 Set a config value
+    loki gateway                Run messaging gateway
+    loki gateway install        Install gateway background service
+    loki gateway start          Start the installed gateway service
+    loki gateway stop           Stop the gateway service
+    loki gateway status         Show gateway status
+    loki -p <profile> <cmd>     Run any command against a named profile's
+                                  home (also --profile) — e.g. loki -p coder gateway stop
+    loki -s hermes-agent-dev,github-auth
+    loki -w                     Start in isolated git worktree
+    loki sessions list          List past sessions
+    loki sessions browse        Interactive session picker
+    loki sessions rename ID T   Rename/title a session
+    loki logs                   View agent.log (last 50 lines)
+    loki logs -f                Follow agent.log in real time
+    loki logs errors            View errors.log
+    loki logs --since 1h        Lines from the last hour
+    loki debug share             Upload debug report for support
+    loki console                Open the safe Loki command console
+    loki update                 Update to latest version
+    loki dashboard              Start web UI dashboard (port 9119)
+    loki dashboard --stop       Stop running dashboard processes
+    loki dashboard --status     List running dashboard processes
 
 For more help on a command:
-    hermes <command> --help
+    loki <command> --help
 """
 
 
@@ -199,8 +207,8 @@ def _add_top_level_flags(parser: argparse.ArgumentParser) -> None:
               help="Include the session ID in the agent's system prompt")
     inherited(parser, "--checkpoints", action="store_true", default=False,
               help="Enable filesystem checkpoints before destructive file operations (use /rollback to restore)")
-    inherited(parser, "--ignore-user-config", action="store_true", default=False,
-              help=f"Ignore {_cfg_path()} and fall back to built-in defaults (credentials in .env are still loaded)")
+    inherited(parser, "--ignore-user-config", action=_IgnoreUserConfigAction, default=False,
+              help="Ignore %(config_path)s and fall back to built-in defaults (credentials in .env are still loaded)")
     inherited(parser, "--ignore-rules", action="store_true", default=False,
               help="Skip auto-injection of AGENTS.md, SOUL.md, .cursorrules, memory, and preloaded skills")
     inherited(parser, "--safe-mode", action="store_true", default=False,
@@ -308,8 +316,8 @@ def _build_chat_parser(subparsers) -> argparse.ArgumentParser:
               help="Bypass all dangerous command approval prompts (use at your own risk)")
     inherited(chat_parser, "--pass-session-id", action="store_true", default=SUPPRESS,
               help="Include the session ID in the agent's system prompt")
-    inherited(chat_parser, "--ignore-user-config", action="store_true", default=SUPPRESS,
-              help=f"Ignore {_cfg_path()} and fall back to built-in defaults (credentials in .env are still loaded). Useful for isolated CI runs, reproduction, and third-party integrations.")
+    inherited(chat_parser, "--ignore-user-config", action=_IgnoreUserConfigAction, default=SUPPRESS,
+              help="Ignore %(config_path)s and fall back to built-in defaults (credentials in .env are still loaded). Useful for isolated CI runs, reproduction, and third-party integrations.")
     inherited(chat_parser, "--ignore-rules", action="store_true", default=SUPPRESS,
               help="Skip auto-injection of AGENTS.md, SOUL.md, .cursorrules, memory, and preloaded skills. Combine with --ignore-user-config for a fully isolated run.")
     inherited(chat_parser, "--safe-mode", action="store_true", default=SUPPRESS,
@@ -330,7 +338,7 @@ def _build_chat_parser(subparsers) -> argparse.ArgumentParser:
 def _plugin_command_install_hint(prog: str, value: str):
     """Install command when *value* names a catalog memory plugin that resolves nowhere: its
     ``hermes <name>`` command exists only once the plugin is installed. Top level only; never raises."""
-    if prog != "hermes" or not re.fullmatch(r"[a-z0-9_-]{1,64}", value):
+    if prog != "loki" or not re.fullmatch(r"[a-z0-9_-]{1,64}", value):
         return None
     try:
         from plugins.memory import find_provider_dir
@@ -356,6 +364,16 @@ class HermesArgumentParser(argparse.ArgumentParser):
     (the word is not a command) and offers no closest match. Every other error keeps the
     stock usage + message shape.
     """
+
+    def format_help(self):
+        from hermes_cli.loki_branding import parser_help_templates
+        parser_help_templates(self)
+        return super().format_help()
+
+    def format_usage(self):
+        from hermes_cli.loki_branding import parser_help_templates
+        parser_help_templates(self)
+        return super().format_usage()
 
     def _check_value(self, action, value):
         if isinstance(action, argparse._SubParsersAction) and value not in action.choices:
@@ -385,7 +403,7 @@ def build_top_level_parser():
     ``subparsers.add_parser(...)``.
     """
     parser = HermesArgumentParser(
-        prog="hermes", description="Hermes Agent - AI assistant with tool-calling capabilities",
+        prog="loki", description="Loki - AI assistant with tool-calling capabilities",
         formatter_class=argparse.RawDescriptionHelpFormatter, epilog=_EPILOGUE)
     _add_top_level_flags(parser)
     # metavar keeps the usage line to ``hermes [...] <command>`` instead of the brace list of

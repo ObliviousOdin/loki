@@ -67,7 +67,7 @@ def _isolate(tmp_path, monkeypatch, home: Path) -> None:
 
 
 def _publish(repo: Path) -> dict[str, bytes]:
-    local = repo / ".hermes" / "bin"
+    local = repo / ".loki" / "bin"
     written = _launchers.ensure_install_launchers(repo, local)
     assert len(written) == len(_launchers.ENTRY_POINTS), written
     return {Path(p).name: Path(p).read_bytes() for p in written}
@@ -90,7 +90,7 @@ def test_temp_home_prepare_launch_relaunches_without_rebinding(tmp_path, monkeyp
     assert target is not None
     assert target.resolve() == temp_python.resolve()
     for name, content in before.items():
-        assert (repo / ".hermes" / "bin" / name).read_bytes() == content
+        assert (repo / ".loki" / "bin" / name).read_bytes() == content
 
 
 @pytest.mark.platforms("any")
@@ -107,14 +107,14 @@ def test_missing_dead_and_same_store_launchers_still_publish(tmp_path, monkeypat
     repinned = _repoint_store(default_home, "repin")
     after = _publish(repo)
     assert after != before
-    assert all(_launchers._launcher_python(repo / ".hermes" / "bin" / name) == repinned for name in after)
+    assert all(_launchers._launcher_python(repo / ".loki" / "bin" / name) == repinned for name in after)
 
     # A launcher whose interpreter died with its root is repaired, not kept: the bricked
     # state of #123238 heals on the next launch from any live root.
     repinned.unlink()
     _isolate(tmp_path, monkeypatch, temp_home)
     healed = _publish(repo)
-    assert all(_launchers._launcher_python(repo / ".hermes" / "bin" / name) == temp_python for name in healed)
+    assert all(_launchers._launcher_python(repo / ".loki" / "bin" / name) == temp_python for name in healed)
 
 
 def _write_dead_exe(target: Path, missing_python: Path) -> None:
@@ -134,16 +134,16 @@ def test_dead_exe_never_shadows_kept_cmd(tmp_path, monkeypatch):
     _default_home, default_python = _make_home(tmp_path, "default")
     temp_home, _ = _make_home(tmp_path, "temp")
     repo = _make_repo(tmp_path)
-    local = repo / ".hermes" / "bin"
+    local = repo / ".loki" / "bin"
     local.mkdir(parents=True)
-    _write_dead_exe(local / "hermes.exe", tmp_path / "gone" / "python.exe")
-    (local / "hermes.cmd").write_text(
+    _write_dead_exe(local / "loki.exe", tmp_path / "gone" / "python.exe")
+    (local / "loki.cmd").write_text(
         f'@echo off\r\n"{default_python}" -I -c "eA==" %*\r\n', encoding="utf-8")
-    assert _launchers._launcher_python(local / "hermes.exe") == tmp_path / "gone" / "python.exe"
+    assert _launchers._launcher_python(local / "loki.exe") == tmp_path / "gone" / "python.exe"
 
     _isolate(tmp_path, monkeypatch, temp_home)
     written = [Path(path) for path in _launchers.ensure_install_launchers(repo, local)]
     # The shared .cmd is live and foreign, so it is kept — and the dead .exe
     # that would have run instead of it is gone.
-    assert local / "hermes.cmd" in written
-    assert not (local / "hermes.exe").exists()
+    assert local / "loki.cmd" in written
+    assert not (local / "loki.exe").exists()

@@ -15,11 +15,13 @@ def probe(tmp_path, mode):
     home.mkdir()
     user.mkdir()
     env = child_env()
-    env.update(HOME=str(user), USERPROFILE=str(user), HERMES_HOME=str(home),
+    env.update(HOME=str(user), USERPROFILE=str(user), LOKI_HOME=str(home),
+               HERMES_HOME=str(user / 'foreign-hermes'),
                PYTHONPATH=str(root), PYTHONUNBUFFERED='1')
     result = subprocess.run([sys.executable, str(root / 'tests/gateway/fixtures/tui_desktop_routes_peer.py'), mode],
                             cwd=root, env=env, capture_output=True, text=True, timeout=120, check=False)
     assert result.returncode == 0, result.stdout + result.stderr
+    assert not (user / 'foreign-hermes').exists()
     receipt = json.loads((home / 'receipt.json').read_text(encoding='utf-8'))
     assert receipt['mode'] == mode and receipt['authenticated_ws']
     return receipt

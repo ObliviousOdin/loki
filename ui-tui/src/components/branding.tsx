@@ -57,7 +57,7 @@ export function ArtLines({ lines }: { lines: [string, string][] }) {
 // comfortably without forcing wrap or truncation drift on box-drawing edges.
 // Taglines live in the catalog (chatBits.branding.tagFull/tagMid); the tiny
 // tier is the bare brand name and stays untranslated.
-const TAG_TINY = 'Nous Research'
+const TAG_TINY = 'Loki'
 const HIDE_BELOW = 34
 const COMPACT_FROM = 58
 
@@ -494,7 +494,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
             {T.runPrefix}
           </Text>
           <Text bold color={t.color.warn}>
-            {info.update_command || 'hermes update'}
+            {info.update_command || 'loki update'}
           </Text>
           <Text bold={false} color={t.color.warn} dimColor>
             {T.toUpdate}

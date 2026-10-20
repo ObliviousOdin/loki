@@ -501,7 +501,7 @@ def test_ssh_backend_staged_text_attachment_still_expands(tmp_path: Path, monkey
 
 def test_ssh_backend_staged_binary_attachment_points_at_the_synced_remote_path(tmp_path: Path, monkeypatch):
     """Binaries stay on disk: the ref must render the path the ssh backend resolves (the
-    file-sync mirrors the staging dirs to ``~/.hermes`` on the remote)."""
+    file-sync mirrors the staging dirs to ``~/.loki`` on the remote)."""
     from agent.context_references import preprocess_context_references
 
     payload = _stage_outside_workspace(tmp_path, monkeypatch, "archive.zip")
@@ -516,7 +516,7 @@ def test_ssh_backend_staged_binary_attachment_points_at_the_synced_remote_path(t
 
     assert result.expanded
     assert "binary file, not inlined" in result.message
-    assert "~/.hermes/attachments/archive.zip" in result.message
+    assert "~/.loki/attachments/archive.zip" in result.message
 
 
 def test_ref_outside_workspace_and_staging_dirs_is_still_refused(tmp_path: Path, monkeypatch):
@@ -557,7 +557,7 @@ def test_local_backend_staged_attachment_keeps_the_host_path(tmp_path: Path, mon
 
     assert result.expanded
     assert "binary file, not inlined" in result.message
-    assert "~/.hermes/attachments/" not in result.message
+    assert "~/.loki/attachments/" not in result.message
 
 
 

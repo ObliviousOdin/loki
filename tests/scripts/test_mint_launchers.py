@@ -66,7 +66,7 @@ def payload_tree(tmp_path: Path):
     )
 
     # Exercise the real bootstrap before the fixture entry point.
-    for relative in ("hermes_bootstrap.py", "hermes_constants.py", "hermes_cli/__init__.py",
+    for relative in ("loki_identity.py", "hermes_bootstrap.py", "hermes_constants.py", "hermes_cli/__init__.py",
                      "pm/environments.py", "pm/filesystem.py", "hermes_cli/runtime_state.py",
                      "hermes_cli/_early_recovery.py", "hermes_cli/_parser.py",
                      # prepare_launch returns early for a fixture repo (no .git), but the bootstrap
@@ -146,7 +146,7 @@ def test_minted_launcher_runs_relocated_and_forwards_exit_code(payload_tree, tmp
     assert proc.stdout.strip() == "OK None"  # PYTHONHOME was dropped
 
     # The default pycache prefix kept bytecode out of the (sealed) repo.
-    assert (payload_tree["tmp"] / "lad" / "hermes" / "pycache").exists()
+    assert (payload_tree["tmp"] / "lad" / "loki" / "pycache").exists()
     assert not (moved / "repo" / "hermes_cli" / "__pycache__").exists()
 
 

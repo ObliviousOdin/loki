@@ -109,8 +109,8 @@ test('the bundled entry lets desktop.electron_flags choose the ozone platform', 
 test('the bundled entry reads desktop.electron_flags through a suffixed home', () => {
   const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
   const home = mkdtempSync(join(root, 'suffixed-home-'))
-  mkdirSync(join(home, '.hermes-canary'), { recursive: true })
-  writeFileSync(join(home, '.hermes-canary', 'config.yaml'), config)
+  mkdirSync(join(home, '.loki-canary'), { recursive: true })
+  writeFileSync(join(home, '.loki-canary', 'config.yaml'), config)
 
   expect(
     launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, undefined, {

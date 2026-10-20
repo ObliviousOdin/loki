@@ -52,25 +52,40 @@ def _pool_keys(out: Path, suite: str) -> set:
     }
 
 
+@pytest.mark.parametrize("foreign", ["hermes-agent", "foreign-fabric"])
+def test_loki_repository_refuses_foreign_deb_without_copying_it(tmp_path, foreign):
+    pool = tmp_path / "pool"
+    pool.mkdir()
+    archive = pool / "foreign.deb"
+    make_deb(archive, foreign, "1.2.3-1")
+    original = archive.read_bytes()
+    out = tmp_path / "repo"
+    with pytest.raises(SystemExit):
+        _stage(pool, out, "loki-stable")
+    assert archive.read_bytes() == original
+    assert not list(out.rglob("*.deb"))
+    assert not list(out.rglob("Release"))
+
+
 def test_pool_subdir_is_in_the_path_and_the_index(tmp_path):
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "hermes-agent_0.21.5_aarch64.deb", "hermes-agent", "0.21.5-1")
+    make_deb(pool / "obliviousodin-loki-agent_0.21.5_aarch64.deb", "obliviousodin-loki-agent", "0.21.5-1")
     out = tmp_path / "repo"
-    assert _stage(pool, out, "hermes-stable", pool_subdir="rc.2-v0.21.5") == 3
-    deb = out / "pool" / "rc.2-v0.21.5" / "h" / "hermes-agent_0.21.5_aarch64.deb"
+    assert _stage(pool, out, "loki-stable", pool_subdir="rc.2-v0.21.5") == 3
+    deb = out / "pool" / "rc.2-v0.21.5" / "o" / "obliviousodin-loki-agent_0.21.5_aarch64.deb"
     assert deb.is_file()
-    assert _pool_keys(out, "hermes-stable") == {"pool/rc.2-v0.21.5/h/hermes-agent_0.21.5_aarch64.deb"}
+    assert _pool_keys(out, "loki-stable") == {"pool/rc.2-v0.21.5/o/obliviousodin-loki-agent_0.21.5_aarch64.deb"}
 
 
 def test_no_pool_subdir_keeps_the_plain_layout(tmp_path):
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "hermes-agent_1.2.3_aarch64.deb", "hermes-agent", "1.2.3-1")
+    make_deb(pool / "obliviousodin-loki-agent_1.2.3_aarch64.deb", "obliviousodin-loki-agent", "1.2.3-1")
     out = tmp_path / "repo"
-    assert _stage(pool, out, "hermes-canary") == 3
-    assert (out / "pool" / "h" / "hermes-agent_1.2.3_aarch64.deb").is_file()
-    assert _pool_keys(out, "hermes-canary") == {"pool/h/hermes-agent_1.2.3_aarch64.deb"}
+    assert _stage(pool, out, "loki-canary") == 3
+    assert (out / "pool" / "o" / "obliviousodin-loki-agent_1.2.3_aarch64.deb").is_file()
+    assert _pool_keys(out, "loki-canary") == {"pool/o/obliviousodin-loki-agent_1.2.3_aarch64.deb"}
 
 
 def test_two_attempts_of_one_version_use_different_pool_keys(tmp_path):
@@ -79,10 +94,10 @@ def test_two_attempts_of_one_version_use_different_pool_keys(tmp_path):
         root = tmp_path / attempt
         pool = root / "pool-in"
         pool.mkdir(parents=True)
-        make_deb(pool / "hermes-agent_0.21.5_aarch64.deb", "hermes-agent", "0.21.5-1")
+        make_deb(pool / "obliviousodin-loki-agent_0.21.5_aarch64.deb", "obliviousodin-loki-agent", "0.21.5-1")
         out = root / "repo"
-        assert _stage(pool, out, "hermes-stable", pool_subdir=attempt) == 3
-        keys |= {attempt} & {k.split("/")[1] for k in _pool_keys(out, "hermes-stable")}
+        assert _stage(pool, out, "loki-stable", pool_subdir=attempt) == 3
+        keys |= {attempt} & {k.split("/")[1] for k in _pool_keys(out, "loki-stable")}
     assert keys == {"rc.1-v0.21.5", "rc.2-v0.21.5"}
 
 
@@ -90,12 +105,12 @@ def test_two_attempts_of_one_version_use_different_pool_keys(tmp_path):
 def test_pool_subdir_rejects_non_attempt_refs(tmp_path, subdir):
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "hermes-agent_1.2.3_aarch64.deb", "hermes-agent", "1.2.3-1")
+    make_deb(pool / "obliviousodin-loki-agent_1.2.3_aarch64.deb", "obliviousodin-loki-agent", "1.2.3-1")
     if subdir:
         with pytest.raises(SystemExit):
-            _stage(pool, tmp_path / "repo", "hermes-stable", pool_subdir=subdir)
+            _stage(pool, tmp_path / "repo", "loki-stable", pool_subdir=subdir)
     else:
-        assert _stage(pool, tmp_path / "repo", "hermes-stable", pool_subdir=subdir) == 3
+        assert _stage(pool, tmp_path / "repo", "loki-stable", pool_subdir=subdir) == 3
 
 
 def test_canary_versions_below_stable():
@@ -116,24 +131,25 @@ def test_unsigned_multiversion_publication_and_immutable_indexes(tmp_path, capsy
     pool.mkdir()
     versions = ["1.2.3~canary.20260901000000-1", "1.2.3-1"]
     for filename, version, compression in zip(("a.deb", "b.deb"), versions, ("gz", "xz")):
-        make_deb(pool / filename, "hermes-agent", version, compression=compression)
+        make_deb(pool / filename, "obliviousodin-loki-agent", version, compression=compression)
     out = tmp_path / "repo"
-    args = ["--pool", str(pool), "--out", str(out), "--suite", "hermes-canary"]
+    args = ["--pool", str(pool), "--out", str(out), "--suite", "loki-canary"]
     assert stage_apt_repo.main(args) == 3
-    binary = out / "dists/hermes-canary/main/binary-aarch64"
+    binary = out / "dists/loki-canary/main/binary-aarch64"
     text = (binary / "Packages").read_text(encoding="utf-8")
     records = [dict(line.split(": ", 1) for line in stanza.splitlines()) for stanza in text.strip().split("\n\n")]
     assert [row["Version"] for row in records] == versions
     for row in records:
-        assert row["Package"] == "hermes-agent" and row["Architecture"] == "aarch64"
+        assert row["Package"] == "obliviousodin-loki-agent" and row["Architecture"] == "aarch64"
         copied = out / row["Filename"]
         original = pool / copied.name
         assert copied.read_bytes() == original.read_bytes()
         assert row["SHA256"] == hashlib.sha256(copied.read_bytes()).hexdigest()
         assert row["Size"] == str(copied.stat().st_size)
     assert gzip.decompress((binary / "Packages.gz").read_bytes()).decode() == text
-    release = (out / "dists/hermes-canary/Release").read_text(encoding="utf-8")
-    assert "Suite: hermes-canary\n" in release and "Acquire-By-Hash: yes\n" in release
+    release = (out / "dists/loki-canary/Release").read_text(encoding="utf-8")
+    assert "Suite: loki-canary\n" in release and "Acquire-By-Hash: yes\n" in release
+    assert "Origin: Loki\n" in release and "Label: obliviousodin-loki-agent\n" in release
     assert "\n\n" not in release
     assert "Date: " in release.partition("SHA256:\n")[0]
     immutable = {}
@@ -145,13 +161,13 @@ def test_unsigned_multiversion_publication_and_immutable_indexes(tmp_path, capsy
             path = binary / "by-hash" / algorithm / digest
             assert path.read_bytes() == data
             immutable[path] = data
-    assert stage_apt_repo.existing_published(out, "hermes-canary") == {("hermes-agent", v) for v in versions}
+    assert stage_apt_repo.existing_published(out, "loki-canary") == {("obliviousodin-loki-agent", v) for v in versions}
     with pytest.raises(SystemExit) as stopped:
         stage_apt_repo.main(args)
     assert stopped.value.code == 2 and "already published" in capsys.readouterr().err
     for old in pool.iterdir():
         old.unlink()
-    make_deb(pool / "c.deb", "hermes-agent", "1.2.4-1")
+    make_deb(pool / "c.deb", "obliviousodin-loki-agent", "1.2.4-1")
     assert stage_apt_repo.main(args) == 3
     assert all(path.read_bytes() == data for path, data in immutable.items())
 
@@ -159,15 +175,15 @@ def test_unsigned_multiversion_publication_and_immutable_indexes(tmp_path, capsy
 def test_unsigned_release_exit_3_without_gpg(tmp_path, no_gpg):
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "hermes-agent_1.2.3-1_aarch64.deb", "hermes-agent", "1.2.3-1")
+    make_deb(pool / "obliviousodin-loki-agent_1.2.3-1_aarch64.deb", "obliviousodin-loki-agent", "1.2.3-1")
     out = tmp_path / "repo"
     code = stage_apt_repo.main(
-        ["--pool", str(pool), "--out", str(out), "--suite", "hermes-canary"]
+        ["--pool", str(pool), "--out", str(out), "--suite", "loki-canary"]
     )
     assert code == 3
-    assert (out / "dists" / "hermes-canary" / "Release").exists()
-    assert not (out / "dists" / "hermes-canary" / "InRelease").exists()
-    assert not (out / "dists" / "hermes-canary" / "Release.gpg").exists()
+    assert (out / "dists" / "loki-canary" / "Release").exists()
+    assert not (out / "dists" / "loki-canary" / "InRelease").exists()
+    assert not (out / "dists" / "loki-canary" / "Release.gpg").exists()
 
 
 def _generate_test_key(home: Path, passphrase: str = "") -> str:
@@ -252,14 +268,14 @@ def test_real_gpg_signs_and_published_public_key_verifies(tmp_path, monkeypatch,
 
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "h.deb", "hermes-agent", "1.2.3-1")
+    make_deb(pool / "h.deb", "obliviousodin-loki-agent", "1.2.3-1")
     out = tmp_path / "repo"
     assert stage_apt_repo.main(
         ["--pool", str(pool), "--out", str(out),
-         "--suite", "hermes-nightly", "--gpg-key-file", str(keyfile)]
+         "--suite", "loki-nightly", "--gpg-key-file", str(keyfile)]
     ) == 0
 
-    dists = out / "dists" / "hermes-nightly"
+    dists = out / "dists" / "loki-nightly"
     assert (dists / "InRelease").exists()
     assert (dists / "Release.gpg").exists()
 
@@ -314,7 +330,7 @@ def test_real_gpg_tampered_metadata_fails_closed(tmp_path, monkeypatch, short_ho
 
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "h.deb", "hermes-agent", "1.2.3-1")
+    make_deb(pool / "h.deb", "obliviousodin-loki-agent", "1.2.3-1")
     out = tmp_path / "repo"
     real_gpg = stage_apt_repo._gpg_run
 
@@ -327,9 +343,9 @@ def test_real_gpg_tampered_metadata_fails_closed(tmp_path, monkeypatch, short_ho
 
     monkeypatch.setattr(stage_apt_repo, "_gpg_run", tamper_after_sign)
     with pytest.raises(stage_apt_repo.StageError):
-        stage_apt_repo.stage(pool, out, "hermes-stable", keyfile)
+        stage_apt_repo.stage(pool, out, "loki-stable", keyfile)
     assert not (out / "key.asc").exists(), "verification must precede public-key publication"
-    dists = out / "dists/hermes-stable"
+    dists = out / "dists/loki-stable"
     vr = short_home(prefix="apt-test-verify-")
     public = real_gpg(kh, ["--armor", "--export", fpr]).stdout
     real_gpg(vr, ["--import"], stdin=public)
@@ -353,17 +369,17 @@ def test_multi_key_import_is_rejected_not_first_key_used(tmp_path, monkeypatch, 
 
     pool = tmp_path / "pool-in"
     pool.mkdir()
-    make_deb(pool / "h.deb", "hermes-agent", "1.2.3-1")
+    make_deb(pool / "h.deb", "obliviousodin-loki-agent", "1.2.3-1")
     out = tmp_path / "repo"
     with pytest.raises(SystemExit) as ei:
         stage_apt_repo.main(
             ["--pool", str(pool), "--out", str(out),
-             "--suite", "hermes-stable", "--gpg-key-file", str(keyfile)]
+             "--suite", "loki-stable", "--gpg-key-file", str(keyfile)]
         )
     assert ei.value.code == 2
     assert "secret keys" in capsys.readouterr().err
     # nothing was signed or published
-    dists = out / "dists" / "hermes-stable"
+    dists = out / "dists" / "loki-stable"
     if dists.exists():
         assert not (dists / "InRelease").exists()
         assert not (dists / "Release.gpg").exists()

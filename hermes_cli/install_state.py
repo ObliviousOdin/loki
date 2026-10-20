@@ -242,7 +242,7 @@ def _registry_home() -> Iterable[Path]:
 
     try:
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
-            value, _kind = winreg.QueryValueEx(key, "HERMES_HOME")
+            value, _kind = winreg.QueryValueEx(key, "LOKI_HOME")
     except OSError:
         return ()
     return (Path(os.path.expandvars(str(value))),) if str(value).strip() else ()
@@ -302,7 +302,7 @@ def _launcher_root() -> Iterable[Path]:
     from hermes_cli._launchers import _launcher_python
     from hermes_platform.resolver import locate_command
 
-    found = locate_command("hermes").command
+    found = locate_command("loki").command
     if not found:
         return ()
     protected = _protected_dirs()
@@ -313,7 +313,7 @@ def _launcher_root() -> Iterable[Path]:
         return (launcher.parent,)  # reading it would raise a macOS permission prompt; reported as unreadable
     python = _launcher_python(launcher)
     owners = [p.parent for p in (python.parents if python else ()) if p.name == "tools"]
-    if not owners and launcher.parent.name == "bin" and launcher.parent.parent.name == ".hermes":
+    if not owners and launcher.parent.name == "bin" and launcher.parent.parent.name == ".loki":
         owners = [launcher.parent.parent.parent.parent]  # <root>/<checkout>/.hermes/bin/hermes
     return owners[:1]
 

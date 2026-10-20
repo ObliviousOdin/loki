@@ -24,23 +24,23 @@ logger = logging.getLogger(__name__)
 
 # (label, enabled, send): the Desktop strip's three equal answers, in its order.
 OFFER_CHOICES = (
-    ("Collect and send to Nous", True, True),
+    ("Collect and send to configured collector", True, True),
     ("Collect locally only", True, False),
     ("No thanks", False, False),
 )
 _NO_THANKS = len(OFFER_CHOICES) - 1
-DOCS_URL = "https://hermes-agent.nousresearch.com/docs/developer-guide/relay-shared-metrics"
+DOCS_URL = "https://github.com/ObliviousOdin/loki/blob/main/docs/loki/INSTALL.md#configuration-and-isolation"
 _OFFER_DESCRIPTION = "\n".join((
     "Shared metrics are bounded counters: activity, outcomes, error classes (with a",
     "fixed-list reason when a memory write, compression, update or install fails),",
     "model routes, token totals, feature use and coarse machine facts. A failed or",
     "finished fresh install is noted on this machine and counted only if you opt in.",
     "Never prompts, files, paths,",
-    "setting values or error text. Collection stays on this machine; sending to Nous is",
-    "a separate choice, and apart from that install note, data from before you opt in",
-    "is never sent.",
+    "setting values or error text. Collection stays on this machine. Uploads require",
+    "separate consent and an explicitly configured collector; Loki provides no default collector.",
+    "Apart from that install note, data from before you opt in is never sent.",
     f"Details: {DOCS_URL}",
-    "Change it any time: hermes setup telemetry",
+    "Change it any time: loki setup telemetry",
 ))
 _REASK_NOTE = "Asking once more: an earlier version could save \"No thanks\" before you saw this question."
 
@@ -130,20 +130,22 @@ def offer_consent(config: dict | None = None, *, reask: bool = False) -> bool:
     # answer it ("No thanks") before it was ever on screen, so the user was never really asked.
     flush_stdin()
     idx = curses_radiolist(
-        "Help improve Hermes?", [label for label, _, _ in OFFER_CHOICES], selected=_NO_THANKS, cancel_returns=-1,
+        "Help improve Loki?", [label for label, _, _ in OFFER_CHOICES], selected=_NO_THANKS, cancel_returns=-1,
         description=f"{_REASK_NOTE}\n{_OFFER_DESCRIPTION}" if reask else _OFFER_DESCRIPTION,
     )
     if idx < 0 and reask:
         save_consent(False, False, config)
-        print_info("Kept \"No thanks\". Change it any time with `hermes setup telemetry`.")
+        print_info("Kept \"No thanks\". Change it any time with `loki setup telemetry`.")
         return True
     if idx < 0:
-        print_info("Not answered; Hermes will ask again. Decide any time with `hermes setup telemetry`.")
+        print_info("Not answered; Loki will ask again. Decide any time with `loki setup telemetry`.")
         return False
     _, enabled, send = OFFER_CHOICES[idx]
     save_consent(enabled, send, config)
-    outcome = "collected and sent to Nous" if send else "collected on this machine only" if enabled else "off"
-    print_success(f"Shared metrics {outcome}. Change it any time with `hermes setup telemetry`.")
+    outcome = "collection and upload consent saved" if send else "collected on this machine only" if enabled else "off"
+    print_success(f"Shared metrics {outcome}. Change it any time with `loki setup telemetry`.")
+    if send:
+        print_info("An explicitly configured collector is required; Loki provides none by default.")
     return True
 
 
