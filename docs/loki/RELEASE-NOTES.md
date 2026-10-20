@@ -18,7 +18,7 @@ The [published report](https://github.com/ObliviousOdin/loki/releases/download/v
 
 ## Known limitations
 
-An intermittent paused-mailbox test on the PR head and an intermittent Windows update-marker test on the merged source passed existing retries. Neither has an established cause or fix. The additional default-path macOS public-network install and installed CLI/TUI startup are pending disk capacity. Real provider conversation/resume and messaging remain untested with dedicated credentials.
+An intermittent paused-mailbox test on the PR head and an intermittent Windows update-marker test on the merged source passed existing retries. Neither historical failure has an established cause or fix at this published source. The additional lean public-network install into default macOS arm64 paths and installed CLI/TUI startup passed on October 20; the [measured report](https://github.com/ObliviousOdin/loki/releases/download/v0.1.0-alpha.1/LOKI-MACOS-SOURCE-VERIFICATION.json) retains scope and earlier acceptance-script failures. Real provider conversation/resume and messaging remain untested with dedicated credentials.
 
 Choose a provider and model with `loki setup` before starting the TUI; a blank model can report `storage_unavailable`. Browser/computer-use, OAuth, hosted-service and wake-word behavior require their own configuration and acceptance. Native packages, signing/notarization, quarantined-download trust and native installation/update flows remain unqualified. Packaged automatic updates are disabled. Full functional parity is not established.
 

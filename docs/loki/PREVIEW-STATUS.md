@@ -15,8 +15,9 @@ The [protected PR-head run](https://github.com/ObliviousOdin/loki/actions/runs/3
 | Actual macOS / Windows hosts | Applicable source subsets and 15 Windows runtime contracts passed; native-host tests do not qualify packaged applications |
 | Controlled lean source installs | Eight scenarios on each of Linux, macOS and Windows: help/version, configuration, gateway help, synthetic cross-process persistence, a real local terminal tool and foreign-state isolation |
 | Source distribution | Exact source/archive/installer/metadata/notice/checksum validation and published-asset downloads passed |
+| Additional macOS arm64 source acceptance | Public-network installation at default paths in a fresh HOME with spaces; configuration, synthetic persistence, local terminal, isolation, CLI setup recovery and TUI startup/normal quit passed |
 
-The controlled installers used local source and explicit temporary paths, with browser and computer-use installation excluded. The additional ordinary public-network installation into default macOS paths and installed CLI/TUI startup remain unqualified because local disk capacity is unavailable. An update-source resolution check is not an executed update. Synthetic session persistence is not a provider conversation or resume.
+The controlled installers used local source and explicit temporary paths, with browser and computer-use installation excluded. On October 20, the additional lean public-network installation and installed CLI/TUI startup passed on macOS arm64 at the exact published commit. Its [measured report](https://github.com/ObliviousOdin/loki/releases/download/v0.1.0-alpha.1/LOKI-MACOS-SOURCE-VERIFICATION.json) records hashes, scope and earlier unsuccessful acceptance-script attempts. Telemetry was declined; existing sessions were preserved and no new API calls or messages were recorded. Browser and computer-use installation remained explicitly excluded. Ordinary public-default installation on Linux and Windows remains unqualified. An update-source resolution check is not an executed update. Synthetic persistence is not a provider conversation or resume.
 
 ## Open acceptance requirements
 
