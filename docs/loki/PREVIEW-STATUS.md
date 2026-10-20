@@ -1,31 +1,29 @@
 # Preview delivery status
 
-These are the qualification gates and recorded diagnostics for Loki's first preview, recorded October 19, 2026. Consult [GitHub releases](https://github.com/ObliviousOdin/loki/releases) for available artifacts and [Loki CI](https://github.com/ObliviousOdin/loki/actions/workflows/loki-ci.yml) for current checks. Each release's attached evidence identifies its exact source and measured scope. Public-release preparation must preserve required licenses and upstream history while excluding private project audit material from every published ref and artifact.
+Recorded October 20, 2026 (UTC). [Loki 0.1.0-alpha.1](https://github.com/ObliviousOdin/loki/releases/tag/v0.1.0-alpha.1) is a published **unsigned source preview**, built from commit `12690b426de4610916f91fb42f008391df550f27`. It contains source, installers and required notice companions. No packaged native application is published.
 
-## Publication gates
+The [published verification report](https://github.com/ObliviousOdin/loki/releases/download/v0.1.0-alpha.1/LOKI-VERIFICATION.json) has SHA-256 `6150c978f37c05f07362cc4e2277bbf84e0d401478e196caf949eccb45ba6434`. It identifies the exact source, test scopes, skips and artifact hashes. All nine original release assets and this additional report were downloaded anonymously and hash-verified. The report is additional to the immutable software `SHA256SUMS` manifest.
 
-Release qualification requires the protected CI gate on the final pull-request head. Loki verification uses standard GitHub-hosted runners. Public-release preparation reviews the exact source, reachable history, repository metadata, workflow logs and artifacts before publication.
+## Measured scope
 
-Required `Loki verification` protection must remain enforced for administrators. No bypass, fabricated approval or local replacement status is permitted. Every active Loki job must actually succeed on the final PR head before normal merge, merged-commit release builds and publication. The workflow includes the full Linux Python suite, workspace checks/builds, complete desktop UI shards, Electron and packaged validation, plus source installations and applicable native-host tests on Linux, macOS and Windows. A skipped native test does not qualify a platform.
+The [protected PR-head run](https://github.com/ObliviousOdin/loki/actions/runs/39350417603) and [merged-commit run](https://github.com/ObliviousOdin/loki/actions/runs/39355462656) each completed all 16 jobs successfully. These results qualify their recorded commits; later repository changes require fresh checks.
 
-## Evidence and its limits
+| Check at the published source | Result and boundary |
+|---|---|
+| Full Linux Python suite | 6,455 files; 65,161 passed, 959 skipped; no final failures, setup errors, crashes or reported file retries on the merged-source run |
+| Desktop UI / Electron | 11,259 UI passes; 3,640 Electron passes with 24 skips; builds and lint/type checks passed |
+| Actual macOS / Windows hosts | Applicable source subsets and 15 Windows runtime contracts passed; native-host tests do not qualify packaged applications |
+| Controlled lean source installs | Eight scenarios on each of Linux, macOS and Windows: help/version, configuration, gateway help, synthetic cross-process persistence, a real local terminal tool and foreign-state isolation |
+| Source distribution | Exact source/archive/installer/metadata/notice/checksum validation and published-asset downloads passed |
 
-[Verification](VERIFICATION.md) defines parity against the pinned upstream source. Source availability does not establish full functional parity. Raw local logs remain private; only explicitly sanitized summaries, hashes and provenance may be distributed. Each distributed receipt must identify the exact source, environment, outcome and skips. Overlapping focused test counts must not be summed into a unique passing total.
+The controlled installers used local source and explicit temporary paths, with browser and computer-use installation excluded. The additional ordinary public-network installation into default macOS paths and installed CLI/TUI startup remain unqualified because local disk capacity is unavailable. An update-source resolution check is not an executed update. Synthetic session persistence is not a provider conversation or resume.
 
-The pristine upstream macOS arm64 Python baseline was non-green: 6,379 files, 62,973 passed, 192 failed and 1,755 skipped, with additional nonzero/collection outcomes separately recorded. The complete first fork diagnostic finished with 6,431 files, 63,747 passed, 158 failed and 1,840 skipped; ten icon-fixture DNS setup errors and one optional Fal SDK collection error were separately recorded. Subsequent focused fixes do not turn that historical run green. A final candidate requires its own receipts and cause-based failure disposition.
+## Open acceptance requirements
 
-The complete desktop UI diagnostic passed 11,259 tests across 1,309 files, with zero failures or skips. Later changes to relevant UI inputs require new verification. The complete Electron diagnostic remained failed: 384 files, 373 passed, two failed and nine skipped; 3,618 tests passed, two failed and 36 skipped. Both failed assertions reproduced at the pinned upstream source on native macOS: a Linux HUD cross-target warning and a remote installer-wrapper assertion after exec. These observations do not excuse a failed required CI job.
+The PR-head run reported an intermittent paused-mailbox receipt test failure; the merged-source Windows run reported an intermittent update-marker test failure. Both passed the runner's existing retry. Neither has an established cause or fix; both remain stable-release requirements. Successful retries must remain visible in release evidence.
 
-Earlier clean source installation checks covered actual macOS arm64 and a Linux x86-64 CI candidate: help/version, configuration, a real terminal tool, cross-process synthetic session persistence and foreign-state isolation. Gateway, Docker, TUI and dashboard checks have separate receipts. None of these results automatically qualifies a later source tree or every external integration.
+A real provider conversation/resume and messaging delivery require dedicated credentials and acceptance. OAuth, hosted services, browser/computer-use and wake-word behavior retain their own external configuration and verification requirements. Existing agent state or external logins are not adopted automatically.
 
-A clean Linux arm64 installation of `f5776ead82c599deee6066bb6d29fbe2d1b60352` passed all eight canonical scenarios in a non-root Debian 13 container, using the pinned Python 3.14.7 runtime. It covered installation, help/version, configuration, gateway help, cross-process synthetic session persistence, a real terminal tool and foreign-state isolation. The installed configuration resolved to its own data directory and the Loki update repository; an actual update was not executed. This was the canonical lean source smoke, with browser and computer-use installation explicitly excluded, and does not qualify a native Linux application or a live provider.
+Packaged native applications, signing/notarization, quarantined-download acceptance and native installation/update flows remain unqualified. No Developer ID, Windows signing, Store acceptance or authenticated packaged update feed is claimed. Packaged automatic updates remain disabled. Select a provider and model with `loki setup` before starting the TUI; a blank model can report `storage_unavailable`.
 
-All earlier native candidates are superseded and must not be distributed. The corrected candidate needs a fresh build, immutable archive hashes, exact source stamp, complete third-party notices, installed deep/strict seal, version/help, owned paths, local tool execution and native quit/restart persistence. Temporary local extraction is not a published-download test. The current native preview target is an unsigned macOS arm64 ZIP.
-
-Classic CLI first-run startup reached setup; declining setup exited with the expected status 1. A model-configured modern TUI started with 20 tools and 57 skills and exited with status 0 without any provider request. Starting the TUI before selecting a model can report `storage_unavailable`; complete setup first. The same blank-model policy reproduced at the pinned upstream source, and no policy validation was relaxed.
-
-Actual provider conversation and resume acceptance require a separately configured provider credential. Existing application credentials are not adopted. Provider, messaging, OAuth, hosted-service, wake-word and computer-use acceptance require their own real evidence. Windows native desktop, Linux native desktop, macOS Intel, Android/Termux and Nix execution remain unqualified where no native receipt exists.
-
-No Developer ID signature, notarization, Windows signing, Store acceptance or quarantined-download acceptance is claimed. Local ad hoc sealing proves integrity only. Packaged automatic updates remain disabled until an owned authenticated feed and trusted signing are qualified.
-
-See [release notes](RELEASE-NOTES.md), [installation](INSTALL.md) and [maintenance](MAINTENANCE.md). Published-download verification and a real preview-release URL are required before claiming publication.
+The [verification guide](VERIFICATION.md) retains historical baseline diagnostics. [Production readiness](PRODUCTION-READINESS.md) defines stable promotion; [installation](INSTALL.md), [release notes](RELEASE-NOTES.md) and [maintenance](MAINTENANCE.md) explain the supported preview path. Source availability and passing scoped checks do not establish full functional parity.

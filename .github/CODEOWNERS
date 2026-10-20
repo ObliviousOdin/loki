@@ -1,14 +1,14 @@
-# Paths that need a Loki owner review before merge. This replaces the
-# ``ci-reviewed`` label gate: GitHub requests the review and enforces it
-# (ruleset: "Require review from Code Owners"), so CI no longer needs to
-# classify these paths, check a label, or rerun jobs when one is added.
+# Ownership routing for changes to the Loki trust and build boundaries.
+# These entries request the maintainer's attention; Code Owner approval is
+# not an enforced merge requirement. The sole-maintainer policy requires a
+# protected pull request, current CI and resolved conversations, with zero
+# mandatory human approvals. See docs/loki/PRODUCTION-READINESS.md.
 #
 # Last match wins; every rule below has the same owner, so order is moot.
 # Patterns without a leading slash match at any depth.
 
-# Workflows, composite actions, and this file: they decide what CI executes
-# and what the autofix job pushes to main. The scripts the workflows run get the
-# same review for the same reason.
+# Workflows, composite actions, and this file decide what CI executes.
+# The scripts the workflows run get the same ownership routing.
 /.github/                       @ObliviousOdin
 /scripts/ci/                    @ObliviousOdin
 # The code-health gate decides whether a PR passes; weakening it is a CI change.
@@ -16,7 +16,7 @@
 /scripts/code_health/           @ObliviousOdin
 
 # The committed system prompt + tools[] render every session sends (scripts/ci/prompt_surface.py).
-# The prompt-surface-review ruleset requires one Loki owner review here; this line requests it.
+# Route prompt-surface changes to the Loki maintainer as well.
 /tests/fixtures/prompt_surface/ @ObliviousOdin
 
 # eslint configs can define custom ``fix`` functions that run arbitrary code.

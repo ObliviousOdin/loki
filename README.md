@@ -9,7 +9,7 @@
 <p align="center">
   <a href="#status"><img src="https://img.shields.io/badge/status-0.1.0--alpha_preview-8A6428?style=for-the-badge&labelColor=304B42" alt="Status: 0.1.0-alpha preview"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-536D4F?style=for-the-badge&labelColor=304B42" alt="License: MIT"></a>
-  <img src="https://img.shields.io/badge/python-3.11_%E2%80%93_3.14-3F7562?style=for-the-badge&labelColor=304B42&logo=python&logoColor=FFFFFF" alt="Python 3.11 to 3.14">
+  <img src="https://img.shields.io/badge/python-3.14-3F7562?style=for-the-badge&labelColor=304B42&logo=python&logoColor=FFFFFF" alt="Python 3.14">
   <a href="https://github.com/NousResearch/hermes-agent"><img src="https://img.shields.io/badge/fork_of-Hermes_Agent-526D80?style=for-the-badge&labelColor=304B42" alt="Fork of Hermes Agent"></a>
 </p>
 
@@ -121,7 +121,7 @@ Loki is an **alpha**. The [published verification report](https://github.com/Obl
 - **Credentials and integrations:** a real provider conversation/resume, live messaging, OAuth and hosted services still need dedicated credentials and acceptance. Upstream subscriptions, trials and applications do not transfer. Select a model with `loki setup` before starting the TUI; a blank model can report `storage_unavailable`.
 - **Distribution:** packaged native applications, signing/notarization and native installation/update flows remain unqualified. Packaged automatic updates are disabled. Source updates use this project's repository and default to `main`; review changes and keep the preview pinned until you choose to update.
 
-See [parity and verification](docs/loki/VERIFICATION.md), [release notes](docs/loki/RELEASE-NOTES.md) and [delivery status](docs/loki/PREVIEW-STATUS.md) for the requirements before a stable release.
+See [parity and verification](docs/loki/VERIFICATION.md), [release notes](docs/loki/RELEASE-NOTES.md), [delivery status](docs/loki/PREVIEW-STATUS.md) and [production readiness](docs/loki/PRODUCTION-READINESS.md) for the requirements before a stable release.
 
 ## Built on Hermes Agent
 

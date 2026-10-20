@@ -2,6 +2,16 @@
 
 `origin` is the Loki repository. `upstream` is `https://github.com/NousResearch/hermes-agent.git`, with its push URL disabled locally. The full pinned upstream history is preserved, and `docs/loki/UPSTREAM.json` identifies the admitted baseline. Do not push upstream tags wholesale as Loki releases.
 
+## Branch and release policy
+
+`main` is the single long-lived integration branch. Start short-lived `codex/` branches from current `main`; do not add a parallel `core` branch. Rebase a change onto current `main` before its final checks and merge it through a protected pull request using a merge commit. Required `Loki verification` is bound to GitHub Actions, must be current, and applies to administrators. Resolve review conversations before merging. With one maintainer, the required human approval count is zero; Code Owners route attention rather than implying an independent approval.
+
+Delete a PR branch only after its work has landed or its exact tip has a recorded recovery archive and disposition. Keep unmerged work and unrelated local worktrees intact. GitHub automatically deletes future merged PR branches. Published version tags, software assets and their checksum manifests are immutable; corrections use a new version. Development on `main` does not change the exact commit qualified by an existing release.
+
+Repository controls and product release acceptance are separate. [Production readiness](PRODUCTION-READINESS.md) records the stable-release gates; [preview status](PREVIEW-STATUS.md) identifies the published source and its measured scope.
+
+## Incorporating upstream changes
+
 The optional Honcho compatibility provider lives under `optional-plugins/honcho`, with its upstream source commit, original file hashes and license in that directory. It stays optional and installs through the normal catalog path from this repository. For an update, compare the exact upstream plugin revision, preserve notices, and reapply the small namespace/configuration/OAuth changes. Run the owned-home, foreign-canary, profile-rename and normal installer tests. Commit the provider first, then pin the catalog entry to that actual project commit; an upstream catalog or cache must never replace this project-owned pin.
 
 Source update admission reads the target identity and packaging declarations as data without executing target code. Preserve the literal product, command, distribution and repository declarations in `loki_identity.py`, the `loki.py` main entry point, and the `loki:main` package script. Future product versions and upstream baseline SHAs may change without weakening this ownership check. Run both Git and archive update tests, including refusal before stash/rescue or overlay, when changing these contracts.
