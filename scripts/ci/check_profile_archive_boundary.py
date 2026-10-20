@@ -11,10 +11,27 @@ Git's index so a generated archive cannot enter a build after checkout.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import os
 from pathlib import Path
 
 _PROFILE_ARCHIVE_SUFFIXES = (".tar.gz", ".tgz")
+# Only this reviewed source artifact is admitted; a profile at the same path
+# must still fail. Regeneration requires a new version and a reviewed digest.
+_REVIEWED_SOURCE_ARCHIVES = {
+    "vendor/braces/braces-3.0.3-loki.2.tgz":
+        "fa863313fd527bceb3810f7fb07d0852c67fb80458d4b9404dd374ade693ccbc",
+}
+
+
+def _is_reviewed_source_archive(path: Path, relative: Path) -> bool:
+    expected = _REVIEWED_SOURCE_ARCHIVES.get(relative.as_posix())
+    if expected is None or path.is_symlink() or not path.is_file():
+        return False
+    if path.stat().st_size > 1024 * 1024:
+        return False
+    with path.open("rb") as stream:
+        return hashlib.file_digest(stream, "sha256").hexdigest() == expected
 
 
 def find_forbidden_profile_archives(root: Path) -> list[Path]:
@@ -32,7 +49,10 @@ def find_forbidden_profile_archives(root: Path) -> list[Path]:
         ]
         for name in (*dirnames, *filenames):
             if name.casefold().endswith(_PROFILE_ARCHIVE_SUFFIXES):
-                offenders.append((Path(directory) / name).relative_to(root))
+                path = Path(directory) / name
+                relative = path.relative_to(root)
+                if not _is_reviewed_source_archive(path, relative):
+                    offenders.append(relative)
 
     return sorted(offenders, key=lambda path: path.as_posix().casefold())
 

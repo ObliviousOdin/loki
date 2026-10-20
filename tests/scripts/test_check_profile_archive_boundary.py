@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 
 SCRIPT = (
@@ -55,3 +58,35 @@ def test_nested_profile_archive_is_also_rejected(tmp_path):
 
     assert result.returncode == 1
     assert "fixtures/fixture.tar.gz" in result.stdout
+
+
+def test_reviewed_dependency_archive_requires_exact_path_and_bytes(tmp_path):
+    source = SCRIPT.parents[2] / "vendor/braces/braces-3.0.3-loki.2.tgz"
+    admitted = tmp_path / "vendor/braces" / source.name
+    admitted.parent.mkdir(parents=True)
+    shutil.copyfile(source, admitted)
+    assert _run(tmp_path).returncode == 0
+
+    other = admitted.with_name("profile.tgz")
+    shutil.copyfile(source, other)
+    result = _run(tmp_path)
+    assert result.returncode == 1
+    assert "vendor/braces/profile.tgz" in result.stdout
+    assert admitted.relative_to(tmp_path).as_posix() not in result.stdout
+
+    admitted.write_bytes(b"profile secret replacing the reviewed archive")
+    result = _run(tmp_path)
+    assert result.returncode == 1
+    assert admitted.relative_to(tmp_path).as_posix() in result.stdout
+    assert "profile secret replacing" not in result.stdout
+
+
+@pytest.mark.platforms("posix")
+def test_reviewed_dependency_archive_does_not_admit_symlinks(tmp_path):
+    source = SCRIPT.parents[2] / "vendor/braces/braces-3.0.3-loki.2.tgz"
+    link = tmp_path / "vendor/braces" / source.name
+    link.parent.mkdir(parents=True)
+    link.symlink_to(source)
+    result = _run(tmp_path)
+    assert result.returncode == 1
+    assert link.relative_to(tmp_path).as_posix() in result.stdout

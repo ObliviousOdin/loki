@@ -116,10 +116,14 @@ jobs:
           extras: '[]'
           cache-suffix: loki
           node-cache-dependency-path: website/package-lock.json
+      - name: Verify the owned dependency source and deterministic archive
+        run: node vendor/braces/archive.mjs --check
       - name: Install the locked website and isolated diagram linter
         run: |
           npm ci --prefix website
           python -m scripts.ci.python_packages ascii-guard==2.3.0 ruamel.yaml==0.18.16
+      - name: Exercise the installed file-discovery dependency
+        run: npm --prefix vendor/braces test
       - name: Check generated skill docs and cross-page links
         run: |
           python3 website/scripts/extract-skills.py
