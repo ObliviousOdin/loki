@@ -17,7 +17,7 @@ metadata change, use the normal PM lock workflow. Local source archives have no
 PyPI release timestamp; the admitted supplier and registry dependencies must still
 meet the release-age policy. Keep the global policy unchanged.
 
-Run `scripts/run_tests.sh tests/vendor/test_browser_harness_archive.py` for the
+Run `scripts/run_tests.sh tests/scripts/test_browser_harness_archive.py` for the
 artifact boundary. Actual Pillow and browser consumers need a fresh PM-owned
 environment with the new bytes. Preserve Loki's default telemetry-off child
 setting and all browser features. Never use live user browser state for tests.
