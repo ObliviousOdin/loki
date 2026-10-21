@@ -29,7 +29,7 @@ Packaged native applications, signing/notarization, quarantined-download accepta
 
 ## Unpublished alpha.2 candidate
 
-[PR #9](https://github.com/ObliviousOdin/loki/pull/9) adds dependency and mailbox corrections, deterministic handoff/lifecycle fixtures, real Docker and website CI gates, and manual source/native delivery checks. Targeted regressions include meaningful failures against the earlier behavior followed by passing corrections. The combined [diagnostic CI run](https://github.com/ObliviousOdin/loki/actions/runs/39492463958) exposed website and container identity stamp failures; it is not final-head qualification. A fresh required run after corrections is pending.
+[PR #9](https://github.com/ObliviousOdin/loki/pull/9) adds dependency and mailbox corrections, Windows process-completion checks, first-session setup recovery, real Docker and website CI gates, and manual source/native delivery checks. Targeted regressions include meaningful failures against earlier behavior followed by passing corrections. The latest completed [combined diagnostic CI run](https://github.com/ObliviousOdin/loki/actions/runs/39515354374) passed 16 of 18 jobs but failed Windows probe readiness and the verification gate. A fresh required run after the subsequent corrections is pending; earlier passing scopes do not qualify the later source.
 
 Alpha.2 is not published. The native staging and anonymous-download workflows have source/fixture evidence only; no alpha.2 native build, upload, downloaded installation or provider conversation is claimed. Alpha.1's measured results do not transfer to this candidate. See [verification](VERIFICATION.md#unpublished-alpha2-verification) for the implemented corrections and remaining gates.
 
