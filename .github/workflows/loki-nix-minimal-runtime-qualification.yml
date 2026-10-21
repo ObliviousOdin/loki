@@ -25,7 +25,7 @@ jobs:
           persist-credentials: false
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: 19beae28c554814a1c2f4a3d40d44789c3ba7aa3
+          ref: 58df585e93d7d30d4a9f7b0e9f89e996364e4d79
           path: source
           fetch-depth: 1
           persist-credentials: false
@@ -51,14 +51,14 @@ jobs:
           assert shutil.disk_usage(root).free >= 8*1024**3
           def git(cwd,*args):
               return subprocess.check_output(['git',*args],cwd=cwd,text=True,timeout=30).strip()
-          assert git(source,'rev-parse','HEAD')=='19beae28c554814a1c2f4a3d40d44789c3ba7aa3'
+          assert git(source,'rev-parse','HEAD')=='58df585e93d7d30d4a9f7b0e9f89e996364e4d79'
           assert not git(source,'status','--porcelain')
           assert git(diagnostic,'rev-parse','HEAD')==os.environ['EXPECTED_DIAGNOSTIC']
           assert not git(diagnostic,'status','--porcelain')
-          subprocess.run(['git','fetch','--no-tags','--depth=1',str(source),'19beae28c554814a1c2f4a3d40d44789c3ba7aa3'],
+          subprocess.run(['git','fetch','--no-tags','--depth=1',str(source),'58df585e93d7d30d4a9f7b0e9f89e996364e4d79'],
               cwd=diagnostic,check=True,timeout=30,
               env={'HOME':str(root/'home'),'PATH':'/usr/bin:/bin','GIT_CONFIG_NOSYSTEM':'1'})
-          changed=git(diagnostic,'diff','--name-only','19beae28c554814a1c2f4a3d40d44789c3ba7aa3','HEAD').splitlines()
+          changed=git(diagnostic,'diff','--name-only','58df585e93d7d30d4a9f7b0e9f89e996364e4d79','HEAD').splitlines()
           assert changed==['.github/workflows/loki-nix-minimal-runtime-qualification.yml'],changed
           paths=['.npmrc', 'apps/bootstrap-installer/package.json', 'apps/desktop/package.json', 'apps/shared/package.json', 'package-lock.json', 'package.json', 'pyproject.toml', 'tests-js/package.json', 'ui-tui/package.json', 'ui-tui/packages/hermes-ink/package.json', 'uv.lock', 'vendor/braces/UPSTREAM.json', 'vendor/braces/braces-3.0.3-loki.2.tgz', 'vendor/braces/package.json', 'vendor/htmlparser2/UPSTREAM.json', 'vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz', 'vendor/htmlparser2/package.json', 'web/package.json', 'website/.npmrc', 'website/package-lock.json', 'website/package.json', 'flake.nix', 'flake.lock', 'pm/artifact-mirror.json', 'pm/pyproject.toml', 'pm/uv.lock', 'nix/node-gyp-11-4-0-package-lock.json', 'scripts/whatsapp-bridge/package-lock.json', 'plugins/platforms/photon/sidecar/package-lock.json', 'vendor/browser-harness/UPSTREAM.json', 'vendor/browser-harness/browser_harness-0.1.13.tar.gz', 'vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz']
           paths += [str(p.relative_to(source)) for p in sorted((source/'nix').rglob('*')) if p.is_file()]
@@ -66,7 +66,7 @@ jobs:
           pin=json.loads((source/'flake.lock').read_text())['nodes']['nixpkgs']['locked']
           assert pin['rev']=='0954f7ee2f6bb3dc7d4e3d0d8bcb8fd4bde4cfc5'
           assert pin['narHash']=='sha256-dN6Ou5x/+23FZLEpYP3IffO+NyJFzUlGumt1uu3MMaY='
-          record={'source':'19beae28c554814a1c2f4a3d40d44789c3ba7aa3','diagnostic':os.environ['EXPECTED_DIAGNOSTIC'],
+          record={'source':'58df585e93d7d30d4a9f7b0e9f89e996364e4d79','diagnostic':os.environ['EXPECTED_DIAGNOSTIC'],
               'only_diagnostic_change':changed,'source_sha256':hashes,'nixpkgs':pin}
           (root/'source-before.json').write_text(json.dumps(record,indent=2)+'\n')
           print(json.dumps(record,sort_keys=True))
@@ -120,7 +120,7 @@ jobs:
           print(json.dumps({'daemon_pid':pid, 'daemon_uid':uid,
                             'build_users':[{'name':p.pw_name,'uid':p.pw_uid,'gid':p.pw_gid} for p in builders]}, sort_keys=True))
           PY
-      - name: Build the actual minimal package and inspect only its built runtime
+      - name: Build archive regression checks and the actual minimal runtime
         run: |
           set -euo pipefail
           test "$(id -u)" -ne 0
@@ -134,22 +134,34 @@ jobs:
           nix_env nix --version
           nix_env nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); assert c["sandbox"]["value"] in (True,"true"); assert c["sandbox-fallback"]["value"] in (False,"false"); assert c["build-users-group"]["value"]=="nixbld"'
           source="$GITHUB_WORKSPACE/source"
-          target="git+file://$source?rev=19beae28c554814a1c2f4a3d40d44789c3ba7aa3&shallow=1#packages.x86_64-linux.minimal"
-          printf 'Exact target: %s\n' "$target"
+          flake="git+file://$source?rev=58df585e93d7d30d4a9f7b0e9f89e996364e4d79&shallow=1"
+          target="$flake#packages.x86_64-linux.minimal"
+          archive_check="$flake#checks.x86_64-linux.npm-local-archives"
+          printf 'Exact package target: %s\nExact archive-check target: %s\n' "$target" "$archive_check"
           nix_env timeout 120 nix eval --json --no-update-lock-file --no-write-lock-file \
             --apply 'p: { package=toString p; runtime=toString p.hermesVenv; inputs=toString p.agentInputsFile; }' \
             "$target" > "$q/selection.json"
           cat "$q/selection.json"
+          nix_env timeout 120 nix eval --json --no-update-lock-file --no-write-lock-file \
+            --apply 'p: toString p' "$archive_check" > "$q/archive-check-selection.json"
+          cat "$q/archive-check-selection.json"
           nix_env timeout 1800 nix build --no-update-lock-file --no-write-lock-file --no-link \
-            --print-build-logs --print-out-paths "$target" \
+            --print-build-logs --print-out-paths "$archive_check" "$target" \
             2> >(tee "$q/build.stderr" >&2) | tee "$q/build.stdout"
           python3 - "$q" <<'OUTPUT'
           import json,pathlib,re,sys
           root=pathlib.Path(sys.argv[1]);selection=json.loads((root/'selection.json').read_text())
+          archive_check=json.loads((root/'archive-check-selection.json').read_text())
           paths=(root/'build.stdout').read_text().splitlines()
-          assert paths==[selection['package']],paths
-          assert re.fullmatch(r'/nix/store/[0-9a-z]{32}-loki-[A-Za-z0-9.+_-]+',paths[0])
-          assert (pathlib.Path(paths[0])/'bin/loki').is_file()
+          expected={selection['package'],archive_check}
+          assert len(expected)==2 and len(paths)==2 and set(paths)==expected,paths
+          assert re.fullmatch(r'/nix/store/[0-9a-z]{32}-loki-[A-Za-z0-9.+_-]+',selection['package'])
+          assert re.fullmatch(r'/nix/store/[0-9a-z]{32}-loki-npm-local-archives',archive_check)
+          assert pathlib.Path(archive_check).is_file()
+          assert pathlib.Path(archive_check).stat().st_size==0
+          assert (pathlib.Path(selection['package'])/'bin/loki').is_file()
+          print(json.dumps({'archive_regression_check_completed':True,'archive_check_output':archive_check,
+              'minimal_package_output':selection['package'],'actual_outputs':sorted(paths)},sort_keys=True))
           assert all(selection[n].startswith('/nix/store/') for n in ['package','runtime','inputs'])
           inputs=json.loads(pathlib.Path(selection['inputs']).read_text())
           assert inputs['environment']==selection['runtime']
@@ -196,7 +208,7 @@ jobs:
           command_map = json.loads((package / 'command-map.json').read_text())
           repo = package / inputs['repo']
           stamp = json.loads((repo / 'install-stamp.json').read_text())
-          assert stamp['commit'] == '19beae28c554814a1c2f4a3d40d44789c3ba7aa3'
+          assert stamp['commit'] == '58df585e93d7d30d4a9f7b0e9f89e996364e4d79'
           assert stamp['distribution'] == 'nix' and stamp['updateMechanism'] == 'external'
           assert (Path(inputs['pm_runtime']) / 'pm-runtime.json').is_file()
           for name, resource in inputs['resources'].items():
@@ -209,7 +221,7 @@ jobs:
               'default_home':str(get_hermes_home()),'package':str(package),'stamp':stamp,
               'resources_bound':True,'independent_PM_runtime_present':True},sort_keys=True))
           ORIGIN
-          echo 'ec1da8c49a5fca782cd179f0ee9412c1c1b30dc7cab7bd356ff63385767c7729  '"$q/module-origin-and-state.py" | sha256sum --check
+          echo '3585a63606ad5ad64f54c150fafb1b26015628792500e11abe1bbe911475c6e7  '"$q/module-origin-and-state.py" | sha256sum --check
           cd "$q/runtime-cwd"
           env -i HOME="$q/runtime-home" TMPDIR="$q/tmp" PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC \
             timeout 60 "$package/bin/loki" --help
@@ -228,9 +240,9 @@ jobs:
           before=json.loads((root/'source-before.json').read_text())
           actual={p:hashlib.sha256((source/p).read_bytes()).hexdigest() for p in before['source_sha256']}
           assert actual==before['source_sha256']
-          assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()=='19beae28c554814a1c2f4a3d40d44789c3ba7aa3'
+          assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()=='58df585e93d7d30d4a9f7b0e9f89e996364e4d79'
           assert not subprocess.check_output(['git','status','--porcelain'],cwd=source,text=True).strip()
           assert not (root/'runtime-home/.hermes').exists()
-          print(json.dumps({'source_bookends_equal':True,'source':'19beae28c554814a1c2f4a3d40d44789c3ba7aa3',
+          print(json.dumps({'source_bookends_equal':True,'source':'58df585e93d7d30d4a9f7b0e9f89e996364e4d79',
               'source_sha256':actual,'no_upstream_user_state_created':True},sort_keys=True))
           BOOKEND
