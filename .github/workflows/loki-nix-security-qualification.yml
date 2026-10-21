@@ -140,6 +140,194 @@ jobs:
           (root / 'effective-source.json').write_text(json.dumps(receipt, indent=2) + '\n')
           print(json.dumps(receipt, sort_keys=True))
           PY
+          cat > "$q/effective-source/supplier-unit-fixtures.patch" <<'FIXTURE_PATCH'
+          --- a/test/test-configure-nodedir.js
+          +++ b/test/test-configure-nodedir.js
+          @@ -3 +3 @@
+          -const { describe, it } = require('mocha')
+          +const { describe, it, beforeEach, afterEach } = require('mocha')
+          @@ -5,0 +6 @@
+          +const fs = require('fs')
+          @@ -45 +46,26 @@
+          -const SPAWN_RESULT = cb => ({ on: function () { cb() } })
+          +let fixtureDir
+          +
+          +function unitProgram (argv) {
+          +  const prog = gyp()
+          +  prog.parseArgv(argv)
+          +  prog.devDir = fixtureDir
+          +  const installs = []
+          +  let spawns = 0
+          +  prog.commands.install = async (versions) => { installs.push(versions) }
+          +  return {
+          +    prog,
+          +    spawnResult: () => {
+          +      spawns++
+          +      return {
+          +        on: (event, callback) => {
+          +          assert.strictEqual(event, 'exit')
+          +          callback(0)
+          +        }
+          +      }
+          +    },
+          +    verify: (expectedInstalls) => {
+          +      assert.deepStrictEqual(installs, expectedInstalls)
+          +      assert.strictEqual(spawns, 1)
+          +    }
+          +  }
+          +}
+          @@ -59,3 +85,9 @@
+          -  it('configure nodedir with node-gyp command line', function (done) {
+          -    const prog = gyp()
+          -    prog.parseArgv(['dummy_prog', 'dummy_script', '--nodedir=' + path.sep + 'usr'])
+          +  beforeEach(function () {
+          +    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'node-gyp-configure-unit-'))
+          +  })
+          +  afterEach(function () {
+          +    fs.rmSync(fixtureDir, { recursive: true, force: true })
+          +  })
+          +
+          +  it('configure nodedir with node-gyp command line', async function () {
+          +    const { prog, spawnResult, verify } = unitProgram(['dummy_prog', 'dummy_script', '--nodedir=' + path.sep + 'usr'])
+          @@ -66 +98 @@
+          -          return SPAWN_RESULT(done)
+          +          return spawnResult()
+          @@ -71 +103,2 @@
+          -    configure(prog, [], assert.fail)
+          +    await configure(prog, [])
+          +    verify([])
+          @@ -75,3 +108,2 @@
+          -    it('use-prefix-to-find-headers build time option - match', function (done) {
+          -      const prog = gyp()
+          -      prog.parseArgv(['dummy_prog', 'dummy_script'])
+          +    it('use-prefix-to-find-headers build time option - match', async function () {
+          +      const { prog, spawnResult, verify } = unitProgram(['dummy_prog', 'dummy_script'])
+          @@ -83 +115 @@
+          -            return SPAWN_RESULT(done)
+          +            return spawnResult()
+          @@ -88 +120,2 @@
+          -      configure(prog, [], assert.fail)
+          +      await configure(prog, [])
+          +      verify([])
+          @@ -91,3 +124,2 @@
+          -    it('use-prefix-to-find-headers build time option - no match', function (done) {
+          -      const prog = gyp()
+          -      prog.parseArgv(['dummy_prog', 'dummy_script'])
+          +    it('use-prefix-to-find-headers build time option - no match', async function () {
+          +      const { prog, spawnResult, verify } = unitProgram(['dummy_prog', 'dummy_script'])
+          @@ -102 +134 @@
+          -        return SPAWN_RESULT(done)
+          +        return spawnResult()
+          @@ -104 +136,2 @@
+          -      configure2(prog, [], assert.fail)
+          +      await configure2(prog, [])
+          +      verify([[process.versions.node]])
+          @@ -107,3 +140,2 @@
+          -    it('use-prefix-to-find-headers build time option, target specified', function (done) {
+          -      const prog = gyp()
+          -      prog.parseArgv(['dummy_prog', 'dummy_script', '--target=8.0.0'])
+          +    it('use-prefix-to-find-headers build time option, target specified', async function () {
+          +      const { prog, spawnResult, verify } = unitProgram(['dummy_prog', 'dummy_script', '--target=8.0.0'])
+          @@ -118 +150 @@
+          -        return SPAWN_RESULT(done)
+          +        return spawnResult()
+          @@ -120 +152,2 @@
+          -      configure(prog, [], assert.fail)
+          +      await configure(prog, [])
+          +      verify([['8.0.0']])
+          --- a/test/test-configure-python.js
+          +++ b/test/test-configure-python.js
+          @@ -3 +3 @@
+          -const { describe, it } = require('mocha')
+          +const { describe, it, beforeEach, afterEach } = require('mocha')
+          @@ -6 +6,2 @@
+          -const { devDir } = require('./common')
+          +const fs = require('fs')
+          +const os = require('os')
+          @@ -14,0 +16 @@
+          +    readFileSync: () => { throw Object.assign(new Error('No prefix headers in this unit fixture'), { code: 'ENOENT' }) },
+          @@ -25 +27,26 @@
+          -const SPAWN_RESULT = cb => ({ on: function () { cb() } })
+          +let fixtureDir
+          +
+          +function unitProgram (argv) {
+          +  const prog = gyp()
+          +  prog.parseArgv(argv)
+          +  prog.devDir = fixtureDir
+          +  const installs = []
+          +  let spawns = 0
+          +  prog.commands.install = async (versions) => { installs.push(versions) }
+          +  return {
+          +    prog,
+          +    spawnResult: () => {
+          +      spawns++
+          +      return {
+          +        on: (event, callback) => {
+          +          assert.strictEqual(event, 'exit')
+          +          callback(0)
+          +        }
+          +      }
+          +    },
+          +    verify: (expectedInstalls) => {
+          +      assert.deepStrictEqual(installs, expectedInstalls)
+          +      assert.strictEqual(spawns, 1)
+          +    }
+          +  }
+          +}
+          @@ -28 +55,8 @@
+          -  it('configure PYTHONPATH with no existing env', function (done) {
+          +  beforeEach(function () {
+          +    fixtureDir = fs.mkdtempSync(path.join(os.tmpdir(), 'node-gyp-configure-unit-'))
+          +  })
+          +  afterEach(function () {
+          +    fs.rmSync(fixtureDir, { recursive: true, force: true })
+          +  })
+          +
+          +  it('configure PYTHONPATH with no existing env', async function () {
+          @@ -31,2 +65 @@
+          -    const prog = gyp()
+          -    prog.parseArgv([])
+          +    const { prog, spawnResult, verify } = unitProgram([])
+          @@ -35 +68 @@
+          -      return SPAWN_RESULT(done)
+          +      return spawnResult()
+          @@ -37,2 +70,2 @@
+          -    prog.devDir = devDir
+          -    configure(prog, [], assert.fail)
+          +    await configure(prog, [])
+          +    verify([[process.versions.node]])
+          @@ -41 +74 @@
+          -  it('configure PYTHONPATH with existing env of one dir', function (done) {
+          +  it('configure PYTHONPATH with existing env of one dir', async function () {
+          @@ -45,2 +78 @@
+          -    const prog = gyp()
+          -    prog.parseArgv([])
+          +    const { prog, spawnResult, verify } = unitProgram([])
+          @@ -53 +85 @@
+          -      return SPAWN_RESULT(done)
+          +      return spawnResult()
+          @@ -55,2 +87,2 @@
+          -    prog.devDir = devDir
+          -    configure(prog, [], assert.fail)
+          +    await configure(prog, [])
+          +    verify([[process.versions.node]])
+          @@ -59 +91 @@
+          -  it('configure PYTHONPATH with existing env of multiple dirs', function (done) {
+          +  it('configure PYTHONPATH with existing env of multiple dirs', async function () {
+          @@ -65,2 +97 @@
+          -    const prog = gyp()
+          -    prog.parseArgv([])
+          +    const { prog, spawnResult, verify } = unitProgram([])
+          @@ -73 +104 @@
+          -      return SPAWN_RESULT(done)
+          +      return spawnResult()
+          @@ -75,2 +106,2 @@
+          -    prog.devDir = devDir
+          -    configure(prog, [], assert.fail)
+          +    await configure(prog, [])
+          +    verify([[process.versions.node]])
+          FIXTURE_PATCH
+          echo '401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d  '"$q/effective-source/supplier-unit-fixtures.patch" | sha256sum --check
           cat > "$q/qualification.nix" <<'NIX'
           { checkout, source }:
           let
@@ -233,10 +421,39 @@ jobs:
                   return result
                 }
                 JS
-                # Supplier option tests own their CLI/header-prefix inputs.
-                # Strict rejection reporting exposes ignored fixture promises.
-                env -u npm_config_nodedir NODE_OPTIONS="--require=$diagnostic/observer.cjs --unhandled-rejections=strict --trace-uncaught" npm test
-                npm run lint
+                # Only these two FS-mocked unit fixtures receive the reviewed offline repair.
+                fixture_patch=${builtins.toPath (source + "/supplier-unit-fixtures.patch")}
+                echo '401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d  '"$fixture_patch" | sha256sum --check
+                echo 'd0187c07f897f743ad3761cb706511dd7753d48062496353e08687fcf0fd51c7  test/test-configure-nodedir.js' | sha256sum --check
+                echo '9b7c750a04bb6f85e9a0c92659aa3f4e311e2119cf4ae522a746b34d12751280  test/test-configure-python.js' | sha256sum --check
+                echo '6221f4df47b863bcff62ae052d53f11b7487c9ea015f787771323c4c232a2139  lib/node-gyp.js' | sha256sum --check
+                echo '640d14e5719d34a4b5f1b7728cd94f383b0992a6089f3a133ecb9a349625d861  lib/configure.js' | sha256sum --check
+                echo 'f1dd462e1ad2618c758de94301181132a15a10686f5cad324d01bd36e6be0259  lib/install.js' | sha256sum --check
+                echo 'e1c85711ffecb9a017a61fb114bb27745205d394c8ee90000c95d0064ce80765  test/test-download.js' | sha256sum --check
+                echo '519f18a55044e1506e3046584c5d5bd972b81a080a911c9235f05174abe64ad4  test/test-install.js' | sha256sum --check
+                echo '2811d147b003d85db09095eafc4975b8d188fb0c1fc049e50130861275adaeec  package.json' | sha256sum --check
+                echo '33a902a4798211dc9c8b165fa3ae4edd16ac64203d441e27f3fd36c8117afda2  package-lock.json' | sha256sum --check
+                sha256sum lib/node-gyp.js lib/configure.js lib/install.js \
+                  test/test-download.js test/test-install.js test/common.js \
+                  package.json package-lock.json > "$diagnostic/protected-before.sha256"
+                cat "$diagnostic/protected-before.sha256"
+                patch --batch --forward -p1 -F 0 < "$fixture_patch"
+                echo '2d99d3b59e21bf8f01d667698971d618dae18c749e9d0a244d2e9834a04b5e4f  test/test-configure-nodedir.js' | sha256sum --check
+                echo 'ba47a2f9bb11d46a3bc2a29781bbfe7576e3f50521a6fd4398eb844e6770f5a3  test/test-configure-python.js' | sha256sum --check
+                echo 'Supplier fixture scope: two corrected unit fixtures; production library/downloader/manifest/lock unchanged'
+                supplier_test_status=0
+                env -u npm_config_nodedir NODE_OPTIONS="--require=$diagnostic/observer.cjs --unhandled-rejections=strict --trace-uncaught" npm test || supplier_test_status=$?
+                supplier_lint_status=not-run
+                if [ "$supplier_test_status" -eq 0 ]; then
+                  supplier_lint_status=0
+                  npm run lint || supplier_lint_status=$?
+                fi
+                echo "Supplier test exit: $supplier_test_status; supplier lint exit: $supplier_lint_status"
+                sha256sum --check "$diagnostic/protected-before.sha256"
+                echo '2d99d3b59e21bf8f01d667698971d618dae18c749e9d0a244d2e9834a04b5e4f  test/test-configure-nodedir.js' | sha256sum --check
+                echo 'ba47a2f9bb11d46a3bc2a29781bbfe7576e3f50521a6fd4398eb844e6770f5a3  test/test-configure-python.js' | sha256sum --check
+                test "$supplier_test_status" -eq 0
+                test "$supplier_lint_status" = 0
                 runHook postCheck
               '';
             });
@@ -471,13 +688,15 @@ jobs:
               RECEIPT[label] = {'commit': EXPECTED, 'shallow': True, 'source_sha256': hashes}
 
 
-          def evaluate(label, filename, attr=None):
-              args = ['nix', 'eval', '--json', '--file', str(ROOT / filename)]
-              if attr:
-                  args.append(attr)
-              args += ['--argstr', 'sourceUrl', SOURCE.as_uri().replace('file:', 'git+file:', 1)
-                       + '?rev=' + EXPECTED + '&shallow=1', '--no-write-lock-file', '--no-update-lock-file']
-              return run(label, args, 120, required=False)
+          def evaluate(label, filename, limit=120):
+              source_url = (SOURCE.as_uri().replace('file:', 'git+file:', 1)
+                            + '?rev=' + EXPECTED + '&shallow=1')
+              assert re.fullmatch(r'git\+file:///[A-Za-z0-9._~%/-]+\?rev='
+                                  + EXPECTED + r'&shallow=1', source_url)
+              apply = 'f: f { sourceUrl = ' + json.dumps(source_url, ensure_ascii=True) + '; }'
+              args = ['nix', 'eval', '--json', '--file', str(ROOT / filename), '--apply', apply,
+                      '--no-write-lock-file', '--no-update-lock-file']
+              return run(label, args, limit, required=False)
 
 
           def derivation(label, path, package):
@@ -521,6 +740,18 @@ jobs:
               assert values['build-users-group']['value'] == 'nixbld'
               RECEIPT['free_bytes_before'] = shutil.disk_usage(ROOT).free
               assert RECEIPT['free_bytes_before'] >= 8 * 1024**3, 'Need at least 8 GiB free'
+              control = ROOT / 'controller-application-control.nix'
+              with control.open('x') as stream:
+                  stream.write('{ sourceUrl }: { applied = true; inputType = builtins.typeOf sourceUrl; inherit sourceUrl; }\n')
+              checked, text = evaluate('controller-application-control', control.name, limit=30)
+              assert checked['returncode'] == 0 and not checked['timed_out'], 'Nix controller application failed'
+              expected_control = {
+                  'applied': True, 'inputType': 'string',
+                  'sourceUrl': SOURCE.as_uri().replace('file:', 'git+file:', 1)
+                               + '?rev=' + EXPECTED + '&shallow=1',
+              }
+              assert json.loads(text) == expected_control, 'Unexpected Nix controller application result'
+              RECEIPT['controller_application_control'] = expected_control
               admission, _ = evaluate('source-admission', 'admission-metadata.nix')
               assert admission['returncode'] == 0 and not admission['timed_out'], 'Source/API preparation failed'
               primary, text = evaluate('production-context', 'production-component-context.nix')
@@ -566,7 +797,7 @@ jobs:
               print(json.dumps(RECEIPT, sort_keys=True), flush=True)
           raise SystemExit(0 if RECEIPT['status'] == 'component-built' else 1)
           BROWSER_PY
-          echo '2b57a1c4275c449a4c61a5fe3d7b7af2ba6c46260da8beb91806b8fa1dcae942  '"$browser/diagnostic.py" | sha256sum --check
+          echo '818a74167aefcfe3b69205982daa66c314eac2af8f4f1fb262789ee27b534f35  '"$browser/diagnostic.py" | sha256sum --check
           python3 "$browser/diagnostic.py"
       - name: Record source bookends and retain diagnostic results in the job log
         if: always()
