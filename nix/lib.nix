@@ -186,21 +186,27 @@ let
         true;
   };
 
-  # Common npm workspace resolution files needed by all npm builds.
+  # Common workspace metadata and owned local sources for every npm build.
   # npm ci requires all workspace package.json files to resolve
   # workspace: protocol dependencies correctly.  Discovered from the
   # root package.json workspaces — root manifests + every member's
   # package.json.
+  htmlparser2Root = repoRoot + "/vendor/htmlparser2";
+  htmlparser2Package = lib.importJSON (htmlparser2Root + "/package.json");
+  htmlparser2Archive = htmlparser2Root + "/htmlparser2-${htmlparser2Package.version}.tgz";
+
   npmWorkspaceFiles = lib.fileset.unions (
     [
       (repoRoot + "/package.json")
       (repoRoot + "/package-lock.json")
+      # Retain the archive and corresponding source used by its owned guard.
+      htmlparser2Root
     ]
     ++ map (d: repoRoot + "/${d}/package.json") workspaceMemberDirs
   );
 
-  # npm deps source: just what importNpmLock needs (root manifests +
-  # workspace member package.jsons).  Much smaller than the full repo,
+  # npm deps source: workspace manifests and the admitted local archive
+  # component. Much smaller than the full repo,
   # so changing source files won't invalidate the npmDeps derivation.
   npmDepsSrc = lib.fileset.toSource {
     root = repoRoot;
@@ -213,6 +219,8 @@ let
   # keep in sync with it.
   npmDeps = importNpmLock.importNpmLock {
     npmRoot = npmDepsSrc;
+    # The pinned helper otherwise treats the literal file: prefix as a path.
+    packageSourceOverrides."node_modules/htmlparser2" = htmlparser2Archive;
     # The lock already records override resolutions. importNpmLock changes
     # direct specs to file:/nix/store tarballs, which conflict with the
     # original semver overrides (EOVERRIDE). Drop them only from this offline
@@ -284,6 +292,10 @@ let
         // {
           pname = attrs.pname or defaultPname;
           version = attrs.version or defaultVersion;
+          # Validate original manifests before the offline hook rewrites them.
+          preConfigure = ''
+            node vendor/htmlparser2/archive.mjs --check
+          '' + (attrs.preConfigure or "");
         };
     in
     buildNpmPackage finalAttrs;
