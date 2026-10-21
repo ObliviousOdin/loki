@@ -352,6 +352,13 @@ jobs:
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ tools ];
               checkPhase = ''
                 runHook preCheck
+                qualification_original_path="$PATH"
+                qualification_original_node="$(command -v node)"
+                qualification_original_npm="$(command -v npm)"
+                echo "Inherited build tools: $qualification_original_node $qualification_original_npm"
+                test "$(node --version)" = "v${pkgs.nodejs.version}"
+                test "$(npm --version)" = "11.16.0"
+                (
                 echo "Supplier check build UID: $(id -u)"
                 test "$(id -u)" -ne 0
                 export PATH=${tools}/bin:$PATH
@@ -463,7 +470,21 @@ jobs:
                 echo '73d820e621bf88f51d3bae4bdc9667469cf35422b452071c0e3717ac7db4c8ad  test/test-configure-python.js' | sha256sum --check
                 test "$supplier_test_status" -eq 0
                 test "$supplier_lint_status" = 0
+                )
+                test "$PATH" = "$qualification_original_path"
+                test "$(command -v node)" = "$qualification_original_node"
+                test "$(command -v npm)" = "$qualification_original_npm"
+                test "$(node --version)" = "v${pkgs.nodejs.version}"
+                test "$(npm --version)" = "11.16.0"
+                echo "Inherited install tools restored: $(command -v node) $(command -v npm)"
                 runHook postCheck
+              '';
+              postInstall = (old.postInstall or "") + ''
+                test -f "$out/lib/node_modules/node-gyp/package.json"
+                test -x "$out/bin/node-gyp"
+                echo "Inherited npm install payload and wrapper present:"
+                "$out/bin/node-gyp" --version
+                test "$("$out/bin/node-gyp" --version)" = "v${old.version}"
               '';
             });
           in
@@ -529,7 +550,7 @@ jobs:
           # Source-only RED admission. No evaluation or build has been performed.
           { sourceUrl ? "__ROOT_ADMITTED_GIT_FILE_URL_WITH_EXACT_REV_REQUIRED__" }:
           let
-            expected = "8f86c784b08c01f099d86d0240a3d86faa21d8e8";
+            expected = "f856b24c9b0c90348cbce4f23f06d6fe4a5d1a0b";
             f = builtins.getFlake sourceUrl;
             system = "x86_64-linux";
             pkgs = import f.inputs.nixpkgs { inherit system; };
@@ -556,7 +577,7 @@ jobs:
           assert (builtins.head setuptoolsNodes).version == "83.0.0";
           { inherit f system pkgs python pythonSrc workspace; }
           BROWSER_NIX_0
-          echo '918de63b310b641a239d48a83e9489e9208837a30917a26f8e78dae6ec1bc56d  '"$browser/admitted-source.nix" | sha256sum --check
+          echo '38df7a728ae1e633d41893158c5d66393c96310dfef1ae41f2e3e639661ae804  '"$browser/admitted-source.nix" | sha256sum --check
           cat > "$browser/production-component-context.nix" <<'BROWSER_NIX_1'
           # SOURCE-ONLY preferred selection from the ACTUAL production virtualenv metadata.
           # It evaluates dependency metadata, but must never build or realize the virtualenv.
@@ -603,6 +624,7 @@ jobs:
           echo '75d15ad99b1464c0184ba5e2d131a9c9c15148c092741f3c67c5fa7d5c818efc  '"$browser/admission-metadata.nix" | sha256sum --check
           cat > "$browser/diagnostic.py" <<'BROWSER_PY'
           import hashlib
+          from email.parser import BytesParser
           import json
           import os
           from pathlib import Path
@@ -617,11 +639,11 @@ jobs:
 
           ROOT = Path(__file__).resolve().parent
           SOURCE = ROOT / 'source'
-          EXPECTED = '8f86c784b08c01f099d86d0240a3d86faa21d8e8'
+          EXPECTED = 'f856b24c9b0c90348cbce4f23f06d6fe4a5d1a0b'
           ARCHIVE = 'vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz'
           HASHES = {
               'nix/lib.nix': '1c104d03b9f5211d53052b11bd119598f02c6bd97f21bf4069e82b39a1ae29c5',
-              'nix/python.nix': '3b51d38053682bb9593f252071d15f97339d714346f194b4f367a2ba6273f07e',
+              'nix/python.nix': 'e6b4571e6c296562c25201779d6aab3ebb43ba6290652187c918dbdfb87636bc',
               'nix/pythonLock.nix': 'ebb83adaabb8acaf7ce7183a5ec83cbf40d84f100fe30fec16838ce23b32f8e2',
               'nix/hermes-agent.nix': '1958ab981811f0ad8c903a4ac3b6d31a712d5c399b401e5eb23d55818a883a9d',
               'flake.lock': 'ac924684836cd3676fce5338149daf2d4003208b278156078889125923c901c8',
@@ -773,6 +795,33 @@ jobs:
                       ('name', 'src', 'nativeBuildInputs', 'buildInputs', 'propagatedBuildInputs')}}
 
 
+          def component_output_path(text):
+              paths = text.splitlines()
+              assert len(paths) == 1 and re.fullmatch(
+                  r'/nix/store/[0-9a-z]{32}-browser-harness-0[.]1[.]13[+]loki[.]1', paths[0]), 'Expected one browser output store path'
+              return Path(paths[0])
+
+
+          def installed_distribution(root):
+              metadata = list(root.glob('lib/python*/site-packages/browser_harness-0.1.13+loki.1.dist-info/METADATA'))
+              assert len(metadata) == 1, 'Expected one installed browser distribution'
+              path = metadata[0]
+              assert path.is_file() and not path.is_symlink() and path.resolve().is_relative_to(root.resolve())
+              data = BytesParser().parsebytes(path.read_bytes())
+              assert data.get_all('Name') == ['browser-harness'] and data.get_all('Version') == ['0.1.13+loki.1'], 'Unexpected installed browser identity'
+              pillow = [value for value in data.get_all('Requires-Dist', [])
+                        if re.match(r'(?i:pillow)(?=[^A-Za-z0-9_.-]|$)', value)]
+              assert len(pillow) == 1 and re.fullmatch(r'(?i:pillow)\s*==\s*13[.]0[.]0', pillow[0]), 'Expected exact installed Pillow13 requirement'
+              assert data.get_all('License-File') == ['LICENSE'], 'Expected browser license declaration'
+              license = path.parent / 'licenses' / 'LICENSE'
+              assert license.is_file() and not license.is_symlink() and license.resolve().is_relative_to(root.resolve()), 'Missing installed browser license'
+              assert hashlib.sha256(license.read_bytes()).hexdigest() == '5afa3d97bf1e6f998d587fa101e3fe0d0c416840b7fe77bcd6ae97690a334631', 'Browser supplier license changed'
+              return {'output': str(root), 'name': data['Name'], 'version': data['Version'],
+                      'pillow_requirement': pillow[0], 'qualification_scope': 'component-build-and-distribution-metadata-only',
+                      'files': [{'path': str(item.relative_to(root)), 'sha256': hashlib.sha256(item.read_bytes()).hexdigest()}
+                                for item in (path, license)]}
+
+
           def qualify():
               for name in ('home', 'tmp', 'config', 'cache'):
                   (ROOT / name).mkdir()
@@ -819,11 +868,12 @@ jobs:
               RECEIPT['free_bytes_before_build'] = shutil.disk_usage(ROOT).free
               assert RECEIPT['free_bytes_before_build'] >= 8 * 1024**3, 'Need at least 8 GiB free before component build'
               RECEIPT['status'] = 'component-build-failed-unclassified'
-              build, _ = run('browser-build', ['nix', 'build', metadata['browserDrvPath'] + '^out',
+              build, output = run('browser-build', ['nix', 'build', metadata['browserDrvPath'] + '^out',
                   '--no-link', '--print-build-logs', '--print-out-paths', '--option', 'max-jobs', '1',
                   '--cores', '2', '--timeout', '300'], 300, required=False)
               assert not build['timed_out'] and build['returncode'] == 0, 'Inspect actual component build failure; no inferred backend cause'
               assert not RECEIPT.get('owned_cleanup_errors'), 'Owned child cleanup did not complete'
+              RECEIPT['installed_distribution'] = installed_distribution(component_output_path(output))
               RECEIPT['status'] = 'component-built'
 
 
@@ -847,7 +897,7 @@ jobs:
               print(json.dumps(RECEIPT, sort_keys=True), flush=True)
           raise SystemExit(0 if RECEIPT['status'] == 'component-built' else 1)
           BROWSER_PY
-          echo 'a1a380798cb9f5bd223862955e06740e53860a687b2dcb664d656ad95b7d6489  '"$browser/diagnostic.py" | sha256sum --check
+          echo 'c955691ca68a40156dc2d18cb28c5aa0fb654668376ec3de1de99e0c8a3f155b  '"$browser/diagnostic.py" | sha256sum --check
           python3 "$browser/diagnostic.py"
       - name: Record source bookends and retain diagnostic results in the job log
         if: always()
