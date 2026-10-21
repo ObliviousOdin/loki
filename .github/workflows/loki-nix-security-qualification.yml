@@ -54,6 +54,7 @@ jobs:
           print(json.dumps(receipt, sort_keys=True))
           PY
       - name: Install the SHA-admitted official daemon and unprivileged build users
+        id: daemon
         run: |
           set -euo pipefail
           q="$RUNNER_TEMP/loki-nix-qualification"
@@ -185,8 +186,56 @@ jobs:
                   inheritedLegacy:inherited,preferredAbsent:true,
                   injectedResult:injected.opts.nodedir,isolatedResult:isolated.opts.nodedir}))
                 JS
+                diagnostic="$TMPDIR/node-gyp-diagnostic"
+                mkdir "$diagnostic"
+                node -e 'require("node:fs").writeFileSync(process.argv[1], JSON.stringify(require("node:path").resolve("lib/node-gyp.js")))' "$diagnostic/source.json"
+                cat > "$diagnostic/observer.cjs" <<'JS'
+                const fs = require('node:fs')
+                const path = require('node:path')
+                const crypto = require('node:crypto')
+                const source = JSON.parse(fs.readFileSync(path.join(__dirname, 'source.json'), 'utf8'))
+                const factory = require(source)
+                const originalParse = factory.Gyp.prototype.parseArgv
+                const observed = new WeakSet()
+                function report(event, fields) {
+                  process.stderr.write(JSON.stringify({event,node:process.version,pid:process.pid,...fields}) + '\n')
+                }
+                report('supplier-observer-source', {sha256:crypto.createHash('sha256').update(fs.readFileSync(source)).digest('hex')})
+                process.on('uncaughtExceptionMonitor', (error, origin) => {
+                  report('supplier-uncaught-rejection-or-exception', {origin,
+                    name:error.name,code:error.code ?? null,stack:String(error.stack)})
+                })
+                factory.Gyp.prototype.parseArgv = function (...args) {
+                  let result
+                  try {
+                    result = Reflect.apply(originalParse, this, args)
+                  } catch (error) {
+                    report('real-parse-threw', {name:error.name,stack:String(error.stack)})
+                    throw error
+                  }
+                  if (!observed.has(this)) {
+                    observed.add(this)
+                    const install = this.commands.install
+                    const owner = this
+                    this.commands.install = function (...installArgs) {
+                      report('real-install-start', {args:installArgs,devDir:owner.devDir,
+                        nodedir:owner.opts.nodedir ?? null,target:owner.opts.target ?? null})
+                      try {
+                        const result = Reflect.apply(install, this, installArgs)
+                        report('real-install-returned', {thenable:typeof result?.then === 'function'})
+                        return result
+                      } catch (error) {
+                        report('real-install-threw', {name:error.name,code:error.code ?? null,stack:String(error.stack)})
+                        throw error
+                      }
+                    }
+                  }
+                  return result
+                }
+                JS
                 # Supplier option tests own their CLI/header-prefix inputs.
-                env -u npm_config_nodedir npm test
+                # Strict rejection reporting exposes ignored fixture promises.
+                env -u npm_config_nodedir NODE_OPTIONS="--require=$diagnostic/observer.cjs --unhandled-rejections=strict --trace-uncaught" npm test
                 npm run lint
                 runHook postCheck
               '';
@@ -238,6 +287,287 @@ jobs:
           result="$(tail -n 1 "$q/build.stdout")"
           test -f "$result/native-probe.json"
           cat "$result/native-probe.json"
+      - name: Independently diagnose the admitted browser Python component
+        if: always() && !cancelled() && steps.daemon.outcome == 'success'
+        run: |
+          set -euo pipefail
+          q="$RUNNER_TEMP/loki-nix-qualification"
+          browser="$q/browser-component"
+          mkdir "$browser"
+          cat > "$browser/admitted-source.nix" <<'BROWSER_NIX_0'
+          # Source-only RED admission. No evaluation or build has been performed.
+          { sourceUrl ? "__ROOT_ADMITTED_GIT_FILE_URL_WITH_EXACT_REV_REQUIRED__" }:
+          let
+            expected = "8f86c784b08c01f099d86d0240a3d86faa21d8e8";
+            f = builtins.getFlake sourceUrl;
+            system = "x86_64-linux";
+            pkgs = import f.inputs.nixpkgs { inherit system; };
+            python = (pkgs.callPackage (f.outPath + "/nix/pythonLock.nix") { }).interpreter;
+            pythonSrc = (pkgs.callPackage (f.outPath + "/nix/lib.nix") {
+              npm-lockfile-fix = f.inputs.npm-lockfile-fix.packages.${system}.default;
+            }).pythonSrc;
+            lock = builtins.fromTOML (builtins.readFile (pythonSrc + "/uv.lock"));
+            nodes = builtins.filter (p: p.name == "browser-harness") lock.package;
+            setuptoolsNodes = builtins.filter (p: p.name == "setuptools") lock.package;
+            archive = "vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz";
+            workspace = f.inputs.uv2nix.lib.workspace.loadWorkspace { workspaceRoot = pythonSrc; };
+          in
+          assert f.rev == expected;
+          assert f.inputs.uv2nix.rev == "5a836d395cbf5fc22670eb98dd4aa4fc4d406977";
+          assert f.inputs.pyproject-nix.rev == "e3b599ca2e7fcf93d4edf65d7f19bbf6491724f3";
+          assert f.inputs.pyproject-build-systems.rev == "62c0d86027edb1c4f39a5facc09876348144f7c9";
+          assert builtins.length nodes == 1;
+          assert (builtins.head nodes).version == "0.1.13+loki.1";
+          assert (builtins.head nodes).source == { path = archive; };
+          assert (builtins.head nodes).sdist.hash == "sha256:d2b49644f0e78841ab13712ce30a633ebcb1ec16d59f82ca59f80d19195e13de";
+          assert builtins.hashFile "sha256" (pythonSrc + "/${archive}") == "d2b49644f0e78841ab13712ce30a633ebcb1ec16d59f82ca59f80d19195e13de";
+          assert builtins.length setuptoolsNodes == 1;
+          assert (builtins.head setuptoolsNodes).version == "83.0.0";
+          { inherit f system pkgs python pythonSrc workspace; }
+          BROWSER_NIX_0
+          echo '918de63b310b641a239d48a83e9489e9208837a30917a26f8e78dae6ec1bc56d  '"$browser/admitted-source.nix" | sha256sum --check
+          cat > "$browser/production-component-context.nix" <<'BROWSER_NIX_1'
+          # SOURCE-ONLY preferred selection from the ACTUAL production virtualenv metadata.
+          # It evaluates dependency metadata, but must never build or realize the virtualenv.
+          { sourceUrl ? "__ROOT_ADMITTED_GIT_FILE_URL_WITH_EXACT_REV_REQUIRED__" }:
+          let
+            admitted = import ./admitted-source.nix { inherit sourceUrl; };
+            inherit (admitted) f system;
+            venv = f.packages.${system}.minimal.hermesVenv;
+            context = builtins.getContext venv.NIX_PYPROJECT_DEPS;
+            paths = builtins.attrNames context;
+            browser = builtins.filter (p: builtins.match
+              "[0-9a-z]{32}-browser-harness-0[.]1[.]13[+]loki[.]1[.]drv"
+              (builtins.baseNameOf p) != null) paths;
+            setuptools = builtins.filter (p: builtins.match
+              "[0-9a-z]{32}-setuptools-83[.]0[.]0[.]drv"
+              (builtins.baseNameOf p) != null) paths;
+            drv = builtins.head browser;
+          in
+          assert builtins.length browser == 1;
+          assert builtins.elem "out" (context.${drv}.outputs or [ ]);
+          assert builtins.length setuptools == 1;
+          {
+            sourceRevision = f.rev;
+            virtualenvDrvPath = venv.drvPath;
+            browserDrvPath = drv;
+            browserOutputs = context.${drv}.outputs;
+            setuptoolsDrvPath = builtins.head setuptools;
+            contextCount = builtins.length paths;
+          }
+          BROWSER_NIX_1
+          echo '1930ca875e93b595fee72979351cccf14e1e2b9232b5393662fb089d5015839d  '"$browser/production-component-context.nix" | sha256sum --check
+          cat > "$browser/admission-metadata.nix" <<'BROWSER_NIX_2'
+          { sourceUrl }:
+          let admitted = import ./admitted-source.nix { inherit sourceUrl; };
+          in {
+            sourceRevision = admitted.f.rev;
+            system = admitted.system;
+            source = toString admitted.pythonSrc;
+          }
+          BROWSER_NIX_2
+          echo '75d15ad99b1464c0184ba5e2d131a9c9c15148c092741f3c67c5fa7d5c818efc  '"$browser/admission-metadata.nix" | sha256sum --check
+          cat > "$browser/diagnostic.py" <<'BROWSER_PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+          import re
+          import shutil
+          import signal
+          import subprocess
+          import tarfile
+          import time
+          import tomllib
+
+
+          ROOT = Path(__file__).resolve().parent
+          SOURCE = ROOT / 'source'
+          EXPECTED = '8f86c784b08c01f099d86d0240a3d86faa21d8e8'
+          ARCHIVE = 'vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz'
+          HASHES = {
+              'nix/lib.nix': '1c104d03b9f5211d53052b11bd119598f02c6bd97f21bf4069e82b39a1ae29c5',
+              'nix/python.nix': '3b51d38053682bb9593f252071d15f97339d714346f194b4f367a2ba6273f07e',
+              'nix/pythonLock.nix': 'ebb83adaabb8acaf7ce7183a5ec83cbf40d84f100fe30fec16838ce23b32f8e2',
+              'nix/hermes-agent.nix': '1958ab981811f0ad8c903a4ac3b6d31a712d5c399b401e5eb23d55818a883a9d',
+              'flake.lock': 'ac924684836cd3676fce5338149daf2d4003208b278156078889125923c901c8',
+              'uv.lock': '107186dc0f8a67a5bbd52e329907e8eeadb68bcd69d94d3df43c0656eee2fde0',
+              ARCHIVE: 'd2b49644f0e78841ab13712ce30a633ebcb1ec16d59f82ca59f80d19195e13de',
+          }
+          DEADLINE = time.monotonic() + 600
+          ENV = {
+              'HOME': str(ROOT / 'home'), 'USER': os.environ['USER'],
+              'PATH': '/nix/var/nix/profiles/default/bin:/usr/bin:/bin',
+              'TMPDIR': str(ROOT / 'tmp'),
+              'XDG_CONFIG_HOME': str(ROOT / 'config'), 'XDG_CACHE_HOME': str(ROOT / 'cache'),
+              'NIX_CONFIG': (ROOT.parent / 'nix.conf').read_text(), 'NIX_REMOTE': 'daemon',
+              'SSL_CERT_FILE': '/etc/ssl/certs/ca-certificates.crt',
+              'NIX_SSL_CERT_FILE': '/etc/ssl/certs/ca-certificates.crt',
+              'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null',
+              'GIT_TERMINAL_PROMPT': '0',
+          }
+          RECEIPT = {'source_revision': EXPECTED, 'component_only': True,
+                     'full_virtualenv_built': False, 'steps': [], 'status': 'preparation-failed'}
+
+
+          def terminate(signum, frame):
+              raise InterruptedError('Browser diagnostic received SIGTERM')
+
+
+          signal.signal(signal.SIGTERM, terminate)
+
+
+          def run(label, args, limit=90, required=True, final=False):
+              timeout = min(limit, DEADLINE - time.monotonic() - (0 if final else 45))
+              assert timeout > 0, 'Browser diagnostic total 600-second budget exhausted'
+              print(json.dumps({'browser_phase': label, 'argv': args, 'timeout': timeout}), flush=True)
+              out, err = ROOT / (label + '.stdout'), ROOT / (label + '.stderr')
+              with out.open('xb') as stdout, err.open('xb') as stderr:
+                  child = subprocess.Popen(args, cwd=ROOT, env=ENV, stdout=stdout,
+                                           stderr=stderr, start_new_session=True)
+                  timed_out = False
+                  cleanup_errors = []
+                  try:
+                      child.wait(timeout=timeout)
+                  except subprocess.TimeoutExpired:
+                      timed_out = True
+                  finally:
+                      if child.returncode is None:
+                          try:
+                              os.killpg(child.pid, signal.SIGKILL)
+                          except ProcessLookupError:
+                              pass
+                          except OSError as error:
+                              cleanup_errors.append(type(error).__name__ + ': ' + str(error))
+                      try:
+                          child.wait(timeout=max(0.01, min(10, DEADLINE - time.monotonic())))
+                      except (OSError, subprocess.TimeoutExpired) as error:
+                          cleanup_errors.append(type(error).__name__ + ': ' + str(error))
+                      if cleanup_errors:
+                          RECEIPT.setdefault('owned_cleanup_errors', []).append({
+                              'phase': label, 'errors': cleanup_errors})
+              result = {'phase': label, 'returncode': child.returncode, 'timed_out': timed_out,
+                        'stdout_sha256': hashlib.sha256(out.read_bytes()).hexdigest(),
+                        'stderr_sha256': hashlib.sha256(err.read_bytes()).hexdigest()}
+              RECEIPT['steps'].append(result)
+              for file in (out, err):
+                  print(file.name + ':\n' + file.read_text(errors='replace'), flush=True)
+              if required:
+                  assert child.returncode == 0 and not timed_out and not cleanup_errors, 'Preparation failed: ' + label
+              return result, out.read_text()
+
+
+          def git(label, *args, final=False):
+              return run(label, ['git', '-c', 'credential.helper=', '-C', str(SOURCE), *args],
+                         10 if final else 90, final=final)[1].strip()
+
+
+          def bookend(label, final=False):
+              assert git(label + '-head', 'rev-parse', 'HEAD', final=final) == EXPECTED
+              assert git(label + '-shallow', 'rev-parse', '--is-shallow-repository', final=final) == 'true'
+              assert not git(label + '-clean', 'status', '--porcelain', final=final)
+              hashes = {name: hashlib.sha256((SOURCE / name).read_bytes()).hexdigest() for name in HASHES}
+              assert hashes == HASHES, 'Browser source hashes changed or were not admitted'
+              RECEIPT[label] = {'commit': EXPECTED, 'shallow': True, 'source_sha256': hashes}
+
+
+          def evaluate(label, filename, attr=None):
+              args = ['nix', 'eval', '--json', '--file', str(ROOT / filename)]
+              if attr:
+                  args.append(attr)
+              args += ['--argstr', 'sourceUrl', SOURCE.as_uri().replace('file:', 'git+file:', 1)
+                       + '?rev=' + EXPECTED + '&shallow=1', '--no-write-lock-file', '--no-update-lock-file']
+              return run(label, args, 120, required=False)
+
+
+          def derivation(label, path, package):
+              assert re.fullmatch(r'/nix/store/[0-9a-z]{32}-' + package + r'\.drv', path), path
+              _, text = run(label, ['nix', 'derivation', 'show', path], 60)
+              data = json.loads(text)
+              assert set(data) == {path}, 'Expected one selected derivation'
+              return data[path]
+
+
+          def source_metadata(browser):
+              env = browser['env']
+              src = Path(env['src'])
+              assert src.is_file() and str(src).startswith('/nix/store/')
+              assert hashlib.sha256(src.read_bytes()).hexdigest() == HASHES[ARCHIVE]
+              with tarfile.open(src, 'r:gz') as archive:
+                  candidates = [m for m in archive.getmembers() if m.name.endswith('/pyproject.toml')]
+                  assert len(candidates) == 1 and candidates[0].isfile()
+                  with archive.extractfile(candidates[0]) as stream:
+                      build = tomllib.loads(stream.read().decode())['build-system']
+              assert build == {'requires': ['setuptools==84.0.0'], 'build-backend': 'setuptools.build_meta'}
+              RECEIPT['selected_source'] = {'archive_sha256': HASHES[ARCHIVE],
+                  'supplier_build_system': build, 'selected_runtime_setuptools': '83.0.0',
+                  'derivation_inputs': {k: env.get(k) for k in
+                      ('name', 'src', 'nativeBuildInputs', 'buildInputs', 'propagatedBuildInputs')}}
+
+
+          def qualify():
+              for name in ('home', 'tmp', 'config', 'cache'):
+                  (ROOT / name).mkdir()
+              run('git-init', ['git', 'init', str(SOURCE)], 30)
+              git('git-fetch', 'fetch', '--no-tags', '--depth=1',
+                  'https://github.com/ObliviousOdin/loki.git', EXPECTED)
+              git('git-checkout', 'checkout', '--detach', 'FETCH_HEAD')
+              bookend('source-before')
+              run('nix-version', ['nix', '--version'], 30)
+              _, config = run('nix-config', ['nix', 'config', 'show', '--json'], 30)
+              values = json.loads(config)
+              assert values['sandbox']['value'] is True
+              assert values['sandbox-fallback']['value'] is False
+              assert values['build-users-group']['value'] == 'nixbld'
+              RECEIPT['free_bytes_before'] = shutil.disk_usage(ROOT).free
+              assert RECEIPT['free_bytes_before'] >= 8 * 1024**3, 'Need at least 8 GiB free'
+              admission, _ = evaluate('source-admission', 'admission-metadata.nix')
+              assert admission['returncode'] == 0 and not admission['timed_out'], 'Source/API preparation failed'
+              primary, text = evaluate('production-context', 'production-component-context.nix')
+              if primary['returncode'] or primary['timed_out']:
+                  RECEIPT['production_context'] = 'evaluation-preparation-failed-unclassified'
+                  raise RuntimeError('Production evaluation failed; no automatic scoped fallback or backend RED claim')
+              metadata = json.loads(text)
+              assert metadata['sourceRevision'] == EXPECTED
+              assert 'out' in metadata['browserOutputs']
+              RECEIPT['selection_scope'] = 'actual-production-NIX_PYPROJECT_DEPS-context'
+              RECEIPT['selection_metadata'] = metadata
+              browser = derivation('browser-drv', metadata['browserDrvPath'], r'browser-harness-0[.]1[.]13[+]loki[.]1')
+              derivation('setuptools-drv', metadata['setuptoolsDrvPath'], r'setuptools-83[.]0[.]0')
+              source_metadata(browser)
+              RECEIPT['free_bytes_before_build'] = shutil.disk_usage(ROOT).free
+              assert RECEIPT['free_bytes_before_build'] >= 8 * 1024**3, 'Need at least 8 GiB free before component build'
+              RECEIPT['status'] = 'component-build-failed-unclassified'
+              build, _ = run('browser-build', ['nix', 'build', metadata['browserDrvPath'] + '^out',
+                  '--no-link', '--print-build-logs', '--print-out-paths', '--option', 'max-jobs', '1',
+                  '--cores', '2', '--timeout', '300'], 300, required=False)
+              assert not build['timed_out'] and build['returncode'] == 0, 'Inspect actual component build failure; no inferred backend cause'
+              assert not RECEIPT.get('owned_cleanup_errors'), 'Owned child cleanup did not complete'
+              RECEIPT['status'] = 'component-built'
+
+
+          try:
+              qualify()
+          except Exception as error:
+              RECEIPT['status'] = 'diagnostic-exception-failed'
+              RECEIPT['error'] = {'type': type(error).__name__, 'message': str(error)}
+          finally:
+              if 'source-before' in RECEIPT:
+                  try:
+                      bookend('source-after', final=True)
+                  except Exception as error:
+                      RECEIPT['bookend_error'] = {'type': type(error).__name__, 'message': str(error)}
+                      RECEIPT['status'] = 'source-bookend-failed'
+              if RECEIPT.get('owned_cleanup_errors'):
+                  RECEIPT['status'] = 'owned-child-cleanup-failed'
+              RECEIPT['termination_limits'] = 'Only the retained unreaped child group is signalled; descendants after a reaped leader, SIGKILL, forced runner termination and daemon cancellation remain outside this cleanup claim'
+              RECEIPT['free_bytes_after'] = shutil.disk_usage(ROOT).free
+              (ROOT / 'receipt.json').write_text(json.dumps(RECEIPT, indent=2) + '\n')
+              print(json.dumps(RECEIPT, sort_keys=True), flush=True)
+          raise SystemExit(0 if RECEIPT['status'] == 'component-built' else 1)
+          BROWSER_PY
+          echo '2b57a1c4275c449a4c61a5fe3d7b7af2ba6c46260da8beb91806b8fa1dcae942  '"$browser/diagnostic.py" | sha256sum --check
+          python3 "$browser/diagnostic.py"
       - name: Record source bookends and retain diagnostic results in the job log
         if: always()
         run: |
