@@ -338,6 +338,15 @@ jobs:
               name = "nodejs-26-npm-12-qualification";
               paths = [ npm12 pkgs.nodejs_26 ];
             };
+            expectedFixtureSha = "401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d";
+            fixtureText = builtins.readFile (source + "/supplier-unit-fixtures.patch");
+            fixturePatch = builtins.toFile "supplier-unit-fixtures.patch" fixtureText;
+            fixtureInput = {
+              type = builtins.typeOf fixturePatch;
+              path = fixturePatch;
+              context = builtins.getContext fixturePatch;
+              sha256 = builtins.hashString "sha256" fixtureText;
+            };
             gyp = (pkgs.callPackage (builtins.toPath (source + "/nix/node-gyp-11-4-0.nix")) { }).overrideAttrs (old: {
               doCheck = true;
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ tools ];
@@ -422,7 +431,7 @@ jobs:
                 }
                 JS
                 # Only these two FS-mocked unit fixtures receive the reviewed offline repair.
-                fixture_patch=${builtins.toPath (source + "/supplier-unit-fixtures.patch")}
+                fixture_patch=${fixturePatch}
                 echo '401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d  '"$fixture_patch" | sha256sum --check
                 echo 'd0187c07f897f743ad3761cb706511dd7753d48062496353e08687fcf0fd51c7  test/test-configure-nodedir.js' | sha256sum --check
                 echo '9b7c750a04bb6f85e9a0c92659aa3f4e311e2119cf4ae522a746b34d12751280  test/test-configure-python.js' | sha256sum --check
@@ -459,7 +468,12 @@ jobs:
             });
           in
           assert flake.sourceInfo.narHash == "sha256-dN6Ou5x/+23FZLEpYP3IffO+NyJFzUlGumt1uu3MMaY=";
-          pkgs.runCommand "loki-node-gyp-node26-native-qualification" {
+          assert fixtureInput.type == "string";
+          assert builtins.match "/nix/store/[0-9a-z]{32}-supplier-unit-fixtures[.]patch" fixturePatch != null;
+          assert builtins.attrNames fixtureInput.context != [ ];
+          assert fixtureInput.sha256 == expectedFixtureSha;
+          builtins.trace ("SUPPLIER_FIXTURE_INPUT " + builtins.toJSON fixtureInput)
+          (pkgs.runCommand "loki-node-gyp-node26-native-qualification" {
             nativeBuildInputs = [ tools pkgs.python3 pkgs.stdenv.cc pkgs.gnumake gyp ];
           } ''
             echo "Native probe build UID: $(id -u)"
@@ -494,7 +508,7 @@ jobs:
             npm_package_config_node_gyp_nodedir=${pkgs.nodejs_26} node-gyp rebuild
             mkdir "$out"
             node -e 'const a = require("./build/Release/answer.node"); if (a.answer !== 42 || a.compiledNodeMajor !== 26 || process.versions.node.split(".")[0] !== "26") process.exit(1); console.log(JSON.stringify({answer:a.answer,compiledNodeMajor:a.compiledNodeMajor,node:process.version,modules:process.versions.modules,napi:process.versions.napi}))' | tee "$out/native-probe.json"
-          ''
+          '')
           NIX
           sha256sum "$q/qualification.nix"
           nix_env timeout 1800 nix build --impure --no-write-lock-file --print-build-logs \
@@ -557,23 +571,26 @@ jobs:
               "[0-9a-z]{32}-browser-harness-0[.]1[.]13[+]loki[.]1[.]drv"
               (builtins.baseNameOf p) != null) paths;
             setuptools = builtins.filter (p: builtins.match
-              "[0-9a-z]{32}-setuptools-83[.]0[.]0[.]drv"
+              "[0-9a-z]{32}-setuptools-[0-9].*[.]drv"
               (builtins.baseNameOf p) != null) paths;
             drv = builtins.head browser;
           in
           assert builtins.length browser == 1;
           assert builtins.elem "out" (context.${drv}.outputs or [ ]);
-          assert builtins.length setuptools == 1;
           {
             sourceRevision = f.rev;
             virtualenvDrvPath = venv.drvPath;
             browserDrvPath = drv;
             browserOutputs = context.${drv}.outputs;
-            setuptoolsDrvPath = builtins.head setuptools;
+            admittedLockedSetuptoolsVersion = "83.0.0";
+            runtimeSetuptoolsDerivations = map (p: {
+              drvPath = p;
+              outputs = context.${p}.outputs or [ ];
+            }) setuptools;
             contextCount = builtins.length paths;
           }
           BROWSER_NIX_1
-          echo '1930ca875e93b595fee72979351cccf14e1e2b9232b5393662fb089d5015839d  '"$browser/production-component-context.nix" | sha256sum --check
+          echo '378a9c656c8e900c2c0e61ce153a09192c9f1f1f4f298c3decd6cd437feab9e9  '"$browser/production-component-context.nix" | sha256sum --check
           cat > "$browser/admission-metadata.nix" <<'BROWSER_NIX_2'
           { sourceUrl }:
           let admitted = import ./admitted-source.nix { inherit sourceUrl; };
@@ -707,7 +724,7 @@ jobs:
               return data[path]
 
 
-          def source_metadata(browser):
+          def source_metadata(browser, metadata):
               env = browser['env']
               src = Path(env['src'])
               assert src.is_file() and str(src).startswith('/nix/store/')
@@ -719,7 +736,9 @@ jobs:
                       build = tomllib.loads(stream.read().decode())['build-system']
               assert build == {'requires': ['setuptools==84.0.0'], 'build-backend': 'setuptools.build_meta'}
               RECEIPT['selected_source'] = {'archive_sha256': HASHES[ARCHIVE],
-                  'supplier_build_system': build, 'selected_runtime_setuptools': '83.0.0',
+                  'supplier_build_system': build,
+                  'admitted_locked_setuptools_version': metadata['admittedLockedSetuptoolsVersion'],
+                  'runtime_setuptools_derivations': metadata['runtimeSetuptoolsDerivations'],
                   'derivation_inputs': {k: env.get(k) for k in
                       ('name', 'src', 'nativeBuildInputs', 'buildInputs', 'propagatedBuildInputs')}}
 
@@ -764,8 +783,9 @@ jobs:
               RECEIPT['selection_scope'] = 'actual-production-NIX_PYPROJECT_DEPS-context'
               RECEIPT['selection_metadata'] = metadata
               browser = derivation('browser-drv', metadata['browserDrvPath'], r'browser-harness-0[.]1[.]13[+]loki[.]1')
-              derivation('setuptools-drv', metadata['setuptoolsDrvPath'], r'setuptools-83[.]0[.]0')
-              source_metadata(browser)
+              assert metadata['admittedLockedSetuptoolsVersion'] == '83.0.0'
+              assert isinstance(metadata['runtimeSetuptoolsDerivations'], list)
+              source_metadata(browser, metadata)
               RECEIPT['free_bytes_before_build'] = shutil.disk_usage(ROOT).free
               assert RECEIPT['free_bytes_before_build'] >= 8 * 1024**3, 'Need at least 8 GiB free before component build'
               RECEIPT['status'] = 'component-build-failed-unclassified'
@@ -797,7 +817,7 @@ jobs:
               print(json.dumps(RECEIPT, sort_keys=True), flush=True)
           raise SystemExit(0 if RECEIPT['status'] == 'component-built' else 1)
           BROWSER_PY
-          echo '818a74167aefcfe3b69205982daa66c314eac2af8f4f1fb262789ee27b534f35  '"$browser/diagnostic.py" | sha256sum --check
+          echo '23d864f2e84c1aa31e6e955aee69430a32e9533ebb34bfe6a29fd6a89df8107b  '"$browser/diagnostic.py" | sha256sum --check
           python3 "$browser/diagnostic.py"
       - name: Record source bookends and retain diagnostic results in the job log
         if: always()
