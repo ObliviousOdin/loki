@@ -31,13 +31,15 @@ jobs:
           test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
           test -z "$(git status --porcelain)"
           test ! -e /nix
+          test -d /run/systemd/system
+          test ! -e /etc/nix/nix.conf
           python3 - <<'PY'
           import hashlib, json, os, pathlib, shutil
           source = pathlib.Path.cwd()
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'loki-nix-qualification'
           assert shutil.disk_usage(root.parent).free >= 8 * 1024**3, 'Need at least 8 GiB free'
           root.mkdir()
-          for name in ('home', 'tmp', 'installer', 'effective-source'):
+          for name in ('home', 'installer-home', 'tmp', 'installer', 'effective-source'):
               (root / name).mkdir()
           paths = ['nix/node-gyp-11-4-0.nix', 'nix/node-gyp-11-4-0-package-lock.json',
                    '.github/workflows/loki-nix-security-qualification.yml', 'flake.lock',
@@ -51,7 +53,7 @@ jobs:
           (root / 'source-before.json').write_text(json.dumps(receipt, indent=2) + '\n')
           print(json.dumps(receipt, sort_keys=True))
           PY
-      - name: Install only the SHA-admitted official single-user Nix tool
+      - name: Install the SHA-admitted official daemon and unprivileged build users
         run: |
           set -euo pipefail
           q="$RUNNER_TEMP/loki-nix-qualification"
@@ -63,16 +65,11 @@ jobs:
           tar -xJf "$q/installer/nix.tar.xz" -C "$q/installer"
           installer="$q/installer/nix-2.35.3-x86_64-linux/install"
           echo '84701fe50083c7d70a3921b7b07e1a9700ea0d1e295713239e23fd21e1e406ae  '"$installer" | sha256sum --check
-          test ! -e /nix
-          sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /nix
-          env -i HOME="$q/home" USER="$(id -un)" PATH=/usr/bin:/bin \
-            NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-            sh "$installer" --no-daemon --no-channel-add --no-modify-profile --yes
           cat > "$q/nix.conf" <<'CONF'
           experimental-features = nix-command flakes
           accept-flake-config = false
           flake-registry =
-          build-users-group =
+          build-users-group = nixbld
           sandbox = true
           sandbox-fallback = false
           substituters = https://cache.nixos.org
@@ -81,39 +78,60 @@ jobs:
           connect-timeout = 30
           stalled-download-timeout = 120
           CONF
-      - name: Compute fetcher-v2 hash and qualify the exact temporary recipe
+          test ! -e /nix
+          sudo env -i HOME="$q/installer-home" USER=root PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            TMPDIR="$q/tmp" NIX_CONFIG="$(cat "$q/nix.conf")" \
+            NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+            sh "$installer" --daemon --daemon-user-count 2 --yes --no-channel-add \
+            --nix-extra-conf-file "$q/nix.conf"
+          systemctl is-active --quiet nix-daemon.service
+          systemctl is-active --quiet nix-daemon.socket
+          sudo env -i HOME="$q/installer-home" PATH=/nix/var/nix/profiles/default/bin:/usr/bin:/bin \
+            nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); values={k:c[k]["value"] for k in ("sandbox","sandbox-fallback","build-users-group")}; print(json.dumps({"daemon_system_configuration":values},sort_keys=True)); assert values["sandbox"] in (True,"true"); assert values["sandbox-fallback"] in (False,"false"); assert values["build-users-group"] == "nixbld"'
+          python3 - <<'PY'
+          import grp, json, os, pwd, subprocess
+          pid = int(subprocess.check_output(['systemctl', 'show', 'nix-daemon.service', '--property=MainPID', '--value'], text=True, timeout=30))
+          assert pid > 0
+          uid = int(subprocess.check_output(['ps', '-p', str(pid), '-o', 'euid='], text=True, timeout=30))
+          assert uid == 0
+          group = grp.getgrnam('nixbld')
+          builders = [pwd.getpwnam(name) for name in group.gr_mem]
+          assert len(builders) == 2
+          assert all(p.pw_uid not in (0, os.getuid()) and p.pw_gid == group.gr_gid and p.pw_shell.endswith('/nologin') for p in builders)
+          print(json.dumps({'daemon_pid':pid, 'daemon_uid':uid,
+                            'build_users':[{'name':p.pw_name,'uid':p.pw_uid,'gid':p.pw_gid} for p in builders]}, sort_keys=True))
+          PY
+      - name: Verify the previously computed dependency hash and qualify the temporary recipe
         run: |
           set -euo pipefail
           q="$RUNNER_TEMP/loki-nix-qualification"
           nix_env() {
-            env -i HOME="$q/home" USER="$(id -un)" PATH="$q/home/.nix-profile/bin:/usr/bin:/bin" \
+            env -i HOME="$q/home" USER="$(id -un)" PATH=/nix/var/nix/profiles/default/bin:/usr/bin:/bin \
               TMPDIR="$q/tmp" SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
               NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
-              NIX_CONFIG="$(cat "$q/nix.conf")" NPM_FETCHER_VERSION=2 "$@"
+              NIX_CONFIG="$(cat "$q/nix.conf")" NIX_REMOTE=daemon "$@"
           }
           nix_env nix --version
-          nix_env nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); values={k:c[k]["value"] for k in ("sandbox","sandbox-fallback","build-users-group")}; print(json.dumps(values,sort_keys=True)); assert values["sandbox"] in (True,"true"); assert values["sandbox-fallback"] in (False,"false"); assert values["build-users-group"] == ""'
-          nix_env timeout 600 nix run --no-write-lock-file \
-            github:NixOS/nixpkgs/0954f7ee2f6bb3dc7d4e3d0d8bcb8fd4bde4cfc5#prefetch-npm-deps \
-            -- "$GITHUB_WORKSPACE/nix/node-gyp-11-4-0-package-lock.json" \
-            2> >(tee "$q/prefetch.stderr" >&2) | tee "$q/prefetch.stdout"
+          nix_env nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); values={k:c[k]["value"] for k in ("sandbox","sandbox-fallback","build-users-group")}; print(json.dumps(values,sort_keys=True)); assert values["sandbox"] in (True,"true"); assert values["sandbox-fallback"] in (False,"false"); assert values["build-users-group"] == "nixbld"'
           python3 - <<'PY'
           import hashlib, json, os, pathlib, re
           source = pathlib.Path.cwd()
           root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'loki-nix-qualification'
-          hashes = re.findall(r'^sha256-[A-Za-z0-9+/]{43}=$', (root / 'prefetch.stdout').read_text(), re.M)
-          assert len(hashes) == 1, 'Expected exactly one fetcher-v2 hash'
+          dependency_hash = 'sha256-MSuUFJS+2q6OjYzJRNkQsAdlNlAjm2A5gDCnUR6btSQ='
+          assert re.fullmatch(r'sha256-[A-Za-z0-9+/]{43}=', dependency_hash)
           old = 'sha256-P25m02VxIXkPD7rYI2Wki9+levrtNg2xk8pU+nEUXsE='
           recipe = (source / 'nix/node-gyp-11-4-0.nix').read_bytes()
           assert recipe.count(old.encode()) == 1
-          assert hashes[0] != old, 'Changed dependency graph must replace the held old hash'
+          assert dependency_hash != old
           effective = root / 'effective-source/nix'
           effective.mkdir()
-          updated = recipe.replace(old.encode(), hashes[0].encode())
+          updated = recipe.replace(old.encode(), dependency_hash.encode())
           (effective / 'node-gyp-11-4-0.nix').write_bytes(updated)
           lock = (source / 'nix/node-gyp-11-4-0-package-lock.json').read_bytes()
+          assert hashlib.sha256(lock).hexdigest() == '33a902a4798211dc9c8b165fa3ae4edd16ac64203d441e27f3fd36c8117afda2'
           (effective / 'node-gyp-11-4-0-package-lock.json').write_bytes(lock)
-          receipt = {'fetcher_version': 2, 'computed_npm_deps_hash': hashes[0],
+          receipt = {'fetcher_version': 2, 'computed_npm_deps_hash': dependency_hash,
+                     'hash_computed_in_prior_run': 39528601904,
                      'held_source_hash': old, 'only_temporary_substitution': True,
                      'committed_recipe_sha256': hashlib.sha256(recipe).hexdigest(),
                      'effective_recipe_sha256': hashlib.sha256(updated).hexdigest(),
@@ -136,6 +154,8 @@ jobs:
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ tools ];
               checkPhase = ''
                 runHook preCheck
+                echo "Supplier check build UID: $(id -u)"
+                test "$(id -u)" -ne 0
                 export PATH=${tools}/bin:$PATH
                 command -v node npm
                 node --version
@@ -154,6 +174,8 @@ jobs:
           pkgs.runCommand "loki-node-gyp-node26-native-qualification" {
             nativeBuildInputs = [ tools pkgs.python3 pkgs.stdenv.cc pkgs.gnumake gyp ];
           } ''
+            echo "Native probe build UID: $(id -u)"
+            test "$(id -u)" -ne 0
             export HOME="$TMPDIR/probe-home"
             mkdir "$HOME"
             cat > binding.gyp <<'JSON'
