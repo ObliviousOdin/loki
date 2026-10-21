@@ -1,0 +1,71 @@
+name: Loki dependency security
+
+on:
+  workflow_call:
+  workflow_dispatch:
+  schedule:
+    - cron: '23 6 * * 1'
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Loki dependency security
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify the official OSV Scanner release
+        # v2.3.8 source: google/osv-scanner@408fcd6f8707999a29e7ba45e15809764cf24f67
+        run: |
+          curl --fail --location --proto '=https' --tlsv1.2 --max-time 120 \
+            --output "$RUNNER_TEMP/osv-scanner" \
+            https://github.com/google/osv-scanner/releases/download/v2.3.8/osv-scanner_linux_amd64
+          printf '%s  %s\n' bc98e15319ed0d515e3f9235287ba53cdc5535d576d24fd573978ecfe9ab92dc \
+            "$RUNNER_TEMP/osv-scanner" | sha256sum --check --strict
+          chmod 700 "$RUNNER_TEMP/osv-scanner"
+          "$RUNNER_TEMP/osv-scanner" --version
+      - name: Audit both Python lockfiles without suppressions
+        run: |
+          # An explicit empty config excludes inherited or nested vulnerability ignores.
+          : > "$RUNNER_TEMP/loki-osv-empty.toml"
+          "$RUNNER_TEMP/osv-scanner" scan source \
+            --lockfile=uv.lock --lockfile=pm/uv.lock \
+            --config="$RUNNER_TEMP/loki-osv-empty.toml" \
+            --no-ignore --all-packages --all-vulns --format=json
+
+  npm:
+    name: Loki npm dependency security
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          fetch-depth: 1
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: node
+          archive-inputs: 'false'
+          test-environment: 'false'
+          cache: 'false'
+          cache-python: 'false'
+          cache-node: 'false'
+          save-tools-cache: 'false'
+          save-python-cache: 'false'
+          save-node-cache: 'false'
+      - name: Verify audit orchestration and the approved toolchain
+        run: |
+          node --version
+          npm --version
+          node --test .github/scripts/audit-npm-locks.test.mjs
+      - name: Audit every committed npm dependency graph
+        run: node .github/scripts/audit-npm-locks.mjs "$RUNNER_TEMP/loki-npm-audit"

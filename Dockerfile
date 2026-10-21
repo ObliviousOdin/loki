@@ -280,6 +280,8 @@ FROM runtime_base AS python_deps
 #
 # Source binding is created after the source copy below.
 COPY pyproject.toml uv.lock ./
+COPY vendor/browser-harness/ vendor/browser-harness/
+RUN python3 vendor/browser-harness/archive.py --check
 RUN touch ./README.md
 # --cache puts uv's cache at /opt/hermes/uv-cache, the seed path that
 # pm.packages.uv_cache_dir() merges into $HERMES_HOME/cache/uv on first use.

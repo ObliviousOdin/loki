@@ -19,6 +19,8 @@ SCRIPT = (
 SOURCE_ARCHIVES = [
     "vendor/braces/braces-3.0.3-loki.2.tgz",
     "vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz",
+    "vendor/browser-harness/browser_harness-0.1.13.tar.gz",
+    "vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz",
 ]
 
 
