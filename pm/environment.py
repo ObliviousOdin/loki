@@ -282,7 +282,10 @@ def _fresh_build(environment: PythonEnvironment, *, sealed: bool) -> Iterator[No
         yield
         environment.check()
         if sealed:
+            from pm.sealed_metadata import prune_local_direct_urls
+
             prune_site_pth(out)
+            prune_local_direct_urls(out)
     except BaseException:
         shutil.rmtree(out, ignore_errors=True)
         raise

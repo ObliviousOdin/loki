@@ -1,0 +1,68 @@
+--- upstream/PKG-INFO
++++ proposed/PKG-INFO
+@@ -1,6 +1,6 @@
+ Metadata-Version: 2.4
+ Name: browser-harness
+-Version: 0.1.13
++Version: 0.1.13+loki.1
+ Summary: The simplest, thinnest, and most powerful harness to control your real browser with your agent.
+ License-Expression: MIT
+ Project-URL: Homepage, https://github.com/browser-use/browser-harness
+@@ -20,7 +20,7 @@
+ License-File: LICENSE
+ Requires-Dist: cdp-use==1.4.5
+ Requires-Dist: fetch-use==0.4.0
+-Requires-Dist: pillow==12.3.0
++Requires-Dist: pillow==13.0.0
+ Requires-Dist: websockets==15.0.1
+ Provides-Extra: mcp
+ Requires-Dist: mcp==2.1.1; extra == "mcp"
+--- upstream/pyproject.toml
++++ proposed/pyproject.toml
+@@ -4,7 +4,7 @@
+ 
+ [project]
+ name = "browser-harness"
+-version = "0.1.13"
++version = "0.1.13+loki.1"
+ description = "The simplest, thinnest, and most powerful harness to control your real browser with your agent."
+ readme = "README.md"
+ requires-python = ">=3.11"
+@@ -24,7 +24,7 @@
+ dependencies = [
+     "cdp-use==1.4.5",
+     "fetch-use==0.4.0",
+-    "pillow==12.3.0",
++    "pillow==13.0.0",
+     "websockets==15.0.1",
+ ]
+ 
+--- upstream/src/browser_harness.egg-info/PKG-INFO
++++ proposed/src/browser_harness.egg-info/PKG-INFO
+@@ -1,6 +1,6 @@
+ Metadata-Version: 2.4
+ Name: browser-harness
+-Version: 0.1.13
++Version: 0.1.13+loki.1
+ Summary: The simplest, thinnest, and most powerful harness to control your real browser with your agent.
+ License-Expression: MIT
+ Project-URL: Homepage, https://github.com/browser-use/browser-harness
+@@ -20,7 +20,7 @@
+ License-File: LICENSE
+ Requires-Dist: cdp-use==1.4.5
+ Requires-Dist: fetch-use==0.4.0
+-Requires-Dist: pillow==12.3.0
++Requires-Dist: pillow==13.0.0
+ Requires-Dist: websockets==15.0.1
+ Provides-Extra: mcp
+ Requires-Dist: mcp==2.1.1; extra == "mcp"
+--- upstream/src/browser_harness.egg-info/requires.txt
++++ proposed/src/browser_harness.egg-info/requires.txt
+@@ -1,6 +1,6 @@
+ cdp-use==1.4.5
+ fetch-use==0.4.0
+-pillow==12.3.0
++pillow==13.0.0
+ websockets==15.0.1
+ 
+ [mcp]

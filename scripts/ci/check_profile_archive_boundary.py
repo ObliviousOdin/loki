@@ -23,6 +23,10 @@ _REVIEWED_SOURCE_ARCHIVES = {
         "fa863313fd527bceb3810f7fb07d0852c67fb80458d4b9404dd374ade693ccbc",
     "vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz":
         "ddbe8b87a6f6decd49e599bdcd1ecf907db1f660664fa20c224732733e95943a",
+    "vendor/browser-harness/browser_harness-0.1.13.tar.gz":
+        "284dc547a042c309feafd9a9f4a74b2a8651b7963ea3ac6cb2f2d64889f6a8f3",
+    "vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz":
+        "d2b49644f0e78841ab13712ce30a633ebcb1ec16d59f82ca59f80d19195e13de",
 }
 
 

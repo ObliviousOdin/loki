@@ -81,6 +81,8 @@ def _copy_core_inputs(source: Path, destination: Path) -> None:
     for pattern in project.get("license-files", []):
         files.update(str(p.relative_to(source)) for p in source.glob(pattern))
     files.update(p.name for p in source.glob("*.py"))
+    from pm.workspace_inputs import local_archive_inputs
+    files.update(local_archive_inputs(source, metadata))
 
     # uv.lock is not excluded: the root lock is never copied (only ``files`` are; lock_and_sync
     # seeds or resolves it), and pm/uv.lock is the PM runtime's input (pm/runtime.py::_inputs).

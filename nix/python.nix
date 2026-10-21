@@ -49,6 +49,19 @@ let
   # and no pyproject.toml, so setuptools isn't declared as a build dep.
   buildSystemOverrides =
     final: prev:
+    let
+      buildHost = final.pythonPkgsBuildHost;
+      browserSetuptools84 = buildHost.stdenv.mkDerivation {
+        pname = "setuptools-browser-build-backend";
+        version = "84.0.0";
+        src = buildHost.pkgs.fetchurl {
+          url = "https://files.pythonhosted.org/packages/95/9c/c510029fc6ef33a6275cd2c5d3cecd6613dfd6aa401d57c54f1c18852ccf/setuptools-84.0.0-py3-none-any.whl";
+          hash = "sha256-UaUlkrO5nhArYJZUh2vWXxn5mZNRZtE1JniTETKwxnA=";
+        };
+        nativeBuildInputs = [ buildHost.pyprojectWheelHook ];
+        dontStrip = true;
+      };
+    in
     builtins.mapAttrs
       (
         name: _:
@@ -66,6 +79,10 @@ let
         ] (_: null)
       )
     // {
+      # This local sdist requires 84 exactly; keep its backend separate from runtime setuptools.
+      browser-harness = prev.browser-harness.overrideAttrs (old: {
+        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ browserSetuptools84 ];
+      });
       # The locked sdist has no build-system metadata; setup.py imports
       # setuptools and uses CFFI to compile the bundled libolm.
       python-olm = prev.python-olm.overrideAttrs (old: {
