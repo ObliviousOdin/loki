@@ -1,0 +1,236 @@
+name: Loki one-off Nix minimal runtime qualification
+
+on:
+  push:
+    branches: [codex/nix-minimal-runtime-qualification-19be]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-nix-minimal-runtime-qualification-19be
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/codex/nix-minimal-runtime-qualification-19be'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          path: diagnostic
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: 19beae28c554814a1c2f4a3d40d44789c3ba7aa3
+          path: source
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Admit product source and workflow-only diagnostic branch
+        env:
+          EXPECTED_DIAGNOSTIC: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(uname -sm)" = 'Linux x86_64'
+          test "$(id -u)" -ne 0
+          test ! -e /nix
+          test -d /run/systemd/system
+          test ! -e /etc/nix/nix.conf
+          q="$RUNNER_TEMP/loki-nix-qualification"
+          mkdir "$q"
+          for directory in home installer-home tmp installer effective-source runtime-home runtime-cwd; do mkdir "$q/$directory"; done
+          export QUALIFICATION_ROOT="$q"
+          python3 - <<'ADMIT'
+          import hashlib,json,os,pathlib,shutil,subprocess
+          root=pathlib.Path(os.environ['QUALIFICATION_ROOT'])
+          source=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'source'
+          diagnostic=source.parent/'diagnostic'
+          assert shutil.disk_usage(root).free >= 8*1024**3
+          def git(cwd,*args):
+              return subprocess.check_output(['git',*args],cwd=cwd,text=True,timeout=30).strip()
+          assert git(source,'rev-parse','HEAD')=='19beae28c554814a1c2f4a3d40d44789c3ba7aa3'
+          assert not git(source,'status','--porcelain')
+          assert git(diagnostic,'rev-parse','HEAD')==os.environ['EXPECTED_DIAGNOSTIC']
+          assert not git(diagnostic,'status','--porcelain')
+          subprocess.run(['git','fetch','--no-tags','--depth=1',str(source),'19beae28c554814a1c2f4a3d40d44789c3ba7aa3'],
+              cwd=diagnostic,check=True,timeout=30,
+              env={'HOME':str(root/'home'),'PATH':'/usr/bin:/bin','GIT_CONFIG_NOSYSTEM':'1'})
+          changed=git(diagnostic,'diff','--name-only','19beae28c554814a1c2f4a3d40d44789c3ba7aa3','HEAD').splitlines()
+          assert changed==['.github/workflows/loki-nix-minimal-runtime-qualification.yml'],changed
+          paths=['.npmrc', 'apps/bootstrap-installer/package.json', 'apps/desktop/package.json', 'apps/shared/package.json', 'package-lock.json', 'package.json', 'pyproject.toml', 'tests-js/package.json', 'ui-tui/package.json', 'ui-tui/packages/hermes-ink/package.json', 'uv.lock', 'vendor/braces/UPSTREAM.json', 'vendor/braces/braces-3.0.3-loki.2.tgz', 'vendor/braces/package.json', 'vendor/htmlparser2/UPSTREAM.json', 'vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz', 'vendor/htmlparser2/package.json', 'web/package.json', 'website/.npmrc', 'website/package-lock.json', 'website/package.json', 'flake.nix', 'flake.lock', 'pm/artifact-mirror.json', 'pm/pyproject.toml', 'pm/uv.lock', 'nix/node-gyp-11-4-0-package-lock.json', 'scripts/whatsapp-bridge/package-lock.json', 'plugins/platforms/photon/sidecar/package-lock.json', 'vendor/browser-harness/UPSTREAM.json', 'vendor/browser-harness/browser_harness-0.1.13.tar.gz', 'vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz']
+          paths += [str(p.relative_to(source)) for p in sorted((source/'nix').rglob('*')) if p.is_file()]
+          hashes={p:hashlib.sha256((source/p).read_bytes()).hexdigest() for p in dict.fromkeys(paths)}
+          pin=json.loads((source/'flake.lock').read_text())['nodes']['nixpkgs']['locked']
+          assert pin['rev']=='0954f7ee2f6bb3dc7d4e3d0d8bcb8fd4bde4cfc5'
+          assert pin['narHash']=='sha256-dN6Ou5x/+23FZLEpYP3IffO+NyJFzUlGumt1uu3MMaY='
+          record={'source':'19beae28c554814a1c2f4a3d40d44789c3ba7aa3','diagnostic':os.environ['EXPECTED_DIAGNOSTIC'],
+              'only_diagnostic_change':changed,'source_sha256':hashes,'nixpkgs':pin}
+          (root/'source-before.json').write_text(json.dumps(record,indent=2)+'\n')
+          print(json.dumps(record,sort_keys=True))
+          ADMIT
+      - name: Install the SHA-admitted official daemon and unprivileged build users
+        id: daemon
+        run: |
+          set -euo pipefail
+          q="$RUNNER_TEMP/loki-nix-qualification"
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 180 \
+            https://releases.nixos.org/nix/nix-2.35.3/nix-2.35.3-x86_64-linux.tar.xz \
+            --output "$q/installer/nix.tar.xz"
+          test "$(stat -c %s "$q/installer/nix.tar.xz")" = 27301216
+          echo '6ce3ce3703fdc241b560cba401c5d338042122fe5b1a81e07bf1a623f259eba0  '"$q/installer/nix.tar.xz" | sha256sum --check
+          tar -xJf "$q/installer/nix.tar.xz" -C "$q/installer"
+          installer="$q/installer/nix-2.35.3-x86_64-linux/install"
+          echo '84701fe50083c7d70a3921b7b07e1a9700ea0d1e295713239e23fd21e1e406ae  '"$installer" | sha256sum --check
+          cat > "$q/nix.conf" <<'CONF'
+          experimental-features = nix-command flakes
+          accept-flake-config = false
+          flake-registry =
+          build-users-group = nixbld
+          sandbox = true
+          sandbox-fallback = false
+          substituters = https://cache.nixos.org
+          max-jobs = 2
+          cores = 2
+          connect-timeout = 30
+          stalled-download-timeout = 120
+          CONF
+          test ! -e /nix
+          sudo env -i HOME="$q/installer-home" USER=root PATH=/usr/sbin:/usr/bin:/sbin:/bin \
+            TMPDIR="$q/tmp" NIX_CONFIG="$(cat "$q/nix.conf")" \
+            NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+            sh "$installer" --daemon --daemon-user-count 2 --yes --no-channel-add \
+            --nix-extra-conf-file "$q/nix.conf"
+          systemctl is-active --quiet nix-daemon.service
+          systemctl is-active --quiet nix-daemon.socket
+          sudo env -i HOME="$q/installer-home" PATH=/nix/var/nix/profiles/default/bin:/usr/bin:/bin \
+            nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); values={k:c[k]["value"] for k in ("sandbox","sandbox-fallback","build-users-group")}; print(json.dumps({"daemon_system_configuration":values},sort_keys=True)); assert values["sandbox"] in (True,"true"); assert values["sandbox-fallback"] in (False,"false"); assert values["build-users-group"] == "nixbld"'
+          python3 - <<'PY'
+          import grp, json, os, pwd, subprocess
+          pid = int(subprocess.check_output(['systemctl', 'show', 'nix-daemon.service', '--property=MainPID', '--value'], text=True, timeout=30))
+          assert pid > 0
+          uid = int(subprocess.check_output(['ps', '-p', str(pid), '-o', 'euid='], text=True, timeout=30))
+          assert uid == 0
+          group = grp.getgrnam('nixbld')
+          builders = [pwd.getpwnam(name) for name in group.gr_mem]
+          assert len(builders) == 2
+          assert all(p.pw_uid not in (0, os.getuid()) and p.pw_gid == group.gr_gid and p.pw_shell.endswith('/nologin') for p in builders)
+          print(json.dumps({'daemon_pid':pid, 'daemon_uid':uid,
+                            'build_users':[{'name':p.pw_name,'uid':p.pw_uid,'gid':p.pw_gid} for p in builders]}, sort_keys=True))
+          PY
+      - name: Build the actual minimal package and inspect only its built runtime
+        run: |
+          set -euo pipefail
+          test "$(id -u)" -ne 0
+          q="$RUNNER_TEMP/loki-nix-qualification"
+          nix_env() {
+            env -i HOME="$q/home" USER="$(id -un)" PATH=/nix/var/nix/profiles/default/bin:/usr/bin:/bin \
+              TMPDIR="$q/tmp" SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+              NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+              NIX_CONFIG="$(cat "$q/nix.conf")" NIX_REMOTE=daemon "$@"
+          }
+          nix_env nix --version
+          nix_env nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); assert c["sandbox"]["value"] in (True,"true"); assert c["sandbox-fallback"]["value"] in (False,"false"); assert c["build-users-group"]["value"]=="nixbld"'
+          source="$GITHUB_WORKSPACE/source"
+          target="git+file://$source?rev=19beae28c554814a1c2f4a3d40d44789c3ba7aa3&shallow=1#packages.x86_64-linux.minimal"
+          printf 'Exact target: %s\n' "$target"
+          nix_env timeout 120 nix eval --json --no-update-lock-file --no-write-lock-file \
+            --apply 'p: { package=toString p; runtime=toString p.hermesVenv; inputs=toString p.agentInputsFile; }' \
+            "$target" > "$q/selection.json"
+          cat "$q/selection.json"
+          nix_env timeout 1800 nix build --no-update-lock-file --no-write-lock-file --no-link \
+            --print-build-logs --print-out-paths "$target" \
+            2> >(tee "$q/build.stderr" >&2) | tee "$q/build.stdout"
+          python3 - "$q" <<'OUTPUT'
+          import json,pathlib,re,sys
+          root=pathlib.Path(sys.argv[1]);selection=json.loads((root/'selection.json').read_text())
+          paths=(root/'build.stdout').read_text().splitlines()
+          assert paths==[selection['package']],paths
+          assert re.fullmatch(r'/nix/store/[0-9a-z]{32}-loki-[A-Za-z0-9.+_-]+',paths[0])
+          assert (pathlib.Path(paths[0])/'bin/loki').is_file()
+          assert all(selection[n].startswith('/nix/store/') for n in ['package','runtime','inputs'])
+          inputs=json.loads(pathlib.Path(selection['inputs']).read_text())
+          assert inputs['environment']==selection['runtime']
+          assert inputs['python'].startswith(selection['runtime']+'/bin/')
+          (root/'built-python').write_text(inputs['python'])
+          OUTPUT
+          package="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["package"])' "$q/selection.json")"
+          inputs="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["inputs"])' "$q/selection.json")"
+          python="$(cat "$q/built-python")"
+          cat > "$q/module-origin-and-state.py" <<'ORIGIN'
+          """Observe only the actual built Nix runtime from a temp cwd and default HOME."""
+          import importlib
+          import importlib.metadata
+          import json
+          import os
+          from pathlib import Path
+          import sys
+          import tomllib
+          package, inputs_file = map(Path, sys.argv[1:])
+          assert 'PYTHONPATH' not in os.environ
+          assert 'LOKI_HOME' not in os.environ and 'LOKI_RUNTIME_DIR' not in os.environ
+          assert sys.flags.isolated and sys.flags.dont_write_bytecode
+          inputs = json.loads(inputs_file.read_text())
+          project = tomllib.loads(Path(inputs['project']).read_text())
+          distribution = importlib.metadata.distribution('obliviousodin-loki-agent')
+          from packaging.version import Version
+          assert Version(distribution.version) == Version(project['project']['version'])
+          assert str(Path(sys.executable)).startswith('/nix/store/')
+          assert all(not item or item.startswith('/nix/store/') for item in sys.path), sys.path
+          members = {Path(distribution.locate_file(item)).resolve() for item in distribution.files}
+          origins = {}
+          for name in ('loki', 'loki_identity', 'hermes_cli', 'hermes_constants'):
+              module = importlib.import_module(name)
+              origin = Path(module.__file__).resolve()
+              assert str(origin).startswith('/nix/store/') and origin in members, (name, origin)
+              origins[name] = str(origin)
+          from loki_identity import bind_loki_environment
+          bind_loki_environment()
+          from hermes_constants import get_hermes_home
+          home = Path(os.environ['HOME'])
+          assert get_hermes_home().resolve() == (home / '.loki').resolve()
+          assert not (home / '.hermes').exists()
+          assert (package / 'bin/loki').is_file()
+          command_map = json.loads((package / 'command-map.json').read_text())
+          repo = package / inputs['repo']
+          stamp = json.loads((repo / 'install-stamp.json').read_text())
+          assert stamp['commit'] == '19beae28c554814a1c2f4a3d40d44789c3ba7aa3'
+          assert stamp['distribution'] == 'nix' and stamp['updateMechanism'] == 'external'
+          assert (Path(inputs['pm_runtime']) / 'pm-runtime.json').is_file()
+          for name, resource in inputs['resources'].items():
+              assert (repo / name).samefile(resource), name
+          for name, key in (('tui', 'HERMES_TUI_DIR'), ('web', 'HERMES_WEB_DIST')):
+              assert Path(command_map['env'][key]).samefile(inputs['frontends'][name]), name
+          print(json.dumps({'scope':'actual-built-minimal-wrapper-and-runtime-smoke',
+              'distribution':distribution.metadata['Name'],'version':distribution.version,
+              'python':sys.version,'executable':sys.executable,'module_origins':origins,
+              'default_home':str(get_hermes_home()),'package':str(package),'stamp':stamp,
+              'resources_bound':True,'independent_PM_runtime_present':True},sort_keys=True))
+          ORIGIN
+          echo 'ec1da8c49a5fca782cd179f0ee9412c1c1b30dc7cab7bd356ff63385767c7729  '"$q/module-origin-and-state.py" | sha256sum --check
+          cd "$q/runtime-cwd"
+          env -i HOME="$q/runtime-home" TMPDIR="$q/tmp" PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC \
+            timeout 60 "$package/bin/loki" --help
+          env -i HOME="$q/runtime-home" TMPDIR="$q/tmp" PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC \
+            timeout 60 "$package/bin/loki" --version
+          env -i HOME="$q/runtime-home" TMPDIR="$q/tmp" PATH=/usr/bin:/bin LANG=C.UTF-8 TZ=UTC \
+            timeout 60 "$python" -I -B "$q/module-origin-and-state.py" "$package" "$inputs"
+      - name: Record exact source bookends even after failure
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'BOOKEND'
+          import hashlib,json,os,pathlib,subprocess
+          root=pathlib.Path(os.environ['RUNNER_TEMP'])/'loki-nix-qualification'
+          source=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'source'
+          before=json.loads((root/'source-before.json').read_text())
+          actual={p:hashlib.sha256((source/p).read_bytes()).hexdigest() for p in before['source_sha256']}
+          assert actual==before['source_sha256']
+          assert subprocess.check_output(['git','rev-parse','HEAD'],cwd=source,text=True).strip()=='19beae28c554814a1c2f4a3d40d44789c3ba7aa3'
+          assert not subprocess.check_output(['git','status','--porcelain'],cwd=source,text=True).strip()
+          assert not (root/'runtime-home/.hermes').exists()
+          print(json.dumps({'source_bookends_equal':True,'source':'19beae28c554814a1c2f4a3d40d44789c3ba7aa3',
+              'source_sha256':actual,'no_upstream_user_state_created':True},sort_keys=True))
+          BOOKEND
