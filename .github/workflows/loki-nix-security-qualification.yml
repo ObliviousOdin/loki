@@ -1,0 +1,215 @@
+name: Loki Nix security qualification
+
+on:
+  push:
+    branches: [codex/nix-security-qualification-833]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-nix-security-qualification
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/codex/nix-security-qualification-833'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Admit exact source and fresh qualification directories
+        env:
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          test "$(uname -sm)" = 'Linux x86_64'
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          test -z "$(git status --porcelain)"
+          test ! -e /nix
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, shutil
+          source = pathlib.Path.cwd()
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'loki-nix-qualification'
+          assert shutil.disk_usage(root.parent).free >= 8 * 1024**3, 'Need at least 8 GiB free'
+          root.mkdir()
+          for name in ('home', 'tmp', 'installer', 'effective-source'):
+              (root / name).mkdir()
+          paths = ['nix/node-gyp-11-4-0.nix', 'nix/node-gyp-11-4-0-package-lock.json',
+                   '.github/workflows/loki-nix-security-qualification.yml', 'flake.lock',
+                   'nix/npm-pinned.nix', 'pm/lock.json', 'pm/artifact-mirror.json']
+          hashes = {p: hashlib.sha256((source / p).read_bytes()).hexdigest() for p in paths}
+          pin = json.loads((source / 'flake.lock').read_text())['nodes']['nixpkgs']['locked']
+          assert pin['rev'] == '0954f7ee2f6bb3dc7d4e3d0d8bcb8fd4bde4cfc5'
+          assert pin['narHash'] == 'sha256-dN6Ou5x/+23FZLEpYP3IffO+NyJFzUlGumt1uu3MMaY='
+          receipt = {'commit': os.environ['EXPECTED_COMMIT'], 'source_sha256': hashes,
+                     'nixpkgs': pin, 'free_bytes_before': shutil.disk_usage(root).free}
+          (root / 'source-before.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+      - name: Install only the SHA-admitted official single-user Nix tool
+        run: |
+          set -euo pipefail
+          q="$RUNNER_TEMP/loki-nix-qualification"
+          curl --fail --silent --show-error --proto '=https' --tlsv1.2 --max-time 180 \
+            https://releases.nixos.org/nix/nix-2.35.3/nix-2.35.3-x86_64-linux.tar.xz \
+            --output "$q/installer/nix.tar.xz"
+          test "$(stat -c %s "$q/installer/nix.tar.xz")" = 27301216
+          echo '6ce3ce3703fdc241b560cba401c5d338042122fe5b1a81e07bf1a623f259eba0  '"$q/installer/nix.tar.xz" | sha256sum --check
+          tar -xJf "$q/installer/nix.tar.xz" -C "$q/installer"
+          installer="$q/installer/nix-2.35.3-x86_64-linux/install"
+          echo '84701fe50083c7d70a3921b7b07e1a9700ea0d1e295713239e23fd21e1e406ae  '"$installer" | sha256sum --check
+          test ! -e /nix
+          sudo install -d -m 0755 -o "$(id -u)" -g "$(id -g)" /nix
+          env -i HOME="$q/home" USER="$(id -un)" PATH=/usr/bin:/bin \
+            NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+            sh "$installer" --no-daemon --no-channel-add --no-modify-profile --yes
+          cat > "$q/nix.conf" <<'CONF'
+          experimental-features = nix-command flakes
+          accept-flake-config = false
+          flake-registry =
+          build-users-group =
+          sandbox = true
+          sandbox-fallback = false
+          substituters = https://cache.nixos.org
+          max-jobs = 2
+          cores = 2
+          connect-timeout = 30
+          stalled-download-timeout = 120
+          CONF
+      - name: Compute fetcher-v2 hash and qualify the exact temporary recipe
+        run: |
+          set -euo pipefail
+          q="$RUNNER_TEMP/loki-nix-qualification"
+          nix_env() {
+            env -i HOME="$q/home" USER="$(id -un)" PATH="$q/home/.nix-profile/bin:/usr/bin:/bin" \
+              TMPDIR="$q/tmp" SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+              NIX_SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+              NIX_CONFIG="$(cat "$q/nix.conf")" NPM_FETCHER_VERSION=2 "$@"
+          }
+          nix_env nix --version
+          nix_env nix config show --json | python3 -c 'import json,sys; c=json.load(sys.stdin); values={k:c[k]["value"] for k in ("sandbox","sandbox-fallback","build-users-group")}; print(json.dumps(values,sort_keys=True)); assert values["sandbox"] in (True,"true"); assert values["sandbox-fallback"] in (False,"false"); assert values["build-users-group"] == ""'
+          nix_env timeout 600 nix run --no-write-lock-file \
+            github:NixOS/nixpkgs/0954f7ee2f6bb3dc7d4e3d0d8bcb8fd4bde4cfc5#prefetch-npm-deps \
+            -- "$GITHUB_WORKSPACE/nix/node-gyp-11-4-0-package-lock.json" \
+            2> >(tee "$q/prefetch.stderr" >&2) | tee "$q/prefetch.stdout"
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re
+          source = pathlib.Path.cwd()
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'loki-nix-qualification'
+          hashes = re.findall(r'^sha256-[A-Za-z0-9+/]{43}=$', (root / 'prefetch.stdout').read_text(), re.M)
+          assert len(hashes) == 1, 'Expected exactly one fetcher-v2 hash'
+          old = 'sha256-P25m02VxIXkPD7rYI2Wki9+levrtNg2xk8pU+nEUXsE='
+          recipe = (source / 'nix/node-gyp-11-4-0.nix').read_bytes()
+          assert recipe.count(old.encode()) == 1
+          assert hashes[0] != old, 'Changed dependency graph must replace the held old hash'
+          effective = root / 'effective-source/nix'
+          effective.mkdir()
+          updated = recipe.replace(old.encode(), hashes[0].encode())
+          (effective / 'node-gyp-11-4-0.nix').write_bytes(updated)
+          lock = (source / 'nix/node-gyp-11-4-0-package-lock.json').read_bytes()
+          (effective / 'node-gyp-11-4-0-package-lock.json').write_bytes(lock)
+          receipt = {'fetcher_version': 2, 'computed_npm_deps_hash': hashes[0],
+                     'held_source_hash': old, 'only_temporary_substitution': True,
+                     'committed_recipe_sha256': hashlib.sha256(recipe).hexdigest(),
+                     'effective_recipe_sha256': hashlib.sha256(updated).hexdigest(),
+                     'identical_lock_sha256': hashlib.sha256(lock).hexdigest()}
+          (root / 'effective-source.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print(json.dumps(receipt, sort_keys=True))
+          PY
+          cat > "$q/qualification.nix" <<'NIX'
+          { checkout, source }:
+          let
+            flake = builtins.getFlake "github:NixOS/nixpkgs/0954f7ee2f6bb3dc7d4e3d0d8bcb8fd4bde4cfc5";
+            pkgs = import flake.outPath { system = "x86_64-linux"; };
+            npm12 = pkgs.callPackage (builtins.toPath (checkout + "/nix/npm-pinned.nix")) { };
+            tools = pkgs.symlinkJoin {
+              name = "nodejs-26-npm-12-qualification";
+              paths = [ npm12 pkgs.nodejs_26 ];
+            };
+            gyp = (pkgs.callPackage (builtins.toPath (source + "/nix/node-gyp-11-4-0.nix")) { }).overrideAttrs (old: {
+              doCheck = true;
+              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [ tools ];
+              checkPhase = ''
+                runHook preCheck
+                export PATH=${tools}/bin:$PATH
+                command -v node npm
+                node --version
+                npm --version
+                node -e 'if (process.versions.node.split(".")[0] !== "26") process.exit(1)'
+                test "$(npm --version)" = "${npm12.version}"
+                echo "Unchanged supplier source: ${old.src}"
+                node -e 'const p = require("./package.json"); console.log(JSON.stringify({name:p.name,version:p.version,scripts:p.scripts,mocha:p.devDependencies.mocha}))'
+                npm test
+                npm run lint
+                runHook postCheck
+              '';
+            });
+          in
+          assert flake.sourceInfo.narHash == "sha256-dN6Ou5x/+23FZLEpYP3IffO+NyJFzUlGumt1uu3MMaY=";
+          pkgs.runCommand "loki-node-gyp-node26-native-qualification" {
+            nativeBuildInputs = [ tools pkgs.python3 pkgs.stdenv.cc pkgs.gnumake gyp ];
+          } ''
+            export HOME="$TMPDIR/probe-home"
+            mkdir "$HOME"
+            cat > binding.gyp <<'JSON'
+            {"targets":[{"target_name":"answer","sources":["answer.c"]}]}
+            JSON
+            cat > answer.c <<'C'
+            #include <node_api.h>
+            static napi_value init(napi_env env, napi_value exports) {
+              napi_value answer;
+              if (napi_create_int32(env, 42, &answer) != napi_ok) return NULL;
+              if (napi_set_named_property(env, exports, "answer", answer) != napi_ok) return NULL;
+              return exports;
+            }
+            NAPI_MODULE(NODE_GYP_MODULE_NAME, init)
+            C
+            command -v node npm node-gyp
+            readlink -f "$(command -v node-gyp)"
+            head -n 12 "$(readlink -f "$(command -v node-gyp)")"
+            echo "Existing callPackage default nodejs: ${pkgs.nodejs}/bin/node"
+            ${pkgs.nodejs}/bin/node --version
+            node -p 'JSON.stringify({execPath:process.execPath,node:process.version})'
+            node --version
+            npm --version
+            node-gyp --version
+            node-gyp rebuild --nodedir=${pkgs.nodejs_26}
+            mkdir "$out"
+            node -e 'const a = require("./build/Release/answer.node"); if (a.answer !== 42) process.exit(1); console.log(JSON.stringify({answer:a.answer,node:process.version,modules:process.versions.modules,napi:process.versions.napi}))' | tee "$out/native-probe.json"
+          ''
+          NIX
+          sha256sum "$q/qualification.nix"
+          nix_env timeout 1800 nix build --impure --no-write-lock-file --print-build-logs \
+            --show-trace --no-link --print-out-paths --file "$q/qualification.nix" \
+            --argstr checkout "$GITHUB_WORKSPACE" --argstr source "$q/effective-source" \
+            2> >(tee "$q/build.stderr" >&2) | tee "$q/build.stdout"
+          result="$(tail -n 1 "$q/build.stdout")"
+          test -f "$result/native-probe.json"
+          cat "$result/native-probe.json"
+      - name: Record source bookends and retain diagnostic results in the job log
+        if: always()
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, subprocess
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'loki-nix-qualification'
+          before = root / 'source-before.json'
+          if not before.exists():
+              raise SystemExit('Source admission did not complete; qualification is not accepted')
+          admitted = json.loads(before.read_text())
+          actual = {p: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+                    for p in admitted['source_sha256']}
+          assert actual == admitted['source_sha256'], 'Checkout source changed'
+          assert subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True, timeout=30).strip() == admitted['commit']
+          assert not subprocess.check_output(['git', 'status', '--porcelain'], text=True, timeout=30).strip()
+          print(json.dumps({'source_bookends_equal': True, 'commit': admitted['commit'],
+                            'source_sha256': actual}, sort_keys=True))
+          for name in ('effective-source.json',):
+              if (root / name).is_file():
+                  print((root / name).read_text())
+          PY

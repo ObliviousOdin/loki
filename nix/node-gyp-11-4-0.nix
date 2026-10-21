@@ -18,9 +18,13 @@ let
     };
 
     postPatch = ''
+      # Retain the supplier suite while moving its vulnerable Mocha 11 tool graph.
+      substituteInPlace package.json \
+        --replace-fail '"mocha": "^11.0.1"' '"mocha": "^12.0.3"'
       ln -s ${./node-gyp-11-4-0-package-lock.json} package-lock.json
     '';
 
+    # Held old hash: the guarded qualification job computes its replacement.
     npmDepsHash = "sha256-P25m02VxIXkPD7rYI2Wki9+levrtNg2xk8pU+nEUXsE=";
 
     npmDepsFetcherVersion = 2;
