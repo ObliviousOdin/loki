@@ -8,8 +8,50 @@ $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 public static class LokiJobExitProbe {
+    public sealed class OutputCapture {
+        private readonly object gate = new object();
+        private readonly StringBuilder tail = new StringBuilder();
+        private readonly Thread worker;
+        private long characters;
+        private bool closing, finished;
+        private string error;
+        public OutputCapture(StreamReader reader) {
+            worker = new Thread(() => Drain(reader));
+            worker.IsBackground = true;
+            worker.Start();
+        }
+        private void Drain(StreamReader reader) {
+            try {
+                char[] buffer = new char[1024];
+                int count;
+                while ((count = reader.Read(buffer, 0, buffer.Length)) != 0) {
+                    lock (gate) {
+                        characters += count;
+                        tail.Append(buffer, 0, count);
+                        if (tail.Length > 1024) tail.Remove(0, tail.Length - 1024);
+                    }
+                }
+            } catch (Exception failure) {
+                lock (gate) { if (!closing) error = failure.GetType().Name + ": " + failure.Message; }
+            } finally { lock (gate) { finished = true; } }
+        }
+        public void BeforeReaderClose() { lock (gate) { closing = true; } }
+        public Dictionary<string, object> Snapshot() {
+            lock (gate) {
+                return new Dictionary<string, object> {
+                    { "characters", characters }, { "retained_tail", tail.ToString() },
+                    { "finished", finished }, { "reader_closing", closing }, { "error", error }
+                };
+            }
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)] private struct Accounting {
         public long User, Kernel, PeriodUser, PeriodKernel;
         public uint Faults, Total, Active, Terminated;
@@ -88,52 +130,70 @@ param([string]$Role, [string]$Script, [string]$Work, [string]$RootReady, [string
       [int]$ControllerPid, [long]$ControllerBirthTicks,
       [int]$HistoryMode, [string]$HistoryReady, [string]$HistoryRelease)
 $ErrorActionPreference='Stop'
-$controller=[Diagnostics.Process]::GetProcessById($ControllerPid)
-[void]$controller.Handle
-if($controller.StartTime.ToUniversalTime().Ticks -ne $ControllerBirthTicks) { throw 'Controller identity changed' }
-$ownerWait=[Threading.ManualResetEvent]::new($false)
-$ownerWait.SafeWaitHandle=[Microsoft.Win32.SafeHandles.SafeWaitHandle]::new($controller.Handle,$false)
-if($ownerWait.WaitOne(0)) { throw 'Controller already exited' }
-$releaseEvent=[Threading.EventWaitHandle]::OpenExisting($(if($Role -eq 'history'){$HistoryRelease}else{$Release}))
-$readyName=if($Role -eq 'root'){$RootReady}elseif($Role -eq 'history'){$HistoryReady}else{$ChildReady}
-$readyEvent=[Threading.EventWaitHandle]::OpenExisting($readyName)
-$self=[Diagnostics.Process]::GetCurrentProcess()
+$phaseClock=[Diagnostics.Stopwatch]::StartNew()
+$phase='entered'
+$controller=$ownerWait=$releaseEvent=$readyEvent=$self=$null
+function Record-Phase([string]$Name) {
+    $script:phase=$Name
+    $record=@{role=$Role;pid=$PID;phase=$Name;elapsed_ms=$phaseClock.ElapsedMilliseconds;utc_ticks=[DateTime]::UtcNow.Ticks}
+    [IO.File]::WriteAllText((Join-Path $Work ($Role+'.phase.json')),($record|ConvertTo-Json -Compress))
+}
 function Start-OwnedChild([string]$ChildRole) {
-        $psi=New-Object Diagnostics.ProcessStartInfo
-        $psi.FileName=Join-Path $PSHOME 'powershell.exe'
-        $parts=@('-NoProfile','-NonInteractive','-File',$Script,
-            '-Role',$ChildRole,'-Script',$Script,'-Work',$Work,'-RootReady',$RootReady,
-            '-ChildReady',$ChildReady,'-Release',$Release,'-ControllerPid',[string]$ControllerPid,
-            '-ControllerBirthTicks',[string]$ControllerBirthTicks,'-HistoryMode',[string]$HistoryMode,
-            '-HistoryReady',$HistoryReady,'-HistoryRelease',$HistoryRelease)
-        $psi.Arguments=($parts|ForEach-Object{'"{0}"' -f $_}) -join ' '
-        $psi.UseShellExecute=$false
-        $psi.CreateNoWindow=$true
-        $descendant=[Diagnostics.Process]::Start($psi)
-        $descendant.Dispose()
+    Record-Phase ('starting-'+$ChildRole)
+    $psi=New-Object Diagnostics.ProcessStartInfo
+    $psi.FileName=Join-Path $PSHOME 'powershell.exe'
+    $parts=@('-NoProfile','-NonInteractive','-File',$Script,
+        '-Role',$ChildRole,'-Script',$Script,'-Work',$Work,'-RootReady',$RootReady,
+        '-ChildReady',$ChildReady,'-Release',$Release,'-ControllerPid',[string]$ControllerPid,
+        '-ControllerBirthTicks',[string]$ControllerBirthTicks,'-HistoryMode',[string]$HistoryMode,
+        '-HistoryReady',$HistoryReady,'-HistoryRelease',$HistoryRelease)
+    $psi.Arguments=($parts|ForEach-Object{'"{0}"' -f $_}) -join ' '
+    $psi.UseShellExecute=$false
+    $psi.CreateNoWindow=$true
+    $descendant=[Diagnostics.Process]::Start($psi)
+    $descendant.Dispose()
+    Record-Phase ('started-'+$ChildRole)
 }
 try {
+    Record-Phase 'entered'
+    $controller=[Diagnostics.Process]::GetProcessById($ControllerPid)
+    [void]$controller.Handle
+    if($controller.StartTime.ToUniversalTime().Ticks -ne $ControllerBirthTicks) { throw 'Controller identity changed' }
+    $ownerWait=[Threading.ManualResetEvent]::new($false)
+    $ownerWait.SafeWaitHandle=[Microsoft.Win32.SafeHandles.SafeWaitHandle]::new($controller.Handle,$false)
+    if($ownerWait.WaitOne(0)) { throw 'Controller already exited' }
+    Record-Phase 'controller-pinned'
+    $releaseEvent=[Threading.EventWaitHandle]::OpenExisting($(if($Role -eq 'history'){$HistoryRelease}else{$Release}))
+    $readyName=if($Role -eq 'root'){$RootReady}elseif($Role -eq 'history'){$HistoryReady}else{$ChildReady}
+    $readyEvent=[Threading.EventWaitHandle]::OpenExisting($readyName)
+    $self=[Diagnostics.Process]::GetCurrentProcess()
+    Record-Phase 'events-opened'
     if($Role -eq 'root') {
         if($HistoryMode) { Start-OwnedChild 'history' }
         Start-OwnedChild 'child'
     }
     $identity=@{pid=$PID;birth_ticks=$self.StartTime.ToUniversalTime().Ticks;role=$Role}
     [IO.File]::WriteAllText((Join-Path $Work ($Role+'.json')),($identity|ConvertTo-Json -Compress))
+    Record-Phase 'identity-published'
     [void]$readyEvent.Set()
+    Record-Phase 'ready-signaled'
     [void][Threading.WaitHandle]::WaitAny([Threading.WaitHandle[]]@($releaseEvent,$ownerWait))
+} catch {
+    $errorRecord=@{role=$Role;pid=$PID;phase=$phase;error_type=$_.Exception.GetType().Name;
+        hresult=$_.Exception.HResult;message=$_.Exception.Message.Substring(0,[Math]::Min(512,$_.Exception.Message.Length));utc_ticks=[DateTime]::UtcNow.Ticks}
+    [IO.File]::WriteAllText((Join-Path $Work ($Role+'.error.json')),($errorRecord|ConvertTo-Json -Compress))
+    throw
 } finally {
-    $self.Dispose()
-    $readyEvent.Dispose()
-    $releaseEvent.Dispose()
-    $ownerWait.Dispose()
-    $controller.Dispose()
+    foreach($resource in @($self,$readyEvent,$releaseEvent,$ownerWait,$controller)) {
+        if($null -ne $resource) { $resource.Dispose() }
+    }
 }
 '@
 [IO.File]::WriteAllText($childScript, $source)
 $tracked = @{}
 $births = @{}
-$started = $null
-$report = [ordered]@{mode=$(if($CompletedChild){'history'}else{'static'});status='incomplete';engine=$PSVersionTable.PSVersion.ToString();observations=@();cleanup_errors=@()}
+$started = $stdoutCapture = $stderrCapture = $readyClock = $null
+$report = [ordered]@{mode=$(if($CompletedChild){'history'}else{'static'});status='incomplete';engine=$PSVersionTable.PSVersion.ToString();observations=@();cleanup_errors=@();readiness_progress=@()}
 
 function Pin-JobMembers([IntPtr]$Job) {
     foreach ($memberId in [LokiJobExitProbe]::Members($Job)) {
@@ -156,6 +216,38 @@ function Assert-RetiredJobRefused([scriptblock]$Query) {
         if ($_.Exception.InnerException -isnot [InvalidOperationException] -or
                 $_.Exception.InnerException.Message -ne 'An exact owned job is required') { throw }
     }
+}
+
+function Get-ReadinessState {
+    $state=[ordered]@{elapsed_ms=$(if($readyClock){$readyClock.ElapsedMilliseconds}else{$null});events=@{};roles=@()}
+    foreach($item in @(@{role='root';event=$rootReady},@{role='child';event=$childReady},@{role='history';event=$historyReady})) {
+        $state.events[$item.role]=$item.event.WaitOne(0)
+    }
+    if($started) {
+        $state.root=@{pid=$started.Process.Id;birth_ticks=$births[$started.Process.Id];wait_state=[LokiJobExitProbe]::Signal($started.Process.Handle)}
+        if($state.root.wait_state -eq 0) { $state.root.exit_code=$started.Process.ExitCode }
+        if($started.Job -ne [IntPtr]::Zero) {
+            try { $state.job=@{active=[LokiJobExitProbe]::Active($started.Job);total=[LokiJobExitProbe]::Total($started.Job);members=@([LokiJobExitProbe]::Members($started.Job))} }
+            catch { $state.job_error=$_.Exception.Message }
+        }
+    }
+    foreach($role in @('root','child','history')) {
+        $files=@{role=$role}
+        foreach($suffix in @('json','phase.json','error.json')) {
+            $file=Join-Path $Work ($role+'.'+$suffix)
+            $files[$suffix]=@{exists=[IO.File]::Exists($file)}
+            if($files[$suffix].exists) {
+                try {
+                    if((Get-Item -LiteralPath $file).Length -gt 8192) { throw 'Owned role diagnostic exceeds its bound' }
+                    $files[$suffix].record=[IO.File]::ReadAllText($file)|ConvertFrom-Json
+                } catch { $files[$suffix].read_error=$_.Exception.Message }
+            }
+        }
+        $state.roles+= $files
+    }
+    if($stdoutCapture) { $state.stdout=$stdoutCapture.Snapshot() }
+    if($stderrCapture) { $state.stderr=$stderrCapture.Snapshot() }
+    return $state
 }
 
 try {
@@ -186,14 +278,22 @@ try {
     [void]$started.Process.Handle
     $tracked[$started.Process.Id] = $started.Process
     $births[$started.Process.Id] = $started.Process.StartTime.ToUniversalTime().Ticks
+    $stdoutCapture=[LokiJobExitProbe+OutputCapture]::new($started.StandardOutput)
+    $stderrCapture=[LokiJobExitProbe+OutputCapture]::new($started.StandardError)
+    $report.resume_requested_utc_ticks=[DateTime]::UtcNow.Ticks
     [HermesUpdateJob]::Resume($started)
+    $report.resume_returned_utc_ticks=[DateTime]::UtcNow.Ticks
     $readyClock = [Diagnostics.Stopwatch]::StartNew()
-    $readiness = @($rootReady,$childReady)
-    if ($CompletedChild) { $readiness += $historyReady }
+    $report.ready_clock_started_utc_ticks=[DateTime]::UtcNow.Ticks
+    $readiness = @(@{role='root';event=$rootReady},@{role='child';event=$childReady})
+    if ($CompletedChild) { $readiness += @{role='history';event=$historyReady} }
     foreach ($ready in $readiness) {
         $remaining = [Math]::Max(0,30000-[int]$readyClock.ElapsedMilliseconds)
-        if (-not $ready.WaitOne($remaining)) { throw 'Owned processes did not publish readiness' }
+        $signaled=$ready.event.WaitOne($remaining)
+        $report.readiness_progress+= @{role=$ready.role;signaled=$signaled;elapsed_ms=$readyClock.ElapsedMilliseconds}
+        if (-not $signaled) { throw 'Owned processes did not publish readiness' }
     }
+    $report.readiness_before_cancel=Get-ReadinessState
     $identities = @((Get-Content -LiteralPath $rootReceipt -Raw | ConvertFrom-Json),
                     (Get-Content -LiteralPath $childReceipt -Raw | ConvertFrom-Json))
     $allIdentities = $identities
@@ -257,6 +357,8 @@ try {
 } catch {
     $report.status = 'failed'
     $report.error = $_.Exception.Message
+    try { $report.readiness_before_cleanup=Get-ReadinessState }
+    catch { $report.readiness_observation_error=$_.Exception.Message }
 } finally {
     [void]$release.Set()
     [void]$historyRelease.Set()
@@ -269,13 +371,23 @@ try {
             if (-not $member.WaitForExit(5000)) { throw 'Owned process did not exit during handle-bound cleanup' }
         } catch { $report.cleanup_errors += $_.Exception.Message }
     }
+    if($stdoutCapture) { $stdoutCapture.BeforeReaderClose() }
+    if($stderrCapture) { $stderrCapture.BeforeReaderClose() }
     if ($started) {
         foreach ($reader in @($started.StandardOutput,$started.StandardError)) {
             try { $reader.Dispose() } catch { $report.cleanup_errors += $_.Exception.Message }
         }
         try { [HermesUpdateJob]::Close($started.Job) } catch { $report.cleanup_errors += $_.Exception.Message }
     }
-    foreach ($member in @($tracked.Values)) { $member.Dispose() }
+    $report.cleanup_observations=@()
+    foreach ($member in @($tracked.Values)) {
+        try { $report.cleanup_observations+= @{pid=$member.Id;wait_state=[LokiJobExitProbe]::Signal($member.Handle)} }
+        catch { $report.cleanup_errors+= $_.Exception.Message }
+        $member.Dispose()
+    }
+    $report.streams_after_cleanup=@{}
+    if($stdoutCapture) { $report.streams_after_cleanup.stdout=$stdoutCapture.Snapshot() }
+    if($stderrCapture) { $report.streams_after_cleanup.stderr=$stderrCapture.Snapshot() }
     $rootReady.Dispose(); $childReady.Dispose(); $release.Dispose()
     $historyReady.Dispose(); $historyRelease.Dispose()
 }

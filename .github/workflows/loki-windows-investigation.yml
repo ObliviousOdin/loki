@@ -45,12 +45,47 @@ jobs:
           test "$RUNNER_OS" = Windows
           test "$(git rev-parse HEAD)" = "$LOKI_INVESTIGATION_COMMIT"
           python -c 'import platform, sys; assert sys.platform == "win32"; print(platform.platform(), platform.machine())'
-      - name: Observe actual job cancellation and original process handles
+      - name: Observe cancellation with the two overlapping installer fixtures
         shell: bash
         run: |
-          scripts/run_tests.sh tests/scripts/desktop_update/test_update_job_termination.py \
+          evidence="$RUNNER_TEMP/loki-process-overlap"
+          mkdir "$evidence"
+          run_canonical() (
+            name=$1
+            shift
+            echo "CANONICAL_STARTED name=$name utc=$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            set +e
+            "$@"
+            status=$?
+            echo "CANONICAL_FINISHED name=$name utc=$(date -u '+%Y-%m-%dT%H:%M:%SZ') exit_status=$status"
+            exit "$status"
+          )
+          run_canonical native-calls scripts/run_tests.sh tests/scripts/install/test_install_ps1_native_calls.py \
+            -j 1 --file-timeout 600 --file-retries 0 >"$evidence/native-calls.log" 2>&1 &
+          native_calls=$!
+          run_canonical pinned-git scripts/run_tests.sh tests/scripts/install/test_install_ps1_pinned_git_extract.py \
+            -j 1 --file-timeout 600 --file-retries 0 >"$evidence/pinned-git.log" 2>&1 &
+          pinned_git=$!
+          run_canonical probe scripts/run_tests.sh tests/scripts/desktop_update/test_update_job_termination.py \
             -j 1 --file-timeout 180 --file-retries 0 -- \
-            --junitxml "$RUNNER_TEMP/loki-process-observation.xml" -o junit_logging=all -rP
+            --junitxml "$RUNNER_TEMP/loki-process-observation.xml" -o junit_logging=all -rP \
+            >"$evidence/probe.log" 2>&1 &
+          probe=$!
+          echo "Owned concurrent canonical runners: native-calls=$native_calls pinned-git=$pinned_git probe=$probe"
+          set +e
+          wait "$probe"
+          probe_status=$?
+          wait "$native_calls"
+          native_status=$?
+          wait "$pinned_git"
+          pinned_status=$?
+          set -e
+          for name in probe native-calls pinned-git; do
+            echo "=== canonical $name ==="
+            cat "$evidence/$name.log"
+          done
+          echo "Canonical exit statuses: probe=$probe_status native-calls=$native_status pinned-git=$pinned_status"
+          test "$probe_status" -eq 0 && test "$native_status" -eq 0 && test "$pinned_status" -eq 0
       - name: Retain bounded process observations in the job log
         if: always()
         shell: bash
