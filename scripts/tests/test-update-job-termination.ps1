@@ -8,8 +8,50 @@ $ErrorActionPreference = 'Stop'
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
+using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
+using System.Text;
+using System.Threading;
 public static class LokiJobExitProbe {
+    public sealed class OutputCapture {
+        private readonly object gate = new object();
+        private readonly StringBuilder tail = new StringBuilder();
+        private readonly Thread worker;
+        private long characters;
+        private bool closing, finished;
+        private string error;
+        public OutputCapture(StreamReader reader) {
+            worker = new Thread(() => Drain(reader));
+            worker.IsBackground = true;
+            worker.Start();
+        }
+        private void Drain(StreamReader reader) {
+            try {
+                char[] buffer = new char[1024];
+                int count;
+                while ((count = reader.Read(buffer, 0, buffer.Length)) != 0) {
+                    lock (gate) {
+                        characters += count;
+                        tail.Append(buffer, 0, count);
+                        if (tail.Length > 1024) tail.Remove(0, tail.Length - 1024);
+                    }
+                }
+            } catch (Exception failure) {
+                lock (gate) { if (!closing) error = failure.GetType().Name + ": " + failure.Message; }
+            } finally { lock (gate) { finished = true; } }
+        }
+        public void BeforeReaderClose() { lock (gate) { closing = true; } }
+        public Dictionary<string, object> Snapshot() {
+            lock (gate) {
+                return new Dictionary<string, object> {
+                    { "characters", characters }, { "retained_tail", tail.ToString() },
+                    { "finished", finished }, { "reader_closing", closing }, { "error", error }
+                };
+            }
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)] private struct Accounting {
         public long User, Kernel, PeriodUser, PeriodKernel;
         public uint Faults, Total, Active, Terminated;
@@ -79,61 +121,138 @@ $childReady = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode
 $release = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $releaseName)
 $historyReady = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $historyReadyName)
 $historyRelease = [Threading.EventWaitHandle]::new($false, [Threading.EventResetMode]::ManualReset, $historyReleaseName)
-$childScript = Join-Path $Work 'owned-child.ps1'
+$workerExe = Join-Path $Work 'owned-worker.exe'
 $rootReceipt = Join-Path $Work 'root.json'
 $childReceipt = Join-Path $Work 'child.json'
 $historyReceipt = Join-Path $Work 'history.json'
 $source = @'
-param([string]$Role, [string]$Script, [string]$Work, [string]$RootReady, [string]$ChildReady, [string]$Release,
-      [int]$ControllerPid, [long]$ControllerBirthTicks,
-      [int]$HistoryMode, [string]$HistoryReady, [string]$HistoryRelease)
-$ErrorActionPreference='Stop'
-$controller=[Diagnostics.Process]::GetProcessById($ControllerPid)
-[void]$controller.Handle
-if($controller.StartTime.ToUniversalTime().Ticks -ne $ControllerBirthTicks) { throw 'Controller identity changed' }
-$ownerWait=[Threading.ManualResetEvent]::new($false)
-$ownerWait.SafeWaitHandle=[Microsoft.Win32.SafeHandles.SafeWaitHandle]::new($controller.Handle,$false)
-if($ownerWait.WaitOne(0)) { throw 'Controller already exited' }
-$releaseEvent=[Threading.EventWaitHandle]::OpenExisting($(if($Role -eq 'history'){$HistoryRelease}else{$Release}))
-$readyName=if($Role -eq 'root'){$RootReady}elseif($Role -eq 'history'){$HistoryReady}else{$ChildReady}
-$readyEvent=[Threading.EventWaitHandle]::OpenExisting($readyName)
-$self=[Diagnostics.Process]::GetCurrentProcess()
-function Start-OwnedChild([string]$ChildRole) {
-        $psi=New-Object Diagnostics.ProcessStartInfo
-        $psi.FileName=Join-Path $PSHOME 'powershell.exe'
-        $parts=@('-NoProfile','-NonInteractive','-File',$Script,
-            '-Role',$ChildRole,'-Script',$Script,'-Work',$Work,'-RootReady',$RootReady,
-            '-ChildReady',$ChildReady,'-Release',$Release,'-ControllerPid',[string]$ControllerPid,
-            '-ControllerBirthTicks',[string]$ControllerBirthTicks,'-HistoryMode',[string]$HistoryMode,
-            '-HistoryReady',$HistoryReady,'-HistoryRelease',$HistoryRelease)
-        $psi.Arguments=($parts|ForEach-Object{'"{0}"' -f $_}) -join ' '
-        $psi.UseShellExecute=$false
-        $psi.CreateNoWindow=$true
-        $descendant=[Diagnostics.Process]::Start($psi)
-        $descendant.Dispose()
-}
-try {
-    if($Role -eq 'root') {
-        if($HistoryMode) { Start-OwnedChild 'history' }
-        Start-OwnedChild 'child'
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Runtime.Serialization.Json;
+using System.Text;
+using System.Threading;
+using Microsoft.Win32.SafeHandles;
+
+public sealed class LokiJobProbeWorker : IDisposable {
+    private readonly string[] arguments;
+    private readonly string role, work;
+    private readonly int pid;
+    private readonly Stopwatch clock = Stopwatch.StartNew();
+    private string phase = "entered";
+    private Process controller, self;
+    private ManualResetEvent ownerWait;
+    private EventWaitHandle release, ready;
+
+    private LokiJobProbeWorker(string[] arguments) {
+        if (arguments.Length != 10) throw new ArgumentException("Expected ten owned worker arguments");
+        this.arguments = arguments;
+        role = arguments[0]; work = arguments[1];
+        using (var process = Process.GetCurrentProcess()) { pid = process.Id; }
+        if (role != "root" && role != "child" && role != "history") throw new ArgumentException("Unknown owned worker role");
     }
-    $identity=@{pid=$PID;birth_ticks=$self.StartTime.ToUniversalTime().Ticks;role=$Role}
-    [IO.File]::WriteAllText((Join-Path $Work ($Role+'.json')),($identity|ConvertTo-Json -Compress))
-    [void]$readyEvent.Set()
-    [void][Threading.WaitHandle]::WaitAny([Threading.WaitHandle[]]@($releaseEvent,$ownerWait))
-} finally {
-    $self.Dispose()
-    $readyEvent.Dispose()
-    $releaseEvent.Dispose()
-    $ownerWait.Dispose()
-    $controller.Dispose()
+    public static string Json(Dictionary<string, object> record) {
+        var settings = new DataContractJsonSerializerSettings { UseSimpleDictionaryFormat = true };
+        var serializer = new DataContractJsonSerializer(typeof(Dictionary<string, object>), settings);
+        using (var stream = new MemoryStream()) {
+            serializer.WriteObject(stream, record);
+            return Encoding.UTF8.GetString(stream.ToArray());
+        }
+    }
+    public static string Quote(string argument) {
+        var result = new StringBuilder("\"");
+        int slashes = 0;
+        foreach (char character in argument) {
+            if (character == '\\') { slashes++; continue; }
+            result.Append('\\', character == '"' ? slashes * 2 + 1 : slashes);
+            result.Append(character); slashes = 0;
+        }
+        result.Append('\\', slashes * 2); result.Append('"');
+        return result.ToString();
+    }
+    private void Write(string suffix, Dictionary<string, object> record) {
+        File.WriteAllText(Path.Combine(work, role + suffix), Json(record), new UTF8Encoding(false));
+    }
+    private void RecordPhase(string name) {
+        phase = name;
+        Write(".phase.json", new Dictionary<string, object> {
+            { "role", role }, { "pid", pid }, { "phase", phase },
+            { "elapsed_ms", clock.ElapsedMilliseconds }, { "utc_ticks", DateTime.UtcNow.Ticks }
+        });
+    }
+    private void StartChild(string childRole) {
+        RecordPhase("starting-" + childRole);
+        var childArguments = (string[])arguments.Clone(); childArguments[0] = childRole;
+        var quoted = new string[childArguments.Length];
+        for (int index = 0; index < quoted.Length; index++) quoted[index] = Quote(childArguments[index]);
+        var info = new ProcessStartInfo {
+            FileName = Assembly.GetExecutingAssembly().Location,
+            Arguments = string.Join(" ", quoted), UseShellExecute = false, CreateNoWindow = true
+        };
+        using (var child = Process.Start(info)) { }
+        RecordPhase("started-" + childRole);
+    }
+    private void Run() {
+        RecordPhase("entered");
+        controller = Process.GetProcessById(int.Parse(arguments[5], CultureInfo.InvariantCulture));
+        IntPtr controllerHandle = controller.Handle;
+        if (controller.StartTime.ToUniversalTime().Ticks != long.Parse(arguments[6], CultureInfo.InvariantCulture))
+            throw new InvalidOperationException("Controller identity changed");
+        ownerWait = new ManualResetEvent(false);
+        ownerWait.SafeWaitHandle = new SafeWaitHandle(controllerHandle, false);
+        if (ownerWait.WaitOne(0)) throw new InvalidOperationException("Controller already exited");
+        RecordPhase("controller-pinned");
+        release = EventWaitHandle.OpenExisting(role == "history" ? arguments[9] : arguments[4]);
+        ready = EventWaitHandle.OpenExisting(role == "root" ? arguments[2] : role == "history" ? arguments[8] : arguments[3]);
+        self = Process.GetCurrentProcess();
+        RecordPhase("events-opened");
+        if (role == "root") {
+            if (arguments[7] == "1") StartChild("history");
+            StartChild("child");
+        }
+        Write(".json", new Dictionary<string, object> {
+            { "pid", self.Id }, { "birth_ticks", self.StartTime.ToUniversalTime().Ticks }, { "role", role }
+        });
+        RecordPhase("identity-published");
+        ready.Set();
+        RecordPhase("ready-signaled");
+        WaitHandle.WaitAny(new WaitHandle[] { release, ownerWait });
+    }
+    private void WriteError(Exception failure) {
+        Write(".error.json", new Dictionary<string, object> {
+            { "role", role }, { "pid", pid }, { "phase", phase },
+            { "error_type", failure.GetType().Name }, { "hresult", failure.HResult },
+            { "message", failure.Message.Substring(0, Math.Min(512, failure.Message.Length)) },
+            { "utc_ticks", DateTime.UtcNow.Ticks }
+        });
+    }
+    public void Dispose() {
+        if (self != null) self.Dispose();
+        if (ready != null) ready.Dispose();
+        if (release != null) release.Dispose();
+        if (ownerWait != null) ownerWait.Dispose();
+        if (controller != null) controller.Dispose();
+    }
+    public static int Main(string[] arguments) {
+        var worker = new LokiJobProbeWorker(arguments);
+        try { worker.Run(); return 0; }
+        catch (Exception failure) {
+            try { worker.WriteError(failure); }
+            catch (Exception reportFailure) { Console.Error.WriteLine(reportFailure); }
+            Console.Error.WriteLine(failure); return 1;
+        } finally { worker.Dispose(); }
+    }
 }
 '@
-[IO.File]::WriteAllText($childScript, $source)
+Add-Type -TypeDefinition $source -ReferencedAssemblies @('System.dll','System.Runtime.Serialization.dll','System.Xml.dll') `
+    -OutputAssembly $workerExe -OutputType ConsoleApplication
 $tracked = @{}
 $births = @{}
-$started = $null
-$report = [ordered]@{mode=$(if($CompletedChild){'history'}else{'static'});status='incomplete';engine=$PSVersionTable.PSVersion.ToString();observations=@();cleanup_errors=@()}
+$started = $stdoutCapture = $stderrCapture = $readyClock = $null
+$report = [ordered]@{mode=$(if($CompletedChild){'history'}else{'static'});status='incomplete';engine=$PSVersionTable.PSVersion.ToString();observations=@();cleanup_errors=@();readiness_progress=@()}
 
 function Pin-JobMembers([IntPtr]$Job) {
     foreach ($memberId in [LokiJobExitProbe]::Members($Job)) {
@@ -158,8 +277,54 @@ function Assert-RetiredJobRefused([scriptblock]$Query) {
     }
 }
 
+function Read-RoleDiagnostic([string]$Path) {
+    $stream=[IO.FileStream]::new($Path,[IO.FileMode]::Open,[IO.FileAccess]::Read,
+        ([IO.FileShare]::ReadWrite -bor [IO.FileShare]::Delete))
+    try {
+        $buffer=New-Object byte[] 8193
+        $length=0
+        while($length -lt $buffer.Length) {
+            $read=$stream.Read($buffer,$length,$buffer.Length-$length)
+            if($read -eq 0) { break }
+            $length+=$read
+        }
+        if($length -gt 8192) { throw 'Owned role diagnostic exceeds its bound' }
+        return [Text.UTF8Encoding]::new($false,$true).GetString($buffer,0,$length)|ConvertFrom-Json
+    } finally { $stream.Dispose() }
+}
+
+function Get-ReadinessState {
+    $state=[ordered]@{elapsed_ms=$(if($readyClock){$readyClock.ElapsedMilliseconds}else{$null});events=@{};roles=@()}
+    foreach($item in @(@{role='root';event=$rootReady},@{role='child';event=$childReady},@{role='history';event=$historyReady})) {
+        $state.events[$item.role]=$item.event.WaitOne(0)
+    }
+    if($started) {
+        $state.root=@{pid=$started.Process.Id;birth_ticks=$births[$started.Process.Id];wait_state=[LokiJobExitProbe]::Signal($started.Process.Handle)}
+        if($state.root.wait_state -eq 0) { $state.root.exit_code=$started.Process.ExitCode }
+        if($started.Job -ne [IntPtr]::Zero) {
+            try { $state.job=@{active=[LokiJobExitProbe]::Active($started.Job);total=[LokiJobExitProbe]::Total($started.Job);members=@([LokiJobExitProbe]::Members($started.Job))} }
+            catch { $state.job_error=$_.Exception.Message }
+        }
+    }
+    foreach($role in @('root','child','history')) {
+        $files=@{role=$role}
+        foreach($suffix in @('json','phase.json','error.json')) {
+            $file=Join-Path $Work ($role+'.'+$suffix)
+            $files[$suffix]=@{exists=[IO.File]::Exists($file)}
+            if($files[$suffix].exists) {
+                try {
+                    $files[$suffix].record=Read-RoleDiagnostic $file
+                } catch { $files[$suffix].read_error=$_.Exception.Message }
+            }
+        }
+        $state.roles+= $files
+    }
+    if($stdoutCapture) { $state.stdout=$stdoutCapture.Snapshot() }
+    if($stderrCapture) { $state.stderr=$stderrCapture.Snapshot() }
+    return $state
+}
+
 try {
-    $powershell = Join-Path $PSHOME 'powershell.exe'
     $controller = [Diagnostics.Process]::GetCurrentProcess()
     try {
         [void]$controller.Handle
@@ -176,24 +341,29 @@ try {
             $report.retired_job_refusals++
         }
     } finally { $controller.Dispose() }
-    $parts = @('-NoProfile','-NonInteractive','-File',$childScript,
-        '-Role','root','-Script',$childScript,'-Work',$Work,'-RootReady',$rootName,
-        '-ChildReady',$childName,'-Release',$releaseName,'-ControllerPid',[string]$PID,
-        '-ControllerBirthTicks',[string]$controllerBirth,'-HistoryMode',$(if($CompletedChild){'1'}else{'0'}),
-        '-HistoryReady',$historyReadyName,'-HistoryRelease',$historyReleaseName)
+    $parts = @('root',$Work,$rootName,$childName,$releaseName,[string]$PID,
+        [string]$controllerBirth,$(if($CompletedChild){'1'}else{'0'}),$historyReadyName,$historyReleaseName)
     $arguments = ($parts | ForEach-Object { '"{0}"' -f $_ }) -join ' '
-    $started = [HermesUpdateJob]::StartAssigned($powershell,$arguments)
+    $started = [HermesUpdateJob]::StartAssigned($workerExe,$arguments)
     [void]$started.Process.Handle
     $tracked[$started.Process.Id] = $started.Process
     $births[$started.Process.Id] = $started.Process.StartTime.ToUniversalTime().Ticks
+    $stdoutCapture=[LokiJobExitProbe+OutputCapture]::new($started.StandardOutput)
+    $stderrCapture=[LokiJobExitProbe+OutputCapture]::new($started.StandardError)
+    $report.resume_requested_utc_ticks=[DateTime]::UtcNow.Ticks
     [HermesUpdateJob]::Resume($started)
+    $report.resume_returned_utc_ticks=[DateTime]::UtcNow.Ticks
     $readyClock = [Diagnostics.Stopwatch]::StartNew()
-    $readiness = @($rootReady,$childReady)
-    if ($CompletedChild) { $readiness += $historyReady }
+    $report.ready_clock_started_utc_ticks=[DateTime]::UtcNow.Ticks
+    $readiness = @(@{role='root';event=$rootReady},@{role='child';event=$childReady})
+    if ($CompletedChild) { $readiness += @{role='history';event=$historyReady} }
     foreach ($ready in $readiness) {
         $remaining = [Math]::Max(0,30000-[int]$readyClock.ElapsedMilliseconds)
-        if (-not $ready.WaitOne($remaining)) { throw 'Owned processes did not publish readiness' }
+        $signaled=$ready.event.WaitOne($remaining)
+        $report.readiness_progress+= @{role=$ready.role;signaled=$signaled;elapsed_ms=$readyClock.ElapsedMilliseconds}
+        if (-not $signaled) { throw 'Owned processes did not publish readiness' }
     }
+    $report.readiness_before_cancel=Get-ReadinessState
     $identities = @((Get-Content -LiteralPath $rootReceipt -Raw | ConvertFrom-Json),
                     (Get-Content -LiteralPath $childReceipt -Raw | ConvertFrom-Json))
     $allIdentities = $identities
@@ -257,6 +427,8 @@ try {
 } catch {
     $report.status = 'failed'
     $report.error = $_.Exception.Message
+    try { $report.readiness_before_cleanup=Get-ReadinessState }
+    catch { $report.readiness_observation_error=$_.Exception.Message }
 } finally {
     [void]$release.Set()
     [void]$historyRelease.Set()
@@ -269,13 +441,23 @@ try {
             if (-not $member.WaitForExit(5000)) { throw 'Owned process did not exit during handle-bound cleanup' }
         } catch { $report.cleanup_errors += $_.Exception.Message }
     }
+    if($stdoutCapture) { $stdoutCapture.BeforeReaderClose() }
+    if($stderrCapture) { $stderrCapture.BeforeReaderClose() }
     if ($started) {
         foreach ($reader in @($started.StandardOutput,$started.StandardError)) {
             try { $reader.Dispose() } catch { $report.cleanup_errors += $_.Exception.Message }
         }
         try { [HermesUpdateJob]::Close($started.Job) } catch { $report.cleanup_errors += $_.Exception.Message }
     }
-    foreach ($member in @($tracked.Values)) { $member.Dispose() }
+    $report.cleanup_observations=@()
+    foreach ($member in @($tracked.Values)) {
+        try { $report.cleanup_observations+= @{pid=$member.Id;wait_state=[LokiJobExitProbe]::Signal($member.Handle)} }
+        catch { $report.cleanup_errors+= $_.Exception.Message }
+        $member.Dispose()
+    }
+    $report.streams_after_cleanup=@{}
+    if($stdoutCapture) { $report.streams_after_cleanup.stdout=$stdoutCapture.Snapshot() }
+    if($stderrCapture) { $report.streams_after_cleanup.stderr=$stderrCapture.Snapshot() }
     $rootReady.Dispose(); $childReady.Dispose(); $release.Dispose()
     $historyReady.Dispose(); $historyRelease.Dispose()
 }
