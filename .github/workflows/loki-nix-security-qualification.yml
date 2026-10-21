@@ -164,9 +164,9 @@ jobs:
           +    spawnResult: () => {
           +      spawns++
           +      return {
-          +        on: (event, callback) => {
+          +        on: (event, listener) => {
           +          assert.strictEqual(event, 'exit')
-          +          callback(0)
+          +          listener(0)
           +        }
           +      }
           +    },
@@ -262,9 +262,9 @@ jobs:
           +    spawnResult: () => {
           +      spawns++
           +      return {
-          +        on: (event, callback) => {
+          +        on: (event, listener) => {
           +          assert.strictEqual(event, 'exit')
-          +          callback(0)
+          +          listener(0)
           +        }
           +      }
           +    },
@@ -327,7 +327,7 @@ jobs:
           +    await configure(prog, [])
           +    verify([[process.versions.node]])
           FIXTURE_PATCH
-          echo '401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d  '"$q/effective-source/supplier-unit-fixtures.patch" | sha256sum --check
+          echo '3e0dd0affc1ba326f91bc50b14917ba6451cb2b7a11ad4deb98e6c1794b04b7a  '"$q/effective-source/supplier-unit-fixtures.patch" | sha256sum --check
           cat > "$q/qualification.nix" <<'NIX'
           { checkout, source }:
           let
@@ -338,7 +338,7 @@ jobs:
               name = "nodejs-26-npm-12-qualification";
               paths = [ npm12 pkgs.nodejs_26 ];
             };
-            expectedFixtureSha = "401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d";
+            expectedFixtureSha = "3e0dd0affc1ba326f91bc50b14917ba6451cb2b7a11ad4deb98e6c1794b04b7a";
             fixtureText = builtins.readFile (source + "/supplier-unit-fixtures.patch");
             fixturePatch = builtins.toFile "supplier-unit-fixtures.patch" fixtureText;
             fixtureInput = {
@@ -432,7 +432,7 @@ jobs:
                 JS
                 # Only these two FS-mocked unit fixtures receive the reviewed offline repair.
                 fixture_patch=${fixturePatch}
-                echo '401338630dafb74eb954918777c7369b9b1ab53951aaf0ed6f17b7ddb860311d  '"$fixture_patch" | sha256sum --check
+                echo '3e0dd0affc1ba326f91bc50b14917ba6451cb2b7a11ad4deb98e6c1794b04b7a  '"$fixture_patch" | sha256sum --check
                 echo 'd0187c07f897f743ad3761cb706511dd7753d48062496353e08687fcf0fd51c7  test/test-configure-nodedir.js' | sha256sum --check
                 echo '9b7c750a04bb6f85e9a0c92659aa3f4e311e2119cf4ae522a746b34d12751280  test/test-configure-python.js' | sha256sum --check
                 echo '6221f4df47b863bcff62ae052d53f11b7487c9ea015f787771323c4c232a2139  lib/node-gyp.js' | sha256sum --check
@@ -447,8 +447,8 @@ jobs:
                   package.json package-lock.json > "$diagnostic/protected-before.sha256"
                 cat "$diagnostic/protected-before.sha256"
                 patch --batch --forward -p1 -F 0 < "$fixture_patch"
-                echo '2d99d3b59e21bf8f01d667698971d618dae18c749e9d0a244d2e9834a04b5e4f  test/test-configure-nodedir.js' | sha256sum --check
-                echo 'ba47a2f9bb11d46a3bc2a29781bbfe7576e3f50521a6fd4398eb844e6770f5a3  test/test-configure-python.js' | sha256sum --check
+                echo 'ded463ebbca288459bd58682568ec4c4844c23f38fecfe7da3759d60340ce043  test/test-configure-nodedir.js' | sha256sum --check
+                echo '73d820e621bf88f51d3bae4bdc9667469cf35422b452071c0e3717ac7db4c8ad  test/test-configure-python.js' | sha256sum --check
                 echo 'Supplier fixture scope: two corrected unit fixtures; production library/downloader/manifest/lock unchanged'
                 supplier_test_status=0
                 env -u npm_config_nodedir NODE_OPTIONS="--require=$diagnostic/observer.cjs --unhandled-rejections=strict --trace-uncaught" npm test || supplier_test_status=$?
@@ -459,8 +459,8 @@ jobs:
                 fi
                 echo "Supplier test exit: $supplier_test_status; supplier lint exit: $supplier_lint_status"
                 sha256sum --check "$diagnostic/protected-before.sha256"
-                echo '2d99d3b59e21bf8f01d667698971d618dae18c749e9d0a244d2e9834a04b5e4f  test/test-configure-nodedir.js' | sha256sum --check
-                echo 'ba47a2f9bb11d46a3bc2a29781bbfe7576e3f50521a6fd4398eb844e6770f5a3  test/test-configure-python.js' | sha256sum --check
+                echo 'ded463ebbca288459bd58682568ec4c4844c23f38fecfe7da3759d60340ce043  test/test-configure-nodedir.js' | sha256sum --check
+                echo '73d820e621bf88f51d3bae4bdc9667469cf35422b452071c0e3717ac7db4c8ad  test/test-configure-python.js' | sha256sum --check
                 test "$supplier_test_status" -eq 0
                 test "$supplier_lint_status" = 0
                 runHook postCheck
@@ -716,12 +716,42 @@ jobs:
               return run(label, args, limit, required=False)
 
 
+          def unique_object(items):
+              result = {}
+              for key, value in items:
+                  assert key not in result, 'Duplicate JSON object key: ' + key
+                  result[key] = value
+              return result
+
+
+          def selected_derivation(text, path):
+              data = json.loads(text, object_pairs_hook=unique_object)
+              assert type(data) is dict and set(data) == {'version', 'derivations'}, 'Expected versioned derivation envelope'
+              assert type(data['version']) is int and data['version'] == 4, 'Expected derivation envelope version 4'
+              drvs = data['derivations']
+              basename = Path(path).name
+              assert type(drvs) is dict and set(drvs) == {basename}, 'Expected only the selected derivation basename'
+              entry = drvs[basename]
+              fields = {'args': list, 'builder': str, 'env': dict, 'inputs': dict,
+                        'name': str, 'outputs': dict, 'system': str, 'version': int}
+              assert type(entry) is dict and set(fields) <= set(entry) <= set(fields) | {'structuredAttrs'}, 'Unexpected derivation entry fields'
+              assert {key: type(entry[key]) for key in fields} == fields, 'Unexpected derivation entry field types'
+              assert entry['version'] == 4, 'Expected derivation entry version 4'
+              assert entry['name'] == basename[33:-4], 'Selected derivation name mismatch'
+              assert all(type(v) is str for v in entry['env'].values()), 'Expected string environment map'
+              assert entry['env'].get('src'), 'Expected selected source path'
+              assert type(entry['outputs'].get('out')) is dict, 'Expected selected out output'
+              assert set(entry['inputs']) == {'srcs', 'drvs'}, 'Expected version-4 input fields'
+              assert type(entry['inputs']['srcs']) is list and type(entry['inputs']['drvs']) is dict, 'Expected version-4 input types'
+              assert all(type(arg) is str for arg in entry['args']), 'Expected argument strings'
+              assert 'structuredAttrs' not in entry or type(entry['structuredAttrs']) is dict, 'Expected structured attribute object'
+              return entry
+
+
           def derivation(label, path, package):
               assert re.fullmatch(r'/nix/store/[0-9a-z]{32}-' + package + r'\.drv', path), path
               _, text = run(label, ['nix', 'derivation', 'show', path], 60)
-              data = json.loads(text)
-              assert set(data) == {path}, 'Expected one selected derivation'
-              return data[path]
+              return selected_derivation(text, path)
 
 
           def source_metadata(browser, metadata):
@@ -817,7 +847,7 @@ jobs:
               print(json.dumps(RECEIPT, sort_keys=True), flush=True)
           raise SystemExit(0 if RECEIPT['status'] == 'component-built' else 1)
           BROWSER_PY
-          echo '23d864f2e84c1aa31e6e955aee69430a32e9533ebb34bfe6a29fd6a89df8107b  '"$browser/diagnostic.py" | sha256sum --check
+          echo 'a1a380798cb9f5bd223862955e06740e53860a687b2dcb664d656ad95b7d6489  '"$browser/diagnostic.py" | sha256sum --check
           python3 "$browser/diagnostic.py"
       - name: Record source bookends and retain diagnostic results in the job log
         if: always()
