@@ -41,8 +41,14 @@ the shared assembler's internal environment map into that namespace before
 the Loki entrypoint binds its runtime. Dependencies remain pinned by the
 existing `flake.lock`, `uv.lock`, npm lock, and PM lock.
 
-Nix evaluation, builds, module activation, and packaged desktop launch have
-not been qualified for this preview. The development host has no Nix
-installation; static review and Python helper compilation do not establish
-Nix compatibility. Run `nix flake check` and the host's actual installation
-tests before relying on these outputs.
+A [Linux component diagnostic](https://github.com/ObliviousOdin/loki/actions/runs/39540959987)
+qualified the reviewed node-gyp dependency graph, its supplier suite and lint,
+installation, and a native addon compiled and loaded with Node 26.5. The supplier
+suite itself ran under Node 24.18.0 and retained six pending cases. The same run
+built the local browser component with its declared setuptools 84 backend and
+verified installed version, Pillow requirement and license metadata. Its backend
+is a build-only input; the runtime lock and dev-only setuptools 83 are unchanged.
+
+The full Nix environment, module activation and packaged desktop launch remain
+unqualified. The development host has no Nix installation. Run `nix flake check`
+and the host's actual installation tests before relying on those outputs.

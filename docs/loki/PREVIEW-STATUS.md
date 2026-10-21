@@ -1,6 +1,6 @@
 # Preview delivery status
 
-Recorded October 20, 2026 (UTC). [Loki 0.1.0-alpha.1](https://github.com/ObliviousOdin/loki/releases/tag/v0.1.0-alpha.1) is a published **unsigned source preview**, built from commit `12690b426de4610916f91fb42f008391df550f27`. It contains source, installers and required notice companions. No packaged native application is published.
+Updated October 21, 2026 (UTC). [Loki 0.1.0-alpha.1](https://github.com/ObliviousOdin/loki/releases/tag/v0.1.0-alpha.1) is a published **unsigned source preview**, built from commit `12690b426de4610916f91fb42f008391df550f27`. It contains source, installers and required notice companions. No packaged native application is published.
 
 The [published verification report](https://github.com/ObliviousOdin/loki/releases/download/v0.1.0-alpha.1/LOKI-VERIFICATION.json) has SHA-256 `6150c978f37c05f07362cc4e2277bbf84e0d401478e196caf949eccb45ba6434`. It identifies the exact source, test scopes, skips and artifact hashes. All nine original release assets and this additional report were downloaded anonymously and hash-verified. The report is additional to the immutable software `SHA256SUMS` manifest.
 
@@ -29,7 +29,7 @@ Packaged native applications, signing/notarization, quarantined-download accepta
 
 ## Unpublished alpha.2 candidate
 
-[PR #9](https://github.com/ObliviousOdin/loki/pull/9) adds dependency and mailbox corrections, Windows process-completion checks, first-session setup recovery, real Docker and website CI gates, and manual source/native delivery checks. Targeted regressions include meaningful failures against earlier behavior followed by passing corrections. The latest completed [combined diagnostic CI run](https://github.com/ObliviousOdin/loki/actions/runs/39515354374) passed 16 of 18 jobs but failed Windows probe readiness and the verification gate. A fresh required run after the subsequent corrections is pending; earlier passing scopes do not qualify the later source.
+[PR #9](https://github.com/ObliviousOdin/loki/pull/9) adds dependency and mailbox corrections, Windows process-completion checks, first-session setup recovery, real Docker and website CI gates, and manual source/native delivery checks. The latest completed [combined diagnostic CI run](https://github.com/ObliviousOdin/loki/actions/runs/39529473862), at `8f86c784b08c01f099d86d0240a3d86faa21d8e8`, passed 16 of 20 jobs. Windows contracts and controlled installs passed; two dependency audits, a Python test-directory layout check and the verification gate failed. The layout correction has targeted local evidence, and the Nix dependency graph and browser component passed separate hosted checks. A complete required run at the final source remains pending; earlier passing scopes do not qualify later changes.
 
 Alpha.2 is not published. The native staging and anonymous-download workflows have source/fixture evidence only; no alpha.2 native build, upload, downloaded installation or provider conversation is claimed. Alpha.1's measured results do not transfer to this candidate. See [verification](VERIFICATION.md#unpublished-alpha2-verification) for the implemented corrections and remaining gates.
 
