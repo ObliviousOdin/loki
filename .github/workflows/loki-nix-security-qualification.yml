@@ -164,7 +164,29 @@ jobs:
                 test "$(npm --version)" = "${npm12.version}"
                 echo "Unchanged supplier source: ${old.src}"
                 node -e 'const p = require("./package.json"); console.log(JSON.stringify({name:p.name,version:p.version,scripts:p.scripts,mocha:p.devDependencies.mocha}))'
-                npm test
+                head -n 1 node_modules/.bin/mocha
+                ${pkgs.nodejs}/bin/node <<'JS'
+                const assert = require('node:assert/strict')
+                const createGyp = require('./lib/node-gyp')
+                const inherited = process.env.npm_config_nodedir
+                assert.equal(typeof inherited, 'string')
+                assert.ok(inherited.startsWith('/nix/store/'))
+                assert.equal(process.env.npm_package_config_node_gyp_nodedir, undefined)
+                const argv = ['diagnostic-node', 'diagnostic-gyp', '--nodedir=/usr']
+                const injected = createGyp()
+                injected.parseArgv([...argv])
+                assert.equal(injected.opts.nodedir, inherited)
+                delete process.env.npm_config_nodedir
+                const isolated = createGyp()
+                isolated.parseArgv([...argv])
+                assert.equal(isolated.opts.nodedir, '/usr')
+                console.log(JSON.stringify({diagnostic:'actual-supplier-parseArgv',
+                  node:process.version,execPath:process.execPath,
+                  inheritedLegacy:inherited,preferredAbsent:true,
+                  injectedResult:injected.opts.nodedir,isolatedResult:isolated.opts.nodedir}))
+                JS
+                # Supplier option tests own their CLI/header-prefix inputs.
+                env -u npm_config_nodedir npm test
                 npm run lint
                 runHook postCheck
               '';
@@ -183,10 +205,13 @@ jobs:
             JSON
             cat > answer.c <<'C'
             #include <node_api.h>
+            #include <node_version.h>
             static napi_value init(napi_env env, napi_value exports) {
-              napi_value answer;
+              napi_value answer, compiled_major;
               if (napi_create_int32(env, 42, &answer) != napi_ok) return NULL;
               if (napi_set_named_property(env, exports, "answer", answer) != napi_ok) return NULL;
+              if (napi_create_int32(env, NODE_MAJOR_VERSION, &compiled_major) != napi_ok) return NULL;
+              if (napi_set_named_property(env, exports, "compiledNodeMajor", compiled_major) != napi_ok) return NULL;
               return exports;
             }
             NAPI_MODULE(NODE_GYP_MODULE_NAME, init)
@@ -200,9 +225,9 @@ jobs:
             node --version
             npm --version
             node-gyp --version
-            node-gyp rebuild --nodedir=${pkgs.nodejs_26}
+            npm_package_config_node_gyp_nodedir=${pkgs.nodejs_26} node-gyp rebuild
             mkdir "$out"
-            node -e 'const a = require("./build/Release/answer.node"); if (a.answer !== 42) process.exit(1); console.log(JSON.stringify({answer:a.answer,node:process.version,modules:process.versions.modules,napi:process.versions.napi}))' | tee "$out/native-probe.json"
+            node -e 'const a = require("./build/Release/answer.node"); if (a.answer !== 42 || a.compiledNodeMajor !== 26 || process.versions.node.split(".")[0] !== "26") process.exit(1); console.log(JSON.stringify({answer:a.answer,compiledNodeMajor:a.compiledNodeMajor,node:process.version,modules:process.versions.modules,napi:process.versions.napi}))' | tee "$out/native-probe.json"
           ''
           NIX
           sha256sum "$q/qualification.nix"
