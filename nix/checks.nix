@@ -133,6 +133,19 @@ json.dump(sorted(leaf_paths(DEFAULT_CONFIG)), sys.stdout, indent=2)
       packages.configKeys = configKeys;
 
       checks = {
+        npm-local-archives =
+          let
+            tui = self'.packages.tui;
+          in
+          pkgs.runCommand "loki-npm-local-archives" {
+            nativeBuildInputs = [ tui.nodejs ];
+            NPM_SOURCE_ROOT = tui.src;
+            NPM_DEPS_ROOT = tui.npmDeps;
+          } ''
+            node --test ${./tests/npm-local-archives.mjs}
+            touch $out
+          '';
+
         # Cross-platform evaluation — catches "not supported for interpreter"
         # errors (e.g. sphinx dropping python311) without needing a darwin builder.
         # Evaluation is pure and instant; it doesn't build anything.
