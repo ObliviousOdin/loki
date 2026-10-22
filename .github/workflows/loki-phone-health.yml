@@ -1,0 +1,39 @@
+name: Loki phone service health
+
+on:
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  health:
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    env:
+      LOKI_PHONE_ORIGIN: ${{ vars.LOKI_PHONE_ORIGIN }}
+      LOKI_RENDEZVOUS_ORIGIN: ${{ vars.LOKI_RENDEZVOUS_ORIGIN }}
+    steps:
+      - name: Check public service readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$LOKI_PHONE_ORIGIN" = 'https://relay.odinsdesk.com'
+          test "$LOKI_RENDEZVOUS_ORIGIN" = 'https://loki-phone-link.obliviousodin.workers.dev'
+          probe_dir=$(mktemp -d)
+          curl --proto '=https' --tlsv1.2 --connect-timeout 5 --max-time 15 --max-filesize 4096 --fail --silent --show-error "$LOKI_PHONE_ORIGIN/health" -o "$probe_dir/phone.json"
+          curl --proto '=https' --tlsv1.2 --connect-timeout 5 --max-time 15 --max-filesize 4096 --fail --silent --show-error "$LOKI_RENDEZVOUS_ORIGIN/health" -o "$probe_dir/pairing.json"
+          python3 - "$probe_dir" <<'PY_CHECK'
+          import json, pathlib, re, sys
+          root = pathlib.Path(sys.argv[1])
+          for name, service in [('phone', 'loki-phone-ingress'), ('pairing', 'loki-phone-link')]:
+              data = (root / (name + '.json')).read_bytes()
+              assert len(data) <= 4096, 'Oversize health response'
+              value = json.loads(data)
+              assert value.get('service') == service, 'Unexpected service'
+              assert type(value.get('version')) is int and value['version'] == 1, 'Unexpected version'
+              assert value.get('ready') is True, 'Service not ready'
+              if name == 'phone':
+                  assert re.fullmatch(r'[a-f0-9]{64}', value.get('host_id', '')), 'Missing host binding'
+              print(name + ': ready')
+          PY_CHECK
