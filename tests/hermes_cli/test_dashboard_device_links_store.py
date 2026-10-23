@@ -72,7 +72,6 @@ def test_claim_retry_exact_review_and_account_identity_survive_restart(phone_sto
     identity = lambda s: {'user_id': s.user_id, 'provider': s.provider, 'issuer': s.issuer}
     assert authenticated_subject(identity(session)) == authenticated_subject(identity(owner))
     assert session.device_home == store.home and session.device_id == claim['device_id']
-    assert (store.path.stat().st_mode & 0o777) == 0o600
     other = DeviceLinkStore(Path(store.home).parent / 'other', gateway_url=store.gateway_url, host_name=store.host_name)
     assert other.verify_token(token['access_token']) is None
 

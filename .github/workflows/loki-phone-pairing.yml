@@ -44,6 +44,7 @@ jobs:
           tests/hermes_cli/test_dashboard_device_links_routes.py
           tests/hermes_cli/test_dashboard_device_links_setup.py
           tests/hermes_cli/test_dashboard_device_links_store.py
+          tests/hermes_cli/test_dashboard_device_links_permissions.py
           tests/hermes_cli/test_dashboard_device_links_transport.py
           tests/hermes_cli/test_phone_ingress.py
           tests/hermes_cli/test_phone_ingress_live.py
