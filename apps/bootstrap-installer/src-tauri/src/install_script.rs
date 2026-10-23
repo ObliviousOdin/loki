@@ -231,7 +231,7 @@ async fn download(kind: ScriptKind, commit_or_ref: &str, dest_path: &Path) -> Re
         .build()
         .context("building download client")?
         .get(&url)
-        .header("User-Agent", "loki-setup/0.1.0-alpha.1")
+        .header("User-Agent", "loki-setup/0.1.0-alpha.2")
         .send()
         .await
         .with_context(|| format!("GET {url}"))?;

@@ -16,6 +16,7 @@ def test_stale_google_transitives_are_reported_missing(monkeypatch):
         "google-api-python-client": "2.194.0",
         "google-auth": "2.55.0",
         "google-auth-oauthlib": "1.3.1",
+        "oauthlib": "3.3.1",
         "google-auth-httplib2": "0.3.1",
         "httplib2": "0.31.2",
         "pyasn1": "0.6.3",
@@ -30,7 +31,7 @@ def test_stale_google_transitives_are_reported_missing(monkeypatch):
     monkeypatch.setattr(oauth, "_distribution_version", fake_version)
 
     stale = {spec.split("==")[0] for spec in oauth._missing_required_packages()}
-    assert {"google-auth", "httplib2", "pyasn1"} <= stale
+    assert {"google-auth", "oauthlib", "httplib2", "pyasn1"} <= stale
 
 
 def test_installer_repairs_stale_transitives_through_pm(monkeypatch, capsys):
@@ -42,6 +43,26 @@ def test_installer_repairs_stale_transitives_through_pm(monkeypatch, capsys):
     assert oauth.install_deps() is True
     assert calls == [(["google", "google-chat"], {"explicit": True})]
     assert "restart" in capsys.readouterr().out.lower()
+
+
+def test_matching_google_selection_is_ready_without_repair(monkeypatch, capsys):
+    installed = {
+        "google-cloud-pubsub": "2.39.2",
+        "google-api-python-client": "2.194.0",
+        "google-auth": "2.55.1",
+        "google-auth-oauthlib": "1.3.1",
+        "oauthlib": "4.0.0",
+        "google-auth-httplib2": "0.3.1",
+        "httplib2": "0.32.0",
+        "pyasn1": "0.6.4",
+    }
+    monkeypatch.setattr(oauth, "_distribution_version", installed.__getitem__)
+    installs = []
+    monkeypatch.setattr(pm, "sync_venv", lambda *args, **kwargs: installs.append((args, kwargs)))
+
+    assert oauth.install_deps() is True
+    assert installs == []
+    assert "already installed" in capsys.readouterr().out
 
 
 def test_ensure_deps_surfaces_install_reason(monkeypatch):

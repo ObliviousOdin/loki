@@ -15,7 +15,6 @@ import { type GatewayClient } from '../gatewayClient.js'
 import type {
   SessionActivateResponse,
   SessionCloseResponse,
-  SessionCreateResponse,
   SessionDetachResponse,
   SessionTitleResponse,
   SetupStatusResponse
@@ -28,6 +27,7 @@ import type { Msg, PanelSection, SessionInfo } from '../types.js'
 import { applyConnectionRequest, clearConnectionOperation } from './connectionOperationStore.js'
 import type { ComposerActions, GatewayRpc, StateSetter } from './interfaces.js'
 import { patchOverlayState } from './overlayStore.js'
+import { acceptCreatedSession, createSession } from './sessionCreate.js'
 import { scheduleResumeScrollToBottom } from './sessionResumeView.js'
 import { renameCanonicalSession } from './slash/canonicalSessionCommands.js'
 import { captureDestination } from './submissionDestination.js'
@@ -432,24 +432,26 @@ export function useSessionLifecycle(opts: UseSessionLifecycleOptions) {
         // session.create on both transports, so /new stays in that workspace.
         const workspaceCwd = STARTUP_WORKSPACE_CWD ? { cwd: STARTUP_WORKSPACE_CWD } : {}
 
-        const r = await rpc<SessionCreateResponse>(
-          'session.create',
-          gw.isCanonical
+        const created = await createSession({
+          gw,
+          rpc,
+          sys,
+          params: gw.isCanonical
             ? { request_id: randomUUID(), ...localCreationOptions(), ...workspaceCwd }
             : { cols: colsRef.current, ...workspaceCwd }
-        )
+        })
 
         if (flight !== attachmentFlight.current) {
-          discardStaleAttachment(r)
+          discardStaleAttachment(created.response)
 
           return null
         }
 
-        if (!r) {
-          patchUiState({ status: 'ready' })
-
+        if (!acceptCreatedSession(created, panel)) {
           return null
         }
+
+        const r = created.response
 
         // The durable id lives on the create result; the lazy-create `info` does
         // not carry it, and session.resume / the exit epilogue need the stored id.

@@ -18,6 +18,7 @@ import time
 import pytest
 
 from tests.installation_launcher_fixture import publish_fixture_launcher
+from tests.scripts.desktop_update.windows_handoff_support import _log_contains
 from tests.waiting import wait_until
 
 ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -207,12 +208,10 @@ def test_result_finished_at_is_stamped_after_the_r6_release_wait(tmp_path: Path)
 
     def release_after_r6_wait(home: Path, proc: subprocess.Popen, deadline: float) -> None:
         nonlocal initial
-        log = home / 'logs/desktop-update-handoff.log'
-
         def waiting_on_holder() -> bool:
             assert holder.poll() is None, 'checkout holder exited before controller release'
             assert proc.poll() is None, 'hand-off exited before reaching the R6 wait'
-            return log.exists() and 'keeping the update marker' in log.read_text(encoding='utf-8-sig')
+            return _log_contains(home, 'keeping the update marker')
 
         wait_until(waiting_on_holder, timeout=max(0, deadline - time.monotonic()),
                    what='hand-off to enter its real R6 release wait')

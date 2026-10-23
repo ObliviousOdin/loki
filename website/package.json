@@ -1,12 +1,12 @@
 {
   "name": "@obliviousodin/loki-docs",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
-    "prestart": "node scripts/prebuild.mjs",
+    "prestart": "node ../vendor/braces/archive.mjs --check-installed && node scripts/prebuild.mjs",
     "start": "docusaurus start",
-    "prebuild": "node scripts/prebuild.mjs",
+    "prebuild": "node ../vendor/braces/archive.mjs --check-installed && node scripts/prebuild.mjs",
     "build": "docusaurus build",
     "build:fast": "docusaurus build --locale en",
     "swizzle": "docusaurus swizzle",
@@ -34,18 +34,36 @@
     "@docusaurus/module-type-aliases": "3.10.2",
     "@docusaurus/tsconfig": "3.10.2",
     "@docusaurus/types": "3.10.2",
-    "typescript": "6.0.3"
+    "typescript": "6.0.3",
+    "braces": "file:../vendor/braces/braces-3.0.3-loki.2.tgz"
   },
   "overrides": {
     "serialize-javascript": "7.0.7",
     "uuid": "14.0.1",
     "minimatch": "10.2.6",
-    "nanoid": "3.3.17",
-    "js-yaml": "4.3.1",
+    "nanoid": "3.3.18",
+    "js-yaml": "4.3.2",
     "dompurify": "3.4.17",
-    "mermaid": "11.16.1",
+    "mermaid": {
+      ".": "12.2.0",
+      "katex": "0.18.10"
+    },
     "image-size": "npm:@nous-research/image-size@2.0.3",
-    "tar": "7.5.22"
+    "tar": "7.5.22",
+    "browserslist": "4.28.7",
+    "baseline-browser-mapping": "2.11.0",
+    "colord": "2.9.4",
+    "svgo": "3.3.5",
+    "@docusaurus/core": {
+      "tinypool": "2.1.2"
+    },
+    "postcss-selector-parser@^6": "7.1.6",
+    "chokidar@3.6.0": {
+      "braces": "$braces"
+    },
+    "micromatch@4.0.8": {
+      "braces": "$braces"
+    }
   },
   "browserslist": {
     "production": [
@@ -60,7 +78,7 @@
     ]
   },
   "engines": {
-    "node": ">=20.0",
+    "node": ">=22.12.0",
     "npm": ">=11.17.0"
   },
   "allowScripts": {

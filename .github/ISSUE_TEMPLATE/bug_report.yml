@@ -117,7 +117,7 @@ body:
     attributes:
       label: Loki Version
       description: Output of `loki --version`
-      placeholder: "0.1.0a1"
+      placeholder: "0.1.0a2"
 
   - type: textarea
     id: logs

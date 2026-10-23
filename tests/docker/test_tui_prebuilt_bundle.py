@@ -22,10 +22,11 @@ import subprocess
 
 def _exec_py(image: str, py: str) -> str:
     """Run a Python snippet inside the image as the hermes user, return stdout."""
+    bound = "import hermes_bootstrap\n" + py
     inner = (
         "source /opt/hermes/.venv/bin/activate && "
         "cd /opt/hermes && "
-        f"python3 -c {shlex.quote(py)}"
+        f"python3 -c {shlex.quote(bound)}"
     )
     # Drop to the hermes user (UID 10000) so we exercise the same path the
     # dashboard PTY child runs as — not root.
@@ -87,6 +88,7 @@ def test_prebuilt_bundle_present_and_no_runtime_install(built_image: str) -> Non
 def test_tui_gateway_child_uses_packaged_python(built_image: str) -> None:
     """The TUI child must inherit the image's dependency environment."""
     py = '''
+import hermes_bootstrap
 import json
 import os
 import subprocess

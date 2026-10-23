@@ -31,7 +31,7 @@ def test_install_tree_not_writable_by_hermes(
     root-owned and non-writable so an agent session cannot self-modify
     the installation and brick the gateway.
     """
-    start_container(built_image, container_name, f"HERMES_UID={uid}", f"HERMES_GID={uid}")
+    start_container(built_image, container_name, f"LOKI_UID={uid}", f"LOKI_GID={uid}")
     identity = docker_exec(container_name, "id", "-u")
     assert identity.returncode == 0 and identity.stdout.strip() == str(uid)
 

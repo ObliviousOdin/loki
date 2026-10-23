@@ -17,29 +17,64 @@ on:
         required: true
         default: true
         type: boolean
+      stage_to_draft_release:
+        description: Stage verified native assets to an existing owned draft prerelease (never publish)
+        required: true
+        default: false
+        type: boolean
+      draft_release_id:
+        description: Existing draft release ID with exact source companions and admitted tag
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: read
 
+concurrency:
+  group: loki-preview-${{ inputs.commit }}-${{ inputs.draft_release_id }}
+  cancel-in-progress: false
+
 jobs:
   source:
-    if: github.repository == 'ObliviousOdin/loki'
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: write
+    outputs:
+      manifest: ${{ steps.companions.outputs.manifest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.commit }}
           fetch-depth: 0
+          persist-credentials: false
       - name: Require merged main ancestry
         env:
           LOKI_COMMIT: ${{ inputs.commit }}
         run: |
           test "$(git rev-parse HEAD)" = "$LOKI_COMMIT"
-          git fetch origin main
+          git fetch --no-tags origin main
           git merge-base --is-ancestor "$LOKI_COMMIT" origin/main
       - name: Package exact Loki source, locked Pilk source and required notices
         run: python3 scripts/loki/package_preview.py --out "$RUNNER_TEMP/loki-preview"
+      - name: Bind exact source companion hashes for the native job
+        id: companions
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+        run: |
+          python3 scripts/loki/native_preview.py source-manifest --commit "$LOKI_COMMIT" \
+            --output "$RUNNER_TEMP/loki-preview" >> "$GITHUB_OUTPUT"
+      - name: Stage only absent exact source companions to the owned draft
+        if: inputs.stage_to_draft_release
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+          DRAFT_RELEASE_ID: ${{ inputs.draft_release_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/loki/native_preview.py stage-source --commit "$LOKI_COMMIT" \
+            --draft-release-id "$DRAFT_RELEASE_ID" --output "$RUNNER_TEMP/loki-preview"
       - if: inputs.retain_ci_artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -50,20 +85,39 @@ jobs:
 
   macos:
     needs: source
-    if: github.repository == 'ObliviousOdin/loki' && inputs.native_macos
+    if: github.repository == 'ObliviousOdin/loki' && github.ref == 'refs/heads/main' && inputs.native_macos
     runs-on: macos-latest
     timeout-minutes: 90
+    # No token is passed to build or installed-product children. The final
+    # explicit staging step alone receives it, and can only add draft assets.
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ inputs.commit }}
-          fetch-depth: 0
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Admit capacity and optional exact draft before native preparation
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+          DRAFT_RELEASE_ID: ${{ inputs.stage_to_draft_release && inputs.draft_release_id || '0' }}
+          GH_TOKEN: ${{ inputs.stage_to_draft_release && github.token || '' }}
+          SOURCE_ASSET_MANIFEST: ${{ needs.source.outputs.manifest }}
+        run: |
+          python3 scripts/loki/native_preview.py preflight --commit "$LOKI_COMMIT" \
+            --draft-release-id "$DRAFT_RELEASE_ID" --output "$RUNNER_TEMP/loki-native-proof"
       - uses: ./.github/actions/setup-pm
         with:
-          toolchain: all
-          extras: '[]'
-          test-environment: 'true'
+          # The desktop preparation provisions its own pinned native Node/npm.
+          toolchain: python
           cache-suffix: loki
+          cache: 'false'
+          cache-python: 'false'
+          cache-node: 'false'
+          save-tools-cache: 'false'
+          save-python-cache: 'false'
+          save-node-cache: 'false'
       - name: Build unsigned owned application from exact source
         env:
           LOKI_COMMIT: ${{ inputs.commit }}
@@ -74,11 +128,27 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "$LOKI_COMMIT"
           python scripts/bundles/desktop.py --commit "$LOKI_COMMIT" --variant bundled -- --publish never --mac zip
+      - name: Verify untouched ZIP, notices and installed CLI and loopback mock
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+        run: |
+          python scripts/loki/native_preview.py verify --commit "$LOKI_COMMIT" \
+            --output "$RUNNER_TEMP/loki-native-proof"
+      - name: Stage only new verified native assets to the exact draft
+        if: inputs.stage_to_draft_release
+        env:
+          LOKI_COMMIT: ${{ inputs.commit }}
+          DRAFT_RELEASE_ID: ${{ inputs.draft_release_id }}
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_ASSET_MANIFEST: ${{ needs.source.outputs.manifest }}
+        run: |
+          python scripts/loki/native_preview.py stage --commit "$LOKI_COMMIT" \
+            --draft-release-id "$DRAFT_RELEASE_ID" --output "$RUNNER_TEMP/loki-native-proof"
       - if: inputs.retain_ci_artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: loki-macos-${{ runner.arch }}-UNSIGNED
           path: |
-            apps/desktop/release/*.zip
+            ${{ runner.temp }}/loki-native-proof/UNSIGNED-PREVIEW-*.zip
           if-no-files-found: error
           retention-days: 1

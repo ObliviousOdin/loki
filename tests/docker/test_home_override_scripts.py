@@ -32,14 +32,14 @@ def test_dashboard_service_resets_home(
     we bind to 127.0.0.1 where the auth gate doesn't engage, and check
     the process env.
     """
-    start_container(built_image, container_name, "HERMES_DASHBOARD=1", "HERMES_DASHBOARD_HOST=127.0.0.1")
+    start_container(built_image, container_name, "LOKI_DASHBOARD=1", "LOKI_DASHBOARD_HOST=127.0.0.1")
 
     # Wait for the supervised dashboard process, then read its HOME from
     # /proc/<pid>/environ (the real runtime environment, not the script text).
     ok, out = poll_container(
         container_name,
-        'pid=$(pgrep -f "hermes dashboard" | head -1); '
-        '[ -n "$pid" ] && tr "\\0" "\\n" < /proc/$pid/environ | grep "^HOME="',
+        'pid=$(/command/s6-svstat -o pid /run/service/dashboard) && '
+        '[ "$pid" -gt 0 ] && tr "\\0" "\\n" < /proc/$pid/environ | grep "^HOME="',
         deadline_s=60.0,
     )
     assert ok, f"dashboard process never started (last probe output: {out!r})"

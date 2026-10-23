@@ -18,10 +18,14 @@ let
     };
 
     postPatch = ''
+      # Retain the supplier suite while moving its vulnerable Mocha 11 tool graph.
+      substituteInPlace package.json \
+        --replace-fail '"mocha": "^11.0.1"' '"mocha": "^12.0.3"'
       ln -s ${./node-gyp-11-4-0-package-lock.json} package-lock.json
     '';
 
-    npmDepsHash = "sha256-P25m02VxIXkPD7rYI2Wki9+levrtNg2xk8pU+nEUXsE=";
+    # Verified fetcher-v2 dependency cache for the reviewed lockfile.
+    npmDepsHash = "sha256-MSuUFJS+2q6OjYzJRNkQsAdlNlAjm2A5gDCnUR6btSQ=";
 
     npmDepsFetcherVersion = 2;
 

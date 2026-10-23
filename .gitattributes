@@ -38,3 +38,6 @@ docker/entrypoint.sh text eol=lf
 
 # Retain the supplier's exact license bytes, including original CRLF endings.
 notices/pilk-0.2.4/LICENSE -text whitespace=cr-at-eol
+
+# Unified patches encode empty context lines with a significant leading space.
+vendor/browser-harness/PATCH.diff text eol=lf whitespace=-blank-at-eol

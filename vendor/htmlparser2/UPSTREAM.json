@@ -1,0 +1,135 @@
+{
+  "upstream_package": "htmlparser2",
+  "upstream_version": "12.0.0",
+  "upstream_repository": "https://github.com/fb55/htmlparser2",
+  "upstream_git_head": "c73fec0c0586647cd1269d2598e2ba4203d0207f",
+  "tarball": "https://registry.npmjs.org/htmlparser2/-/htmlparser2-12.0.0.tgz",
+  "registry_integrity": "sha512-Tz7u1i95/g2x2jz81+x0FBVhBhY5aRTvD3tXXdFaljuNdzDLJ8UGNRrTcj2cgQvAg3iW/h77Fz15nLW0L0CrZw==",
+  "archive_sha256": "bd21df686ef9b29b6786aac9aa75a9d20e1e884ad3f3089882db1d576dd4aaa0",
+  "license": "MIT",
+  "upstream_file_sha256": {
+    "LICENSE": "204cfa747341660e4da64cd23e8c876c6b20279d247f48564993d3fc4a2eab47",
+    "README.md": "23e8164069dd259336bdadc2be391b7580f18240c7fa0b214fed43ecda28f114",
+    "dist/Parser.d.ts": "b1d4997ad601e7bbc84db9fcbf1cf4d7d14bbacee6cd85713c876782e679a3c9",
+    "dist/Parser.d.ts.map": "249c7577af720ffa443fd63112116ecb0f95a7f8f2a860e56b7c6bfb8011eeb3",
+    "dist/Parser.js": "b7bfa388ba057b2c41c899fb6375144b3ef86ce0967c047d7fe6bd37c1c4a45b",
+    "dist/Parser.js.map": "b0e38d20eadd862014f7c06c6583335bff5d550d945dfebb2f904c8b38a6eaca",
+    "dist/Tokenizer.d.ts": "2c8f850299871267d1843c04e17714554f8ee589bcd8b69dedeaf109fc2fd689",
+    "dist/Tokenizer.d.ts.map": "17adf7ee578abb98068073c08870c05d9113d6d827c8bf530f7e272552583195",
+    "dist/Tokenizer.js": "a72bbfa5eafa92fdbfb5c3d7e73f7e327ea5a05843f0b2e2821504d433821749",
+    "dist/Tokenizer.js.map": "e265493c470b2eef4cde2ce7570302e7f18e282b90468edd9c0e7b7bff2e0d50",
+    "dist/WebWritableStream.d.ts": "04467b886fecf4d571421929bece2436fb7b217ca53283ff525ed7307f09afa8",
+    "dist/WebWritableStream.d.ts.map": "e449f13575c9bd667d711b201588fac79ac7fbadbd569f9a7f65f6c5c616a126",
+    "dist/WebWritableStream.js": "125ad7e624a042b43c34c5cd3c87cff531dd20f00772d1acd32ad50d3fe0f907",
+    "dist/WebWritableStream.js.map": "3e227d03a8b2e1018383e01cda7420aec4bcfad9e19b213d19bde5b2824635de",
+    "dist/WritableStream.d.ts": "1cfd5674e6f61dfeb352ebaceb5603301adea2f617aaa860bcc624971c8c627b",
+    "dist/WritableStream.d.ts.map": "7a6ab2eb1d32018e8db977261e5abc2684d0cab7cc0ff39889d5c7e9b0eb7b75",
+    "dist/WritableStream.js": "20bff799e428f0972f2cd0c4c160560ece891cf47869f11858c2a34419096a8b",
+    "dist/WritableStream.js.map": "f3b8c6c013620ee9fca939c1a9c9370bf025cbc439b568eda852f69c5af6e083",
+    "dist/index.d.ts": "f4df63cf052891c54457a2e124b0d8f01141c6f7e3e0a705ab03690ccadadb65",
+    "dist/index.d.ts.map": "73f862e0eab7dbe53ef9e556c41aa852b493bfc79a5da6471ed89b0dd2489b4e",
+    "dist/index.js": "a87b86d915effe39edf97a54eed19b2d7d86b9d48fca2fd2d345e18307661429",
+    "dist/index.js.map": "55421309cd354976a7c067f7bd2f8c5c695b3f2a1aa5fefc7387b707b0b6cba0",
+    "package.json": "2056f738ff8f63a73ebf931b7d220b2d1b93b0884454f94447cb4c3f54a603b1",
+    "src/Parser.ts": "dd008fe1135ce32ab134d39475033893e4706986d9bc27f4112772271a6ab22a",
+    "src/Tokenizer.ts": "42ac1bb2a272f3659c23419d6cff281bcb7ac330fb70913005a5f820401a15ef",
+    "src/WebWritableStream.ts": "2fa25b9701ab6998f733eb4b20d525002e2dfb08e195cd33635b3acc5a647fcc",
+    "src/WritableStream.ts": "05ccd16f375c0481972068dc991eee6c5a8a2e4d70a06c58c7c4e4e50bfc291a",
+    "src/index.ts": "b89e477a8c21da85e7ee8a9974fce2f6b4b9c41cda8c050912ad86e90e46a9dd"
+  },
+  "upstream_package_json": {
+    "name": "htmlparser2",
+    "version": "12.0.0",
+    "description": "Fast & forgiving HTML/XML parser",
+    "keywords": [
+      "html",
+      "parser",
+      "streams",
+      "xml",
+      "dom",
+      "rss",
+      "feed",
+      "atom"
+    ],
+    "repository": {
+      "type": "git",
+      "url": "git://github.com/fb55/htmlparser2.git"
+    },
+    "funding": [
+      "https://github.com/fb55/htmlparser2?sponsor=1",
+      {
+        "type": "github",
+        "url": "https://github.com/sponsors/fb55"
+      }
+    ],
+    "license": "MIT",
+    "author": "Felix Boehm <me@feedic.com>",
+    "sideEffects": false,
+    "type": "module",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "./WebWritableStream": {
+        "types": "./dist/WebWritableStream.d.ts",
+        "default": "./dist/WebWritableStream.js"
+      },
+      "./WritableStream": {
+        "types": "./dist/WritableStream.d.ts",
+        "default": "./dist/WritableStream.js"
+      }
+    },
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "files": [
+      "dist",
+      "src",
+      "!**/*.spec.ts",
+      "!src/**/__tests__/**",
+      "!src/**/__fixtures__/**",
+      "!src/**/__snapshots__/**"
+    ],
+    "scripts": {
+      "build": "tsc",
+      "format": "npm run format:es && npm run format:biome",
+      "format:biome": "biome check --write .",
+      "format:es": "npm run lint:es -- --fix",
+      "lint": "npm run lint:es && npm run lint:ts && npm run lint:biome",
+      "lint:biome": "biome check .",
+      "lint:es": "eslint .",
+      "lint:ts": "tsc --noEmit",
+      "prepublishOnly": "npm run build",
+      "test": "npm run test:vi && npm run lint",
+      "test:vi": "vitest run"
+    },
+    "dependencies": {
+      "domelementtype": "^3.0.0",
+      "domhandler": "^6.0.0",
+      "domutils": "^4.0.2",
+      "entities": "^8.0.0"
+    },
+    "devDependencies": {
+      "@biomejs/biome": "^2.4.8",
+      "@feedic/eslint-config": "^0.3.1",
+      "@types/node": "^25.5.0",
+      "eslint": "^10.0.3",
+      "eslint-config-biome": "^2.1.3",
+      "typescript": "^5.9.3",
+      "typescript-eslint": "^8.57.1",
+      "vitest": "^4.1.0"
+    },
+    "engines": {
+      "node": ">=20.19.0"
+    }
+  },
+  "patch": "Preserve explicit recognizeCDATA via tokenizer option plumbing; otherwise gate CDATA to XML or the existing foreign-content callback. Preserve the unchanged upstream parse dispatch with one reviewed CC allowance comment.",
+  "compiled_with": "TypeScript 6.0.3, ES2022/NodeNext, isolatedModules, declarations and source maps; baseline Tokenizer JavaScript and declarations reproduced byte-for-byte.",
+  "patch_file_sha256": {
+    "src/Tokenizer.ts": "ade16111018ecfce621d52435c1c5d63f855fbf91eddf66e134c8c36563d77ac",
+    "dist/Tokenizer.js": "cdcd37190eac5cc042899001f4c2d3845deafff786cbd8cc968e5c7a2c09e4f0",
+    "dist/Tokenizer.js.map": "222fffc1e5707ff45485f43aa4a4dc60a1b8043d75033e7f1e16ba483ce87cf4",
+    "dist/Tokenizer.d.ts": "27084d88ebcea73534ffbf1720b17a7dc4dff68d04284675053cb9e003c625ce",
+    "dist/Tokenizer.d.ts.map": "e686d69931d071d407e1062c6525d94ed2a0253c991cafc761aaed21212bc840"
+  }
+}

@@ -95,6 +95,8 @@ assets/
 assets/*
 !assets/nous-girl-black.svg
 !assets/nous-girl-white.svg
+!assets/loki-mark-black.svg
+!assets/loki-mark-white.svg
 !assets/dmg-volume.png
 !assets/backgrounds/
 !assets/backgrounds/**
@@ -126,3 +128,10 @@ plans/
 /*.png.bak
 *.tar.gz
 *.tgz
+**/*.tar.gz
+**/*.tgz
+# The root install requires this reviewed private source dependency.
+!vendor/htmlparser2/htmlparser2-12.0.0-loki.3.tgz
+# Python resolution verifies both the supplier source and the local metadata rebuild.
+!vendor/browser-harness/browser_harness-0.1.13.tar.gz
+!vendor/browser-harness/browser_harness-0.1.13+loki.1.tar.gz

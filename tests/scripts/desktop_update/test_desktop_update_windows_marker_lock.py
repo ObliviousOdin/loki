@@ -4,6 +4,8 @@ delegate before it runs a single instruction.
 """
 from __future__ import annotations
 
+from contextlib import ExitStack
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -23,7 +25,10 @@ from tests.scripts.desktop_update.windows_handoff_support import (
     _finish,
     _op,
     _HeldLock,
+    _HelpGate,
     _custodian,
+    _marker_diagnostics,
+    _stop_handoff,
 )
 
 
@@ -59,8 +64,19 @@ def test_a7_claim_is_decided_inside_the_marker_lock(tmp_path: Path, sleeper: sub
     assert marker.read_bytes() == live
 
 
+def _finish_claimants(home: Path, claimants: list[subprocess.Popen], outputs: list[Path]) -> None:
+    timed_out = []
+    for claimant, output in zip(claimants, outputs):
+        try:
+            claimant.wait(timeout=120)
+        except subprocess.TimeoutExpired:
+            timed_out.append(_marker_diagnostics(home, claimant, output))
+    assert not timed_out, json.dumps({'claimants_did_not_finish': timed_out}, ensure_ascii=True)
+
+
 @pytest.mark.platforms('windows')
-def test_a7_concurrent_claimants_over_a_dead_marker_yield_one_owner(tmp_path: Path) -> None:
+@pytest.mark.parametrize('output_bytes', [0, 256 * 1024], ids=['ordinary', 'stdout-pressure'])
+def test_a7_concurrent_claimants_over_a_dead_marker_yield_one_owner(tmp_path: Path, output_bytes: int) -> None:
     install = tmp_path / 'checkout'
     publish_fixture_launcher(install, HOLD_CLI)
     home = tmp_path / 'home'; home.mkdir()
@@ -68,31 +84,42 @@ def test_a7_concurrent_claimants_over_a_dead_marker_yield_one_owner(tmp_path: Pa
     marker.write_bytes(f'{_dead_pid()}\n{int(time.time())}\nct:5.000\n'.encode())
     hold = tmp_path / 'release-update'
     lock = _HeldLock(home)   # line every claimant up behind the lock, then let them race
-    claimants = [_script(home, install=install, HANDOFF_HOLD=str(hold)) for _ in range(4)]
-    try:
-        time.sleep(6)
-        lock.release()
-        deadline = time.monotonic() + 120
-        while not Path(str(hold) + '.pid').exists():
-            assert time.monotonic() < deadline, 'no claimant reached the update'
-            time.sleep(0.05)
-        while sum(c.poll() is not None for c in claimants) < 3:
-            assert time.monotonic() < deadline, [c.poll() for c in claimants]
-            time.sleep(0.1)
-        refused = [c for c in claimants if c.poll() == 2]
-        running = [c for c in claimants if c.poll() is None]
-        assert len(running) == 1 and len(refused) == 3, [c.returncode for c in claimants]
-        assert marker.read_bytes().decode().split('\n')[0] == _custodian(home, running[0].pid)
-    finally:
-        hold.touch()
-        for c in claimants:
-            if c.poll() is None:
-                try:
-                    c.wait(timeout=120)
-                except subprocess.TimeoutExpired:
-                    subprocess.run(['taskkill', '/T', '/F', '/PID', str(c.pid)], capture_output=True, check=False)
+    outputs = [tmp_path / f'claimant-{index}.stdout.log' for index in range(4)]
+    claimants = []
+    with ExitStack() as streams:
+        try:
+            for output in outputs:
+                # No reader runs while we wait for the competing owners. A pipe
+                # here can block the real script before it exits or cleans up.
+                stream = streams.enter_context(output.open('w', encoding='utf-8'))
+                claimants.append(_script(home, install=install, output=stream,
+                                         HANDOFF_HOLD=str(hold), HANDOFF_OUTPUT_BYTES=str(output_bytes)))
+                streams.callback(_stop_handoff, claimants[-1])
+            time.sleep(6)
+            lock.release()
+            deadline = time.monotonic() + 120
+            while not Path(str(hold) + '.pid').exists():
+                assert time.monotonic() < deadline, 'no claimant reached the update'
+                time.sleep(0.05)
+            while sum(c.poll() is not None for c in claimants) < 3:
+                assert time.monotonic() < deadline, [c.poll() for c in claimants]
+                time.sleep(0.1)
+            refused = [c for c in claimants if c.poll() == 2]
+            running = [c for c in claimants if c.poll() is None]
+            assert len(running) == 1 and len(refused) == 3, [c.returncode for c in claimants]
+            assert marker.read_bytes().decode().split('\n')[0] == _custodian(home, running[0].pid)
+        except BaseException as error:
+            snapshots = [_marker_diagnostics(home, child, output) for child, output in zip(claimants, outputs)]
+            error.add_note(json.dumps({'claimants': snapshots}, ensure_ascii=True))
+            raise
+        finally:
+            lock.release()
+            hold.touch()
+            _finish_claimants(home, claimants, outputs)
     assert running[0].returncode == 0
     assert not marker.exists()
+    if output_bytes:
+        assert any(output.stat().st_size >= output_bytes for output in outputs)
 
 
 # -- the update child is the delegate before it runs anything ------------------
@@ -124,35 +151,53 @@ def test_script_killed_before_publishing_the_delegate_runs_no_update(tmp_path: P
     marker = home / MARKER
     finder = tmp_path / 'find_child.ps1'
     finder.write_text(FIND_UPDATE_CHILD, encoding='utf-8')
-    script = _script(home, install=install, HANDOFF_HOLD=str(hold))
-    lock = None
-    try:
-        deadline = time.monotonic() + 60
-        while not (marker.exists() and _custodian(home, script.pid)
-                   and marker.read_bytes().split(b'\n')[0] == _custodian(home, script.pid).encode()):
-            assert time.monotonic() < deadline and script.poll() is None, 'script never claimed'
-            time.sleep(0.02)
-        lock = _HeldLock(home)   # after the claim, before the delegate publication
-        child = subprocess.run([POWERSHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(finder),
-                                '-Parent', str(script.pid), '-Seconds', '60'],
-                               capture_output=True, text=True, timeout=90, check=False)
-        assert child.returncode == 0, 'the update child never appeared'
-        child_pid = int(child.stdout)
-        subprocess.run(['taskkill', '/F', '/PID', str(script.pid)], capture_output=True, check=True)
-        script.wait(timeout=30)
-        time.sleep(3)
-        assert not ran.exists(), 'the update child ran before it was published as the delegate'
-        assert not _alive(child_pid), 'the never-resumed update child outlived its script'
-        lines = marker.read_bytes().decode().split('\n')
-        assert lines[0] == _custodian(home, script.pid), lines
-        assert not any(line.startswith('delegate:') for line in lines), lines
-    finally:
-        if lock:
-            lock.release()
-        hold.touch()
-        if script.poll() is None:
-            subprocess.run(['taskkill', '/T', '/F', '/PID', str(script.pid)], capture_output=True, check=False)
-            script.wait()
+    ready = tmp_path / 'help.ready'
+    output = tmp_path / 'handoff.stdout.log'
+    with _HelpGate(ready) as gate, output.open('w', encoding='utf-8') as stream:
+        script = _script(home, install=install, output=stream, HANDOFF_HOLD=str(hold),
+                         **gate.env)
+        lock = None
+        try:
+            deadline = time.monotonic() + 60
+            while not (marker.exists() and _custodian(home, script.pid)
+                       and marker.read_bytes().split(b'\n')[0] == _custodian(home, script.pid).encode()
+                       and ready.exists()):
+                assert time.monotonic() < deadline and script.poll() is None, 'custodian/help boundary never became ready'
+                time.sleep(0.02)
+            # The real help probe acknowledges it is paused before updater creation.
+            # Observing a custodian alone left a race with delegate publication.
+            assert gate.wait_ready(timeout=deadline - time.monotonic()) == int(ready.read_text())
+            lock = _HeldLock(home)
+            assert not ran.exists() and not any(line.startswith(b'delegate:') for line in marker.read_bytes().splitlines())
+            gate.release()
+            child = subprocess.run([POWERSHELL, '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(finder),
+                                    '-Parent', str(script.pid), '-Seconds', '60'],
+                                   capture_output=True, text=True, timeout=90, check=False)
+            assert child.returncode == 0, 'the update child never appeared'
+            child_pid = int(child.stdout)
+            subprocess.run(['taskkill', '/F', '/PID', str(script.pid)], capture_output=True, check=True)
+            script.wait(timeout=30)
+            time.sleep(3)
+            assert not ran.exists(), 'the update child ran before it was published as the delegate'
+            assert not _alive(child_pid), 'the never-resumed update child outlived its script'
+            lines = marker.read_bytes().decode().split('\n')
+            assert lines[0] == _custodian(home, script.pid), lines
+            assert not any(line.startswith('delegate:') for line in lines), lines
+        except BaseException as error:
+            snapshot = _marker_diagnostics(home, script, output)
+            snapshot['help_ready'] = ready.exists()
+            snapshot['help_released'] = gate.released
+            snapshot['update_entered'] = ran.exists()
+            text = json.dumps(snapshot, ensure_ascii=True, indent=2)
+            (tmp_path / 'marker-failure.json').write_text(text, encoding='utf-8')
+            error.add_note(text)
+            raise
+        finally:
+            if lock:
+                lock.release()
+            gate.close()
+            hold.touch()
+            _stop_handoff(script)
     deadline = time.monotonic() + 60   # the custodian releases the marker once the lock is free
     while (verdict := _op(home, '-MarkerOp', 'reclaim')[1]).startswith('live '):
         assert time.monotonic() < deadline

@@ -15,7 +15,7 @@ These tests verify:
    circuits and doesn't try to drop again.
 3. Files written under $HERMES_HOME from a ``docker exec`` session land
    as hermes:hermes — the actual user-visible invariant.
-4. The HERMES_DOCKER_EXEC_AS_ROOT opt-out lets diagnostic sessions keep
+4. The LOKI_DOCKER_EXEC_AS_ROOT opt-out lets diagnostic sessions keep
    running as root deliberately.
 
 The main CMD path through the shim is covered by
@@ -35,6 +35,37 @@ import pytest
 # Generous because under arm64 QEMU emulation cont-init (a Python config
 # migration + chowns) runs several times slower than on native amd64.
 _RUN_READY_TIMEOUT_S = 60
+
+
+@pytest.mark.parametrize(
+    ("public_override", "foreign_override", "expected_owner"),
+    [(None, "1", "hermes:hermes"), ("1", "0", "root:root")],
+    ids=["foreign-opt-out-is-not-adopted", "public-opt-out-keeps-root"],
+)
+def test_exec_root_opt_out_uses_only_public_loki_setting(
+    sleep_container: str,
+    public_override: str | None,
+    foreign_override: str,
+    expected_owner: str,
+) -> None:
+    subprocess.run(
+        ["docker", "exec", sleep_container, "rm", "-f", "/opt/data/config.yaml"],
+        capture_output=True, timeout=10, check=True,
+    )
+    args = ["docker", "exec", "-e", f"HERMES_DOCKER_EXEC_AS_ROOT={foreign_override}"]
+    if public_override is not None:
+        args.extend(["-e", f"LOKI_DOCKER_EXEC_AS_ROOT={public_override}"])
+    result = subprocess.run(
+        [*args, sleep_container, "loki", "config", "set", "_test.root_opt_out", "1"],
+        capture_output=True, text=True, timeout=30, check=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    owner = subprocess.run(
+        ["docker", "exec", sleep_container, "stat", "-c", "%U:%G", "/opt/data/config.yaml"],
+        capture_output=True, text=True, timeout=10, check=False,
+    )
+    assert owner.returncode == 0, owner.stderr
+    assert owner.stdout.strip() == expected_owner
 
 
 def _wait_for_cont_init(container: str) -> None:
@@ -130,7 +161,7 @@ def test_shim_drops_root_to_hermes_uid(sleep_container: str) -> None:
     # Default docker exec (root) — should be dropped by the shim.
     r = subprocess.run(
         ["docker", "exec", sleep_container,
-         "hermes", "config", "set", "_test.shim_marker", "1"],
+         "loki", "config", "set", "_test.shim_marker", "1"],
         capture_output=True, text=True, timeout=30,
         check=False,
     )
@@ -188,7 +219,7 @@ def test_e2e_login_then_supervised_gateway_can_read_auth(
     # owner-check.
     r = subprocess.run(
         ["docker", "exec", sleep_container,
-         "hermes", "config", "set", "_test.e2e_marker", "1"],
+         "loki", "config", "set", "_test.e2e_marker", "1"],
         capture_output=True, text=True, timeout=30,
         check=False,
     )

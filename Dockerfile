@@ -169,7 +169,8 @@ RUN set -eu; \
 # tini CLI surface, then exec's /init + main-wrapper — see
 # docker/tini-shim.sh. Safe to drop once the affected catalogs are
 # updated.
-COPY --chmod=0755 docker/tini-shim.sh /usr/bin/tini
+COPY --chmod=0755 docker/tini-shim.sh /opt/hermes/docker/tini-shim.sh
+RUN ln -s /opt/hermes/docker/tini-shim.sh /usr/bin/tini
 
 # Non-root user for runtime; UID can be overridden via HERMES_UID at runtime
 RUN useradd -u 10000 -m -d /opt/data hermes
@@ -279,6 +280,8 @@ FROM runtime_base AS python_deps
 #
 # Source binding is created after the source copy below.
 COPY pyproject.toml uv.lock ./
+COPY vendor/browser-harness/ vendor/browser-harness/
+RUN python3 vendor/browser-harness/archive.py --check
 RUN touch ./README.md
 # --cache puts uv's cache at /opt/hermes/uv-cache, the seed path that
 # pm.packages.uv_cache_dir() merges into $HERMES_HOME/cache/uv on first use.
@@ -306,9 +309,11 @@ COPY web/package.json web/
 COPY ui-tui/package.json ui-tui/
 COPY ui-tui/packages/hermes-ink/ ui-tui/packages/hermes-ink/
 COPY apps/shared/ apps/shared/
+COPY vendor/htmlparser2/ vendor/htmlparser2/
 COPY scripts/build/node-deps.mjs scripts/build/node-deps.mjs
 ENV npm_config_install_links=false
-RUN node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui --workspace web
+RUN node vendor/htmlparser2/archive.mjs --check && \
+    node scripts/build/node-deps.mjs --source /opt/hermes --workspace ui-tui --workspace web
 
 COPY pyproject.toml uv.lock ./
 COPY web/ web/

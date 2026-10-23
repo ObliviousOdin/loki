@@ -440,6 +440,8 @@ class S6ServiceManager:
         item I5 retired both the allocator and the parameter because they were dead code through the entire
         stack.
         """
+        from loki_identity import COMMAND
+
         lines = [
             "#!/command/with-contenv sh",
             "# shellcheck shell=sh",
@@ -453,9 +455,11 @@ class S6ServiceManager:
         # `_gateway_command_inner` with subcmd == "run" would dispatch `gateway start` → re-exec
         # `gateway run --replace` → `gateway start` … (see the matching guard there).
         lines.append("export HERMES_S6_SUPERVISED_CHILD=1")
+        lines.append("export LOKI_S6_SUPERVISED_CHILD=1")
         # Generalized supervisor marker — same meaning for the profile-redirect guard in
         # hermes_cli.main._apply_profile_override; kept alongside the s6 one for back-compat.
         lines.append("export HERMES_SUPERVISED_CHILD=1")
+        lines.append("export LOKI_SUPERVISED_CHILD=1")
         # ``--replace`` makes the supervised gateway authoritative for its HERMES_HOME. Without it
         # a gateway started OUTSIDE s6 (stray ``hermes gateway run``, an agent action, the Open
         # WebUI helper) grabs the PID lock first; the slot then hits "Another gateway instance is
@@ -465,9 +469,9 @@ class S6ServiceManager:
         # above prevents the run→start→run recursion. s6 guarantees one supervised instance per
         # slot, so there is no legitimate sibling for ``--replace`` to clobber.
         if profile == "default":
-            gateway_cmd = "hermes gateway run --replace"
+            gateway_cmd = f"{COMMAND} gateway run --replace"
         else:
-            gateway_cmd = f"hermes -p {shlex.quote(profile)} gateway run --replace"
+            gateway_cmd = f"{COMMAND} -p {shlex.quote(profile)} gateway run --replace"
         # Skip the drop when already non-root (setgroups() lacks CAP_SETGID → s6 boot-loop).
         lines.append(f'[ "$(id -u)" = 0 ] || exec {gateway_cmd}')
         lines.append(f"exec s6-setuidgid hermes {gateway_cmd}")

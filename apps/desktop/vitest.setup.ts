@@ -1,4 +1,5 @@
-import { configure } from '@testing-library/react'
+import { act, cleanup, configure } from '@testing-library/react'
+import { afterEach, vi } from 'vitest'
 
 import { InertResizeObserver } from './src/test/jsdom'
 
@@ -78,3 +79,18 @@ if ('Element' in globalThis) {
 // as the 15s testTimeout above it while still finishing below it, so a
 // genuinely hung await still surfaces as this assertion, not a test timeout.
 configure({ asyncUtilTimeout: 12_000 })
+
+// Radix restores focus in a zero-delay callback after unmount. Finish that
+// work before Vitest closes jsdom and restores Node's event constructors.
+const scheduleUnmountTurn = globalThis.setTimeout
+
+afterEach(async () => {
+  cleanup()
+  await act(async () => {
+    if (vi.isFakeTimers()) {
+      await vi.advanceTimersByTimeAsync(0)
+    } else {
+      await new Promise<void>(resolve => scheduleUnmountTurn(resolve, 0))
+    }
+  })
+})
