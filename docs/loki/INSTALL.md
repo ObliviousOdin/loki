@@ -30,6 +30,10 @@ git checkout v0.1.0-alpha.1
 
 The product home is `%LOCALAPPDATA%\loki`, with commands in its `bin` directory. PowerShell execution policy remains under your control; download and inspect the script before running it. This preview does not register a Microsoft Store identity or reuse a Hermes certificate.
 
+For the Phones page, use the [reviewed-SHA Windows source update and pairing guide](PHONE-PAIRING.md).
+The alpha.1 tag and the installed source commit are not interchangeable; a
+Desktop rebuild and host-specific secure ingress configuration are required.
+
 For Desktop SSH, a pending remote update must finish before Loki can connect. If Desktop cannot verify the selected launcher's source checkout, finish the update on that remote host or select its checkout-local `.loki\bin\loki.exe` in the SSH settings, then retry.
 
 ## Optional Honcho memory

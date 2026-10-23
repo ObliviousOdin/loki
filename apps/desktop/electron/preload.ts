@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 
 import type { DesktopProfileRoute } from './desktop-profile'
 import type { HudModifierApi, HudModifierStatus } from './hud-modifier-types'
+import type { PhoneLinkClaim, PhoneLinkOwner } from './phone-link-types'
 import { customWindowControlsEnabled } from './window-controls'
 
 // Which translucency the OS can back. Asked synchronously because the renderer
@@ -36,6 +37,15 @@ contextBridge.exposeInMainWorld('hermesDesktop', {
   assumeFreshInstall: launchFlags?.assumeFreshInstall === true,
   localSkin: localSkin && typeof localSkin === 'object' ? localSkin : null,
   getConnection: (profile, opts) => ipcRenderer.invoke('hermes:connection', profile, opts),
+  phoneLinks: {
+    status: () => ipcRenderer.invoke('hermes:phone-links:status'),
+    signInOwner: (owner: PhoneLinkOwner, provider: string) => ipcRenderer.invoke('hermes:phone-links:sign-in', owner, provider),
+    createPairing: (owner: PhoneLinkOwner) => ipcRenderer.invoke('hermes:phone-links:mutate', { action: 'create', owner }),
+    cancelPairing: (owner: PhoneLinkOwner, pairingId: string) => ipcRenderer.invoke('hermes:phone-links:mutate', { action: 'cancel', owner, pairingId }),
+    approveClaim: (owner: PhoneLinkOwner, claim: PhoneLinkClaim) => ipcRenderer.invoke('hermes:phone-links:mutate', { action: 'approve', owner, claim }),
+    denyClaim: (owner: PhoneLinkOwner, claim: PhoneLinkClaim) => ipcRenderer.invoke('hermes:phone-links:mutate', { action: 'deny', owner, claim }),
+    revokeDevice: (owner: PhoneLinkOwner, deviceId: string) => ipcRenderer.invoke('hermes:phone-links:mutate', { action: 'revoke', owner, deviceId })
+  },
   // Loopback origin that hosts YouTube's player for the file:// renderer.
   getEmbedHostOrigin: () => ipcRenderer.invoke('hermes:embed-host:origin'),
   // Registry-scoped backend resolution: { connectionId, profile } → descriptor.

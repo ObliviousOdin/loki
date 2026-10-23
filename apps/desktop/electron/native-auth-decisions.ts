@@ -52,6 +52,14 @@ export function resolveJsonBody<T>(body: T): T {
   return body
 }
 
+/** Native token exchanges bypass cookie partitions; fetchJson alone encodes the raw JSON body. */
+export function createNativeJsonPost<T>(fetchJson: (url: string, token: null, options: {
+  method: string; body: unknown; timeoutMs?: number
+}) => Promise<T>) {
+  return (url: string, body: unknown, options: { timeoutMs?: number } = {}): Promise<T> =>
+    fetchJson(url, null, { method: 'POST', body: resolveJsonBody(body), ...options })
+}
+
 /**
  * True when an oauth gateway should be treated as signed-in. `hasNativeToken`
  * is whether a native bearer token is stored; `hasCookieSession` is whether a

@@ -1,0 +1,75 @@
+name: Loki phone pairing
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: loki-phone-pairing-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  contracts:
+    name: Phone pairing (${{ matrix.os }})
+    if: github.repository == 'ObliviousOdin/loki'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: ./.github/actions/setup-pm
+        with:
+          toolchain: all
+          extras: '[]'
+          test-environment: 'true'
+          cache-suffix: loki-phone
+          packages: ripgrep
+      - name: Exercise real local gateway pairing and revocation
+        shell: bash
+        run: >-
+          scripts/run_tests.sh
+          tests/hermes_cli/test_dashboard_device_links_derived.py
+          tests/hermes_cli/test_dashboard_device_links_http.py
+          tests/hermes_cli/test_dashboard_device_links_routes.py
+          tests/hermes_cli/test_dashboard_device_links_setup.py
+          tests/hermes_cli/test_dashboard_device_links_store.py
+          tests/hermes_cli/test_dashboard_device_links_transport.py
+          tests/hermes_cli/test_phone_ingress.py
+          tests/hermes_cli/test_phone_ingress_live.py
+          tests/gateway/test_mobile_session_policy.py
+          tests/gateway/test_mobile_catalog.py
+          tests/gateway/test_session_connectors.py
+          tests/gateway/test_ios_ui_gateway.py
+          tests/gateway/test_ios_bot_configuration.py
+          tests/gateway/test_ios_catalog_installation.py
+          tests/hermes_cli/test_dashboard_auth_mobile.py
+          tests/hermes_cli/test_dashboard_cron_creation.py
+          tests/cron/test_creation_receipts.py
+          tests/agent/test_mobile_catalog.py
+          tests/tools/test_connectors_catalog.py
+          --file-retries 0 -j 2 --file-timeout 600
+      - run: npm ci
+      - name: Exercise private Desktop bridge and owner login
+        run: >-
+          npm run test:desktop:platforms --workspace apps/desktop --
+          electron/phone-links.test.ts electron/phone-links-ipc.test.ts
+          electron/native-oauth-login.test.ts electron/native-auth-decisions.test.ts
+      - name: Exercise Phones settings and host-neutral messages
+        run: >-
+          npm run test:ui --workspace apps/desktop --
+          src/app/settings/phone-link-settings.test.tsx src/store/phone-links.test.ts
+          src/i18n/phone-links.test.ts
+      - name: Exercise rendezvous behavior
+        run: node --test apps/phone-link-service/worker.test.mjs
+      - uses: ./.github/actions/check-clean-worktree

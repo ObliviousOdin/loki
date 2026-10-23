@@ -47,6 +47,7 @@ import { cloudTeamChanged, reconnectMovedCloudAgent } from './cloud-team-change'
 import { ConnectionsRegistrySection } from './connections-registry'
 import { CONTROL_TEXT } from './constants'
 import { ManagedUpdatesSection } from './managed-updates-section'
+import { PhoneLinkSettings } from './phone-link-settings'
 import { EmptyState, ListRow, Pill, SettingsContent, SettingsSkeleton, ToggleRow } from './primitives'
 import { SETTING_IDS, settingElementId } from './settings-manifest'
 import { enrichSelectedSshHost, selectSshHost } from './ssh-host-selection'
@@ -182,6 +183,10 @@ export function GatewaySettings({ embedded = false, subpage }: GatewaySettingsPr
         <ConnectionsRegistrySection />
       </SettingsContent>
     )
+  }
+
+  if (!embedded && subpage === 'phones') {
+    return <PhoneLinkSettings />
   }
 
   if (!embedded && subpage === 'managed-updates') {

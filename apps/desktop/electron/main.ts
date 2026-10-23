@@ -5,6 +5,7 @@ import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import type { GatewayEndpoint } from './local-gateway'
 import { configurePythonGatewayTicketClient, createLocalGatewayDials, createStaleGatewayRestarter, ensureLocalGateway, gatewayOwnerProfile, localGatewayDial, nativeGatewayHttpHeaders, redialLocalGateway, runGatewayEnsure } from './local-gateway'
 import { closeGatewayTicketBridges, createGatewayTicketResolver } from './local-gateway-python'
+import { registerDesktopPhoneLinks } from './phone-links-main'
 import { createPluginWsUrlHandler } from './plugin-ws-url'
 const localGatewayDials = createLocalGatewayDials()
 configurePythonGatewayTicketClient(createGatewayTicketResolver(
@@ -392,7 +393,7 @@ import {
   type NativeAccessTokenOptions,
   NativeAuthChangedError
 } from './native-access-token'
-import { oauthSessionIsLive, resolveJsonBody, resolveReadinessProbeAuth } from './native-auth-decisions'
+import { createNativeJsonPost, oauthSessionIsLive, resolveReadinessProbeAuth } from './native-auth-decisions'
 import {
   nativeRefreshUrl,
   type NativeTokenSet,
@@ -7687,17 +7688,7 @@ function hasNativeSession(baseUrl: string): boolean {
   return _loadNativeTokens(baseUrl) !== null
 }
 
-// POST JSON WITHOUT the OAuth cookie partition — used for the native token +
-// refresh exchanges, which are cookieless by design. Thin wrapper over
-// fetchJson (no token) so it shares timeout/JSON handling.
-function postJsonNoAuth(url: string, body: unknown, opts: any = {}) {
-  // resolveJsonBody passes the object through UNCHANGED — fetchJson owns
-  // JSON.stringify. Pre-stringifying here double-encodes the body (a JSON
-  // string inside a JSON string), which the gateway's Pydantic model rejects
-  // with a 422 "Input should be a valid dictionary" (the native
-  // /auth/native/token + /auth/native/refresh legs both go through here).
-  return fetchJson(url, null, { method: 'POST', body: resolveJsonBody(body), ...opts })
-}
+const postJsonNoAuth = createNativeJsonPost(fetchJson)
 
 // All explicit mutations go through the coordinator; only its refresh/store
 // dependencies may call the raw persistence helpers above. It single-flights
@@ -15423,6 +15414,13 @@ ipcMain.handle('hermes:gateway:ws-url-for', async (_event, payload) => {
 const pluginWsUrl = createPluginWsUrlHandler({ ensureBackend, ensureRegistryBackend, forgetLocalGatewayDescriptor,
   forgetRegistryLocalGatewayDescriptor, launchHome: HERMES_HOME, prepare: localGatewayDials.preparePlugin })
 ipcMain.handle('hermes:plugin:ws-url', (event, payload) => pluginWsUrl(payload ?? {}, event.sender.id))
+
+registerDesktopPhoneLinks({
+  ipc: ipcMain, ensure: () => ensureRegistryBackend('local', 'default'),
+  forget: () => forgetRegistryLocalGatewayDescriptor('local', 'default'),
+  fetchJson, postJson: postJsonNoAuth, openExternal: openExternalUrl,
+  trusted: event => event.senderFrame === event.sender.mainFrame && chatWindows.has(BrowserWindow.fromWebContents(event.sender))
+})
 
 // Transactional update for a Desktop-managed SSH install. Unlike the generic
 // fleet fan-out below, this path owns the remote serve lifecycle: it gates new

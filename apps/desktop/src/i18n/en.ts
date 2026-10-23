@@ -38,7 +38,6 @@ export const en: Translations = brandCatalog<Translations>({
   firstRun: enFirstRun,
   intro: { stock: {}, custom: () => [] },
   connectors: enConnectorCard,
-
   // `connectors.*` above stays the onboarding and chat vocabulary; these are the page's own, and the two are not shared.
   connectorsPage: {
     title: 'Connectors',
@@ -713,6 +712,7 @@ export const en: Translations = brandCatalog<Translations>({
       advancedDesktop: 'Desktop & startup',
       gatewayConnection: 'This window',
       gatewayDevices: 'Saved connections',
+      gatewayPhones: 'Phones',
       gatewayManagedUpdates: 'Remote updates',
       gatewayManagedUpdatesUnavailable: 'Remote updates need a desktop version with managed SSH update support.',
       gatewayManagedUpdatesEmpty: 'Add an SSH connection in Saved connections to manage its updates here.',

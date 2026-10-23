@@ -118,6 +118,42 @@ The relevant endpoints (all public, pre-auth bootstrap, same as the existing
 - `POST /auth/native/token` — exchanges the loopback code + verifier for tokens
 - `POST /auth/native/refresh` — rotates tokens from the app's refresh token
 
+## Registered mobile clients
+
+A phone uses a registered app callback instead of a desktop loopback listener.
+This is opt-in per gateway; it does not change desktop sign-in. Register the
+public client ID and exact callback in the gateway's `config.yaml`:
+
+```yaml
+dashboard:
+  native_auth:
+    clients:
+      loki-ios:
+        redirect_uris:
+          - com.loki.ios://auth/callback
+```
+
+The app's callback scheme must match its signed application configuration.
+An operator may instead register an exact HTTPS app link they control. Wildcards,
+caller-supplied callback queries/fragments, userinfo and ambiguous URI spellings
+are refused. Unregistered clients and callbacks are refused before login starts.
+The registration is public metadata, not an app secret. The default is empty.
+
+`GET /api/auth/providers` includes the valid `native_clients` registrations
+alongside its interactive providers. A registered client opens
+`/auth/native/authorize` in the system authentication session with `client_id`,
+the exact `redirect_uri`, `code_challenge_method=S256`, its 43-character
+base64url SHA-256 challenge and a fresh random state (32–512 URL-unreserved
+characters). The app verifies the returned state and exchanges the one-use
+code at `/auth/native/token` with `code_verifier`, the same `client_id` and the
+same `redirect_uri`. A wrong client, callback or verifier consumes the code and
+returns the generic invalid-code response. The refresh endpoint is unchanged.
+
+With no `client_id`, `/auth/native/authorize` keeps the strict desktop loopback
+rules. A registered callback does not authorize the app to bypass the gateway's
+identity provider or session/profile permissions. Successful native sign-in
+does not establish that voice, connectors or other app capabilities are ready.
+
 ## See also
 
 - [OAuth over SSH / Remote Hosts](./oauth-over-ssh.md) — the loopback-callback

@@ -37,7 +37,8 @@ _TURN_PROFILE: ContextVar = ContextVar('follow_profile_read', default=None)  # (
 # Creation label -> agent surface. ``tool`` (third-party integrations, ``hermes chat --source tool``) and
 # ``oneshot`` (finite ``chat -q`` / ``-z`` runs) run as the CLI but keep their own stored label, so human
 # pickers hide them (INTERNAL_LISTING_SOURCES).
-SURFACES = {'cli': 'cli', 'tui': 'tui', 'gui': 'desktop', 'acp': 'acp', 'tool': 'cli', 'oneshot': 'cli'}
+SURFACES = {'cli': 'cli', 'tui': 'tui', 'gui': 'desktop', 'ios': 'mobile',
+            'acp': 'acp', 'tool': 'cli', 'oneshot': 'cli'}
 
 
 def _refuse(field, detail=None):
@@ -151,7 +152,8 @@ class LocalSessionPolicy:
             for part in source:
                 value = value.get(part) if isinstance(value, dict) else None
             config['model']['api_key'] = value
-        return config, model
+        from gateway.session_mobile import mobile_session_config
+        return mobile_session_config(config, self.source, self.toolsets), model
 
     @property
     def follows_profile(self):
@@ -176,7 +178,10 @@ class LocalSessionPolicy:
             return self.toolsets
         # The workspace decision is the creation-time one: a project file the agent writes mid-session must
         # not switch this conversation's toolsets (prompt cache). Only a profile change (``focus`` off) does.
-        return tuple(sorted(_resolve_toolsets({}, config, self.source, self.safe_mode, self.coding_posture)))
+        # Surface additions are frozen at creation: a gateway upgrade must not inject a
+        # newly supported native card into a conversation's existing tool prefix.
+        return tuple(sorted(_resolve_toolsets({}, config, self.source, self.safe_mode, self.coding_posture,
+                                             mobile_catalog='catalog' in self.toolsets)))
 
     def current_reasoning_config(self, runner, session_key=None):
         """The next turn's reasoning: a typed session /reasoning (the messaging handler's override), else
@@ -354,7 +359,8 @@ def build_policy(params, config, *, private_secrets=None, profile_terminal=True,
     # pick wins anyway; skipping it here also spares the probe.
     named = workspace_posture and source != 'tool' and 'cwd' in params and 'toolsets' not in params
     coding_posture = named and _in_coding_workspace(config, source, cwd)
-    enabled = _resolve_toolsets(params, config, source, safe_mode, coding_posture, bypass=ignore_user_config)
+    enabled = _resolve_toolsets(params, config, source, safe_mode, coding_posture, bypass=ignore_user_config,
+                               mobile_catalog=True)
     terminal = build_profile_terminal_scope(get_hermes_home()) if profile_terminal else default_terminal_scope()
     # The client's launch folder is a path on THIS host: a remote or container backend keeps its own
     # configured cwd unless the user picked this folder for the session.
@@ -501,7 +507,7 @@ def _apply_launch_overrides(params, config):
         pin_reasoning_effort(config, params['reasoning'])
 
 
-def _resolve_toolsets(params, config, source, safe_mode, coding_posture=False, bypass=False):
+def _resolve_toolsets(params, config, source, safe_mode, coding_posture=False, bypass=False, *, mobile_catalog=False):
     """Validate explicit toolsets and return the session's enabled toolset set. Without a pick, a
     *coding_posture* session runs ``focus_toolsets`` instead of the profile default while the profile
     stays on ``focus``; the gateway decides it, never the client."""
@@ -554,6 +560,9 @@ def _resolve_toolsets(params, config, source, safe_mode, coding_posture=False, b
         # Plugin toolsets are user customizations; the safe worker never imports them.
         from hermes_cli.tools_config import _get_plugin_toolset_keys
         enabled -= _get_plugin_toolset_keys()
+    if source == 'ios':
+        from gateway.session_mobile import mobile_toolsets
+        enabled = mobile_toolsets(enabled, explicit, config, include_catalog=mobile_catalog)
     return enabled
 
 

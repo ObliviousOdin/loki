@@ -192,6 +192,8 @@ class AuthorityConnection:
         handlers['clarify.lock'] = partial(clarify_lock, self)
         from gateway.session_control_actions import control
         handlers['session.control'] = partial(control, self)
+        from gateway.session_connectors import handlers as connector_handlers
+        handlers.update(connector_handlers(self))
         return handlers
 
     async def dispatch(self, request):
@@ -243,7 +245,8 @@ class AuthorityConnection:
                 'code': 4001, 'message': 'invalid_params', 'data': {'reason': 'invalid_params', 'fields': problems}}}
         original_params = dict(params)
         contract = contract or METHODS.get(method)
-        handlers = self.handlers()
+        from gateway.session_connectors import dispatch_handlers
+        handlers = dispatch_handlers(self.handlers(), method, params)
         try:
             from gateway.session_group_controls import GROUP_METHODS, dispatch_group_control
             # Every handler reads config/jobs/policy for the OWNING profile: enter its home so
@@ -428,7 +431,9 @@ class AuthorityConnection:
         from gateway.session_skin import resolved_skin
         return {'instance_id': self.authority.instance_id, 'profile_id': self.authority.profile_id,
                 'authority_epoch': self.authority.epoch,
-                'capabilities': ['durable-admission-v1', 'event-replay-v1', 'local-cli-create-v1', 'acp-editor-policy-v1', 'acp-session-mcp-v1'],
+                'capabilities': ['durable-admission-v1', 'event-replay-v1', 'local-cli-create-v1', 'mobile-session-v1',
+                                 'connection-operations-v1',
+                                 'acp-editor-policy-v1', 'acp-session-mcp-v1'],
                 'session_create': {'sources': sorted(SURFACES),
                                    'parameters': sorted(CREATE_FIELDS | {'title'})},
                 # Main's ``gateway.ready.skin``: the canonical client's own ready carries it.
@@ -559,6 +564,7 @@ class AuthorityConnection:
         display = {}
         if params.get('display_projection'):
             display['display_messages'] = display_projection(snapshot.history, self.authority.profile_id)
+        from gateway.local_connections import pending_connection
         return {'session_id': ref.session_id, 'stored_session_id': ref.session_id,
                 'messages': list(snapshot.history), **display, 'message_count': len(snapshot.history),
                 'running': snapshot.handle.execution_state == 'running',
@@ -567,7 +573,8 @@ class AuthorityConnection:
                 'subscription_id': snapshot.subscription_id, 'revision': snapshot.handle.revision,
                 'execution_generation': snapshot.handle.execution_generation,
                 'pending': [asdict(r) for r in snapshot.pending],
-                'prompts': list(snapshot.prompts), 'info': info}
+                'prompts': list(snapshot.prompts), 'info': info,
+                'pending_connection': pending_connection(self.authority, ref.session_id)}
 
     def _spawn_notice(self, ref):
         """Low-disk auto-prune question for this viewer, off the resume reply's path."""

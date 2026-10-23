@@ -1,8 +1,8 @@
 """``manage_catalog`` (catalog install through the connection card).
 
 Contracts:
-- the tool reaches only desktop sessions, whatever a config selects, and is deferred by default
-- only a desktop chat draws it
+- the tool reaches desktop/native mobile sessions and is deferred by default
+- only a chat with a native approval consumer draws it
 - the model sends catalog ids and an action; every other key is refused before anything runs
 - an id the catalog does not know, or a plugin this OS cannot run, is drawn failed and never installed
 - an approved row installs and reports what went live; the card never witnesses the outcome
@@ -125,8 +125,8 @@ def _desktop_child_toolsets():
     return _resolve_child_toolsets(parent, None, "leaf")
 
 
-@pytest.mark.parametrize("platform", ["desktop", "cli", "subagent"])
-def test_a_session_off_the_desktop_never_hears_of_the_tool_even_through_tool_search(monkeypatch, platform):
+@pytest.mark.parametrize("platform", ["desktop", "mobile", "cli", "subagent"])
+def test_catalog_surface_guard_covers_direct_tools_and_tool_search(monkeypatch, platform):
     """A CLI config naming ``catalog``, and a delegate child of a desktop chat, lose manage_catalog from
     the direct tools, the tool_search listing and the bridge's search, not just from the direct tools."""
     import model_tools
@@ -143,7 +143,7 @@ def test_a_session_off_the_desktop_never_hears_of_the_tool_even_through_tool_sea
         enabled_toolsets=agent.enabled_toolsets, disabled_toolsets=agent.disabled_toolsets))
 
     carried = "manage_catalog" in json.dumps(agent.tools) or "manage_catalog" in json.dumps(found)
-    assert carried is (platform == "desktop")
+    assert carried is (platform in {"desktop", "mobile"})
 
 
 @pytest.mark.parametrize("args", [
@@ -158,7 +158,7 @@ def test_a_source_version_or_profile_from_the_model_is_refused_before_anything_r
     assert "error" in out and not card.seen and not installer.installs
 
 
-def test_off_the_desktop_the_result_points_at_the_cli_and_opens_no_card():
+def test_without_an_approval_consumer_the_result_points_at_cli_and_opens_no_card():
     installer, card = FakeInstaller([_entry("x")]), _card(_approve())
     for callback, surface in ((None, True), (card, False)):
         out = json.loads(manage_catalog({"action": "install", "items": [{"kind": "plugin", "id": "x"}]},

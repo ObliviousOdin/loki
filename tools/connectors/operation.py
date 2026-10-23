@@ -104,6 +104,7 @@ class ConnectionOperation:
     wake: threading.Event = field(default_factory=threading.Event, repr=False)
     _settled_snapshot: Optional[dict[str, Any]] = field(default=None, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
+    change_callback: Optional[Callable] = field(default=None, repr=False)  # canonical session's own event sink
 
     def __post_init__(self) -> None:
         if not self.deadline_at:
@@ -178,6 +179,8 @@ class ConnectionOperation:
         return self._result_locked()
 
     def _changed(self, change: Optional[dict[str, Any]], snapshot: dict[str, Any]) -> None:
+        if self.change_callback is not None:
+            self.change_callback(self, change, snapshot)
         hook = type(self).on_change
         if hook is not None:
             hook(self, change, snapshot)

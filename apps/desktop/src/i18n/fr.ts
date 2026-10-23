@@ -178,7 +178,6 @@ export const frOverrides = {
       advanced: 'Avancé',
       advancedHint: "l'entrée mcp.json et les journaux"
     },
-
     accounts: frConnectorAccounts,
 
     tools: {
@@ -714,6 +713,7 @@ export const frOverrides = {
       advancedDesktop: 'Desktop et démarrage',
       gatewayConnection: 'Cette fenêtre',
       gatewayDevices: 'Connexions enregistrées',
+      gatewayPhones: 'Téléphones',
       gatewayManagedUpdates: 'Mises à jour à distance',
       gatewayManagedUpdatesUnavailable:
         'Les mises à jour à distance nécessitent une version de Desktop prenant en charge les mises à jour SSH gérées.',

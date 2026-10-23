@@ -73,6 +73,18 @@ def _status_by_slug(client: Any) -> dict[str, dict[str, Any]]:
     return {str(i.get("connector", "")).lower(): i for i in client.list_connectors() if isinstance(i, dict)}
 
 
+def _retry_account(operation: ConnectionOperation, names: list[str]) -> Optional[str]:
+    targets = [t for t in operation.targets if t.name in names]
+    repaired = next((t.repair_id for t in targets if t.repair_id), None)
+    if repaired:
+        return repaired
+    # A single unnamed card also owns the account its first mint created. Retrying must not
+    # silently choose another login merely because the user did not give this one an alias.
+    if len(targets) == 1:
+        return targets[0].connection_id
+    return next((t.connection_id for t in targets if t.alias), None)
+
+
 def mint(client: Any, operation: ConnectionOperation, names: list[str], *, reinitiate: bool, actor: Actor,
          connection_id: Optional[str] = None) -> None:
     """Mint links for ``names`` and apply the gateway's per-app answer to the operation. ``actor`` is
@@ -88,8 +100,7 @@ def mint(client: Any, operation: ConnectionOperation, names: list[str], *, reini
     # One aliased target per call, so the first named target is the request's.
     named = next((t for t in operation.targets if t.name in names and t.alias), None)
     if reinitiate and connection_id is None:
-        repaired = next((t.repair_id for t in operation.targets if t.name in names and t.repair_id), None)
-        connection_id = repaired or (named.connection_id if named is not None else None)
+        connection_id = _retry_account(operation, names)
     alias = None if connection_id or named is None else named.alias
     response = client.connections(names, reinitiate=reinitiate, alias=alias, connection_id=connection_id,
                                   **return_to_args(op=operation.op_id))

@@ -61,7 +61,11 @@ def consume_ticket(ticket: str) -> dict[str, Any]:
         expires_at, info = entry
         if expires_at < now:
             raise TicketInvalid("expired")
-        return info
+    if info.get('device_link'):
+        from hermes_cli.dashboard_auth.device_links_provider import context_store
+        if context_store(info['device_link']) is None:
+            raise TicketInvalid('device revoked')
+    return info
 
 
 def _gc_expired_locked() -> None:

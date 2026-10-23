@@ -225,6 +225,11 @@ export const SETTINGS_MANIFEST = {
     }
   },
   gateway: {
+    phones: {
+      subpage: 'phones',
+      keywords: ['phone', 'iPhone', 'pair', 'code', 'link', 'approve', 'revoke'],
+      copy: t => ({ label: t.settings.subpages.gatewayPhones })
+    },
     connectionMode: {
       subpage: 'connection',
       keywords: ['gateway', 'connection', 'local', 'cloud', 'remote', 'ssh', 'url', 'token', 'host', 'port', 'key'],

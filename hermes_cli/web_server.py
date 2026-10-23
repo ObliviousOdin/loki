@@ -220,6 +220,8 @@ from hermes_cli.dashboard_auth.body_limit import AuthBodyLimitMiddleware
 
 # Register first (innermost): auth gates run before this, JSON parsing after it.
 app.add_middleware(AuthBodyLimitMiddleware)
+from hermes_cli.dashboard_auth.device_links_live import DeviceLinkSocketMiddleware
+app.add_middleware(DeviceLinkSocketMiddleware)
 
 
 # Memory-provider OAuth connect routes live in the memory layer, not here.
@@ -829,6 +831,10 @@ _mount_plugin_api_routes()
 from hermes_cli.dashboard_auth.routes import router as _dashboard_auth_router
 
 app.include_router(_dashboard_auth_router)
+from hermes_cli.dashboard_auth.device_links_routes import router as _device_links_auth_router
+from hermes_cli.dashboard_auth.device_links_management import router as _device_links_management_router
+app.include_router(_device_links_auth_router)
+app.include_router(_device_links_management_router)
 mount_spa(app)
 
 
@@ -932,6 +938,8 @@ def _configure_auth_gate(
     # reverse-proxy deployments; resolved once so middleware never reloads
     # config. A non-loopback public hostname engages the gate even on a loopback
     # backend, else the SPA's local session token becomes remotely reachable.
+    from hermes_cli.dashboard_auth.device_links_config import configure_device_links
+    configure_device_links(app)
     app.state.trusted_public_hosts = _dashboard_public_hosts()
     # auth_required drives middleware, SPA-token injection, WS auth, the
     # startup refusal, the gate-on banner and uvicorn proxy_headers.

@@ -178,7 +178,6 @@ export const deOverrides = {
       advanced: 'Erweitert',
       advancedHint: 'der mcp.json-Eintrag und die Logs'
     },
-
     accounts: deConnectorAccounts,
 
     tools: {
@@ -714,6 +713,7 @@ export const deOverrides = {
       advancedDesktop: 'Desktop & Start',
       gatewayConnection: 'Dieses Fenster',
       gatewayDevices: 'Gespeicherte Verbindungen',
+      gatewayPhones: 'Telefone',
       gatewayManagedUpdates: 'Remote-Updates',
       gatewayManagedUpdatesUnavailable:
         'Remote-Updates erfordern eine Desktop-Version mit Unterstützung für verwaltete SSH-Updates.',

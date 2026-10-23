@@ -91,9 +91,13 @@ def list_token_providers() -> list[DashboardAuthProvider]:
 
 
 def list_session_providers() -> list[DashboardAuthProvider]:
-    """Providers with ``supports_session`` True (interactive cookie sessions); the login page,
-    /auth/login and the gate's verify/refresh loops use only these."""
+    """Providers capable of verifying sessions, including non-interactive phone credentials."""
     return [p for p in list_providers() if getattr(p, "supports_session", True)]
+
+
+def list_login_providers() -> list[DashboardAuthProvider]:
+    """Interactive choices; hidden credential verifiers remain in the verification stack."""
+    return [p for p in list_session_providers() if getattr(p, 'supports_interactive_login', True)]
 
 
 def register_global_provider(provider: DashboardAuthProvider) -> None:

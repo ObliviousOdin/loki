@@ -1,0 +1,171 @@
+{
+  "protocol_version": 1,
+  "synthetic_only": true,
+  "encoding": {
+    "public_key": "P-256 X9.63 uncompressed 65 bytes; base64url, no padding",
+    "signature": "ECDSA-SHA256 raw 64-byte r||s; base64url, no padding",
+    "claim_payload": "loki-device-claim-v1\\n{pairing_id}\\n{normalized_code}\\n{client_id}\\n{base64url_utf8_device_name}\\n{device_public_key}\\n{nonce}\\n",
+    "signed_server_payload": "Verify exact decoded payload bytes; JSON decoded only after signature verifies. No client-side canonical JSON reconstruction."
+  },
+  "claim_request": {
+    "pairing_id": "pair_synthetic00000001",
+    "code": "0123-ABCD",
+    "client_id": "loki-ios",
+    "device_name": "Test iPhone",
+    "device_public_key": "BGsX0fLhLEJH-Lzm5WOkQPJ3A32BLeszoPShOUXYmMKWT-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
+    "nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+    "signature": "ECS7TmsdBiS7H00RgSs46kEsnCSnMQPY0p05We-EOaliOSJG3Tw074VmQz0Or2vqplMsZRHYJ4sTPc0kkaNvVw"
+  },
+  "claim_signed_bytes_base64url": "bG9raS1kZXZpY2UtY2xhaW0tdjEKcGFpcl9zeW50aGV0aWMwMDAwMDAwMQowMTIzQUJDRApsb2tpLWlvcwpWR1Z6ZENCcFVHaHZibVUKQkdzWDBmTGhMRUpILUx6bTVXT2tRUEozQTMyQkxlc3pvUFNoT1VYWW1NS1dULU5DNHY0YWY1dU81LXRLZkEtZUZpdk9NMWRyTVY3T3k3WkFhRGVfVWZVCkFBRUNBd1FGQmdjSUNRb0xEQTBPRHhBUkVoTVVGUllYR0JrYUd4d2RIaDgK",
+  "claim_response": {
+    "claim_id": "claim_synthetic000001",
+    "claim_token": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8",
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "device_id": "device_synthetic00001",
+    "comparison": "123-456",
+    "expires_at": 2000000300,
+    "host_metadata": {
+      "payload": "eyJjbGFpbV9pZCI6ImNsYWltX3N5bnRoZXRpYzAwMDAwMSIsImNvbXBhcmlzb24iOiIxMjMtNDU2IiwiZGV2aWNlX2lkIjoiZGV2aWNlX3N5bnRoZXRpYzAwMDAxIiwiZXhwaXJlc19hdCI6MjAwMDAwMDMwMCwiZ2F0ZXdheV91cmwiOiJodHRwczovL21hYy5leGFtcGxlLnRlc3QiLCJob3N0X2lkIjoiYTlmMzAwZWI1OTYwZTg5MTMzYWY3MzYyMDExYTFlMjZmMGUyZWEyZTM2ZGM0MDJhMDRhZjZjMTkyYjg5MWE4YyIsImhvc3RfbmFtZSI6IlRlc3QgTWFjIiwiaG9zdF9wdWJsaWNfa2V5IjoiQkh6eWV4aU5BMDktaWxJNEF3UzFHc1BBaVduaWRfSWJOYVlMU1B4SFpwbDRCM2RWRU51TzBFQXBQWnJHbjNRdzI3cDlyZVk4NllJcG5nUzNuU0o0YzlFIiwia2V5X2ZpbmdlcnByaW50IjoiYVl2cVk5eEVvMFJtUF9GQ211b1FoQzN5ZTJ1Wkh2SllackxHd0N6Y3hiNCIsInBhaXJpbmdfaWQiOiJwYWlyX3N5bnRoZXRpYzAwMDAwMDAxIiwicHJvdG9jb2wiOiJsb2tpLWRldmljZS1ob3N0LXYxIn0",
+      "signature": "Fn-HgNqkFI7jdlxc5cBEv2aqsyZcOlgxqC21y9VumQdr5uUDj8yutF_TXZQkkUkefy1e6AyCTKo0BiDQ7OQR7g"
+    }
+  },
+  "host_metadata_decoded": {
+    "protocol": "loki-device-host-v1",
+    "gateway_url": "https://mac.example.test",
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "host_name": "Test Mac",
+    "host_public_key": "BHzyexiNA09-ilI4AwS1GsPAiWnid_IbNaYLSPxHZpl4B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E",
+    "pairing_id": "pair_synthetic00000001",
+    "claim_id": "claim_synthetic000001",
+    "device_id": "device_synthetic00001",
+    "key_fingerprint": "aYvqY9xEo0RmP_FCmuoQhC3ye2uZHvJYZrLGwCzcxb4",
+    "comparison": "123-456",
+    "expires_at": 2000000300
+  },
+  "poll_request": {
+    "claim_id": "claim_synthetic000001",
+    "claim_token": "QEFCQ0RFRkdISUpLTE1OT1BRUlNUVVZXWFlaW1xdXl8"
+  },
+  "poll_response_pending": {
+    "status": "pending",
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "device_id": "device_synthetic00001",
+    "expires_at": 2000000300
+  },
+  "poll_response_approved": {
+    "status": "approved",
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "device_id": "device_synthetic00001",
+    "expires_at": 2000000300
+  },
+  "challenge_request": {
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "device_id": "device_synthetic00001"
+  },
+  "challenge_response": {
+    "challenge_id": "challenge_synthetic01",
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "device_id": "device_synthetic00001",
+    "expires_at": 2000000060,
+    "payload": "eyJjaGFsbGVuZ2VfaWQiOiJjaGFsbGVuZ2Vfc3ludGhldGljMDEiLCJjbGllbnRfaWQiOiJsb2tpLWlvcyIsImRldmljZV9pZCI6ImRldmljZV9zeW50aGV0aWMwMDAwMSIsImV4cGlyZXNfYXQiOjIwMDAwMDAwNjAsImhvc3RfaWQiOiJhOWYzMDBlYjU5NjBlODkxMzNhZjczNjIwMTFhMWUyNmYwZTJlYTJlMzZkYzQwMmEwNGFmNmMxOTJiODkxYThjIiwibm9uY2UiOiJJQ0VpSXlRbEppY29LU29yTEMwdUx6QXhNak0wTlRZM09EazZPenc5UGo4IiwicHJvdG9jb2wiOiJsb2tpLWRldmljZS10b2tlbi12MSJ9",
+    "signature": "97ufk6pQZNQI45kdAJmUrY0bF1nUrp7adGNeIE8mq9JuJqW2rSapEWzPK0R2kQCV6ctzR2OWlr2F5HOTC-exLA"
+  },
+  "challenge_payload_decoded": {
+    "challenge_id": "challenge_synthetic01",
+    "client_id": "loki-ios",
+    "device_id": "device_synthetic00001",
+    "expires_at": 2000000060,
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "nonce": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+    "protocol": "loki-device-token-v1"
+  },
+  "token_request": {
+    "device_id": "device_synthetic00001",
+    "challenge_id": "challenge_synthetic01",
+    "signature": "QlFPLWJIrkCoTZd65qddEad2mjYf5gi3vDtmgMUZ3_T394AnP7KSH0aseXlXHG-PRKMX-Qe0NGw51ujWTpkt1Q"
+  },
+  "token_response": {
+    "access_token": "synthetic-not-a-real-bearer",
+    "token_type": "Bearer",
+    "expires_at": 2000000900,
+    "provider": "stub",
+    "user_id": "existing-account-subject",
+    "device_id": "device_synthetic00001",
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c"
+  },
+  "local_approve_body": {
+    "key_fingerprint": "aYvqY9xEo0RmP_FCmuoQhC3ye2uZHvJYZrLGwCzcxb4",
+    "comparison": "123-456"
+  },
+  "errors": {
+    "invalid_or_expired": 400,
+    "owner_sign_in_required": 409,
+    "device_links_not_ready": 503,
+    "os_local_required": 403,
+    "rate_limited": 429
+  },
+  "management_create_headers": [
+    "X-Hermes-Gateway-Ticket: <one-use native-http grant>",
+    "Authorization: Bearer <existing verified dashboard account token>"
+  ],
+  "management_create_body": {},
+  "management_list_shape": {
+    "enabled": true,
+    "configured": true,
+    "ready": false,
+    "transport_verified_at": null,
+    "unavailable_reason": "transport_unverified",
+    "owner_sign_in_required": true,
+    "owner": null,
+    "host": {
+      "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+      "host_name": "Test Mac",
+      "host_public_key": "BHzyexiNA09-ilI4AwS1GsPAiWnid_IbNaYLSPxHZpl4B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E",
+      "gateway_url": "https://mac.example.test"
+    },
+    "pairings": [],
+    "claims": [
+      {
+        "claim_id": "claim_synthetic000001",
+        "pairing_id": "pair_synthetic00000001",
+        "device_name": "Test iPhone",
+        "device_public_key": "BGsX0fLhLEJH-Lzm5WOkQPJ3A32BLeszoPShOUXYmMKWT-NC4v4af5uO5-tKfA-eFivOM1drMV7Oy7ZAaDe_UfU",
+        "key_fingerprint": "aYvqY9xEo0RmP_FCmuoQhC3ye2uZHvJYZrLGwCzcxb4",
+        "comparison": "123-456",
+        "expires_at": 2000000300
+      }
+    ],
+    "devices": [],
+    "owner_login": {
+      "authorize_base_url": "http://127.0.0.1:53122",
+      "authorize_path": "/auth/native/authorize",
+      "token_path": "/auth/native/token",
+      "providers": [
+        {
+          "name": "stub",
+          "display_name": "Synthetic existing IdP",
+          "supports_password": false
+        }
+      ]
+    }
+  },
+  "management_verified_owner": {
+    "provider": "stub",
+    "user_id": "existing-account-subject",
+    "issuer": ""
+  },
+  "public_status_response": {
+    "ready": true,
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "gateway_url": "https://mac.example.test"
+  },
+  "management_create_response": {
+    "host_id": "a9f300eb5960e89133af7362011a1e26f0e2ea2e36dc402a04af6c192b891a8c",
+    "host_name": "Test Mac",
+    "host_public_key": "BHzyexiNA09-ilI4AwS1GsPAiWnid_IbNaYLSPxHZpl4B3dVENuO0EApPZrGn3Qw27p9reY86YIpngS3nSJ4c9E",
+    "gateway_url": "https://mac.example.test",
+    "pairing_id": "pair_synthetic00000001",
+    "code": "0123-ABCD",
+    "expires_at": 2000000300
+  }
+}

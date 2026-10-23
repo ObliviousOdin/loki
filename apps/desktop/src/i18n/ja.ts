@@ -71,7 +71,6 @@ export const jaOverrides = {
     on: 'オン',
     off: 'オフ'
   },
-
   fileMenu: {
     revealFinder: 'Finder で表示',
     revealExplorer: 'エクスプローラーで表示',
@@ -308,6 +307,7 @@ export const jaOverrides = {
       advancedDesktop: 'デスクトップと起動',
       gatewayConnection: 'このウィンドウ',
       gatewayDevices: '保存済みの接続',
+      gatewayPhones: 'スマートフォン',
       gatewayManagedUpdates: 'リモート更新',
       gatewayManagedUpdatesUnavailable: 'リモート更新には、管理対象 SSH の更新に対応したデスクトップ版が必要です。',
       gatewayManagedUpdatesEmpty: '保存済みの接続に SSH 接続を追加すると、ここで更新を管理できます。',

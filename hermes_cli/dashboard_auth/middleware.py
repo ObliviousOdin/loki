@@ -17,7 +17,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from starlette.concurrency import run_in_threadpool
 
-from hermes_cli.dashboard_auth import list_session_providers
+from hermes_cli.dashboard_auth import list_login_providers
 from hermes_cli.dashboard_auth.audit import AuditEvent, audit_log
 from hermes_cli.dashboard_auth.base import ProviderError
 from hermes_cli.dashboard_auth.cookies import (
@@ -42,12 +42,16 @@ _GATE_PUBLIC_PREFIXES: tuple[str, ...] = (
     "/api/auth/providers", "/api/mcp/oauth/callback/",
     "/assets/", "/dashboard-plugins/", "/favicon.ico", "/ds-assets/", "/fonts/", "/fonts-terminal/")
 
+_DEVICE_BOOTSTRAP_PATHS = frozenset({
+    '/auth/device/claims', '/auth/device/poll', '/auth/device/challenge', '/auth/device/token',
+    '/auth/device/status'})
+
 
 def _path_is_public(path: str) -> bool:
     """:data:`PUBLIC_API_PATHS` (shared with the legacy middleware) matched exactly so
     ``/api/status`` never exposes ``/api/status/extension``; :data:`_GATE_PUBLIC_PREFIXES`
     prefix-matched."""
-    return path in PUBLIC_API_PATHS or any(
+    return path in PUBLIC_API_PATHS or path in _DEVICE_BOOTSTRAP_PATHS or any(
         path == p or path.startswith(p) for p in _GATE_PUBLIC_PREFIXES)
 
 
@@ -101,7 +105,7 @@ def _auto_sso_response(request: Request) -> Response | None:
         resp = _unauth_response(request, reason="no_cookie")
         clear_sso_attempt_cookie(resp, prefix=prefix_from_request(request))
         return resp
-    providers = list_session_providers()
+    providers = list_login_providers()
     if len(providers) != 1 or getattr(providers[0], "supports_password", False):
         return None
     provider = providers[0]

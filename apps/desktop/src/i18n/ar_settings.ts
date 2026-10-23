@@ -46,6 +46,7 @@ export const arSettings = {
       advancedDesktop: 'سطح المكتب وبدء التشغيل',
       gatewayConnection: 'هذه النافذة',
       gatewayDevices: 'الاتصالات المحفوظة',
+      gatewayPhones: 'الهواتف',
       gatewayManagedUpdates: 'التحديثات البعيدة',
       gatewayManagedUpdatesUnavailable: 'تتطلب التحديثات البعيدة إصدار سطح مكتب يدعم تحديثات SSH المُدارة.',
       gatewayManagedUpdatesEmpty: 'أضف اتصال SSH في الاتصالات المحفوظة لإدارة تحديثاته هنا.',

@@ -13,6 +13,7 @@ The cron subsystem provides scheduled task execution — from simple one-shot de
 | File | Purpose |
 |------|---------|
 | `cron/jobs.py` | Job model, storage, atomic read/write to `jobs.json` |
+| `cron/jobs_create.py`, `cron/job_creation_receipts.py` | Creation validation and atomic durable request receipts |
 | `cron/scheduler.py` | Scheduler loop — due-job detection, execution, repeat tracking |
 | `tools/cronjob_tools.py` | Model-facing `cronjob_manage` tool registration and handler |
 | `gateway/run.py` | Gateway integration — cron ticking in the long-running loop |
@@ -62,6 +63,33 @@ Jobs are stored in `~/.hermes/cron/jobs.json` with atomic write semantics (write
   "script": null
 }
 ```
+
+### Durable dashboard creation
+
+`GET /api/cron/capabilities` advertises `{"durable_creation":{"version":1}}`.
+On that version, the existing `POST /api/cron/jobs?profile=...` accepts an optional
+`request_id` containing 16–128 URL-safe letters, digits, `_` or `-`. This mode
+requires a verified interactive session. The server derives the principal from
+the verified provider, issuer and user; the client does not choose that identity.
+
+The job and an immutable creation receipt commit in the same atomic `jobs.json`
+payload under the per-home lock. The receipt binds the request ID, resolved profile
+home, principal and exact creation intent fingerprint to the job ID. An exact
+retry returns that same job, preserving its current edits and original next-run
+instant. Changed intent or identity returns `409 creation_request_conflict`.
+Every normal store writer preserves the private `creation_receipts` envelope.
+Deletion retains the receipt, so a later retry returns `409 creation_target_deleted`
+and cannot recreate the schedule. Durable creation returns `503
+creation_store_unavailable` when cross-process locking is unavailable; legacy
+creation retains its existing degraded-lock policy.
+
+Scheduler registration happens after storage. Its existing `424` partial-failure
+response still names the saved job. A client using this protocol may retry the
+same request ID and exact body to re-register that job. It must not issue a new
+request ID after an ambiguous response. Calls without a request ID retain the
+existing independent-creation behavior; clients must discover the capability
+before relying on retry safety. Keep the pending request in a durable client
+journal until its outcome is known.
 
 ### `last_status` literals
 

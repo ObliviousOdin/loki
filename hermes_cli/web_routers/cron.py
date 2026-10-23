@@ -714,8 +714,17 @@ async def list_cron_job_runs(job_id: str, profile: Optional[str] = None, limit: 
 
 
 @router.post("/api/cron/jobs")
-async def create_cron_job(body: CronJobCreate, profile: Optional[str] = None):
-    return await _run_cron_dashboard_io(_create_cron_job_sync, body, profile)
+async def create_cron_job(body: CronJobCreate, profile: Optional[str] = None, request: Request = None):
+    from hermes_cli.web_server_cron_creation import creation_identity
+    identity = creation_identity(request, body.request_id)
+    if identity is None:
+        return await _run_cron_dashboard_io(_create_cron_job_sync, body, profile)
+    return await _run_cron_dashboard_io(_create_cron_job_sync, body, profile, identity)
+
+
+@router.get("/api/cron/capabilities")
+async def cron_capabilities():
+    return {'durable_creation': {'version': 1}}
 
 
 @router.get("/api/cron/delivery-targets")

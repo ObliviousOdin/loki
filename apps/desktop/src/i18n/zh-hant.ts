@@ -88,7 +88,10 @@ export const zhHantOverrides = {
   sendDiagnostics: zhHantDiagnostics.sendDiagnostics,
   titlebar: zhHantChrome.titlebar,
   language: zhHantSettings.language,
-  settings: zhHantSettings.settings,
+  settings: {
+    ...zhHantSettings.settings,
+    subpages: { ...zhHantSettings.settings.subpages, gatewayPhones: '手機' }
+  },
   skills: zhHantCapabilities.skills,
   starmap: zhHantCapabilities.starmap,
   agents: zhHantCapabilities.agents,

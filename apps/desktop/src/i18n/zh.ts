@@ -101,7 +101,6 @@ export const zhOverrides = {
     on: '开',
     off: '关'
   },
-
   fileMenu: {
     revealFinder: '在访达中显示',
     revealExplorer: '在文件资源管理器中显示',
@@ -485,6 +484,7 @@ export const zhOverrides = {
       advancedDesktop: '桌面与启动',
       gatewayConnection: '当前窗口',
       gatewayDevices: '已保存的连接',
+      gatewayPhones: '手机',
       gatewayManagedUpdates: '远程更新',
       gatewayManagedUpdatesUnavailable: '远程更新需要支持托管 SSH 更新的桌面版本。',
       gatewayManagedUpdatesEmpty: '请在已保存的连接中添加 SSH 连接，即可在此管理更新。',

@@ -43,6 +43,7 @@ class _Pending:
     client_state: str  # the desktop's own ``state`` (echoed back on redirect)
     client_ip: str  # requester IP at authorize time (per-IP pending cap)
     expires_at: int
+    client_id: str = ""
 
 
 @dataclass
@@ -51,6 +52,8 @@ class _IssuedCode:
     code_challenge: str  # cc_d — verified against cv_d at redemption
     session: Session
     expires_at: int
+    client_id: str = ""
+    redirect_uri: str = ""
 
 
 _pending: dict[str, _Pending] = {}  # broker_state -> _Pending
@@ -100,7 +103,7 @@ def _pop_pending_locked(broker_state: str, *, consume: bool) -> _Pending:
 
 def register_pending(
     *, code_challenge: str, redirect_uri: str, client_state: str, client_ip: str = "",
-    now: Optional[int] = None) -> str:
+    client_id: str = "", now: Optional[int] = None) -> str:
     """Stash a pending native authorization; return an opaque ``broker_state``. ``code_challenge``
     is the DESKTOP's cc_d. Raises ``NativeFlowError`` (fail closed) at store capacity or when
     ``client_ip`` holds ``_MAX_PENDING_PER_IP`` entries."""
@@ -115,7 +118,7 @@ def register_pending(
             raise NativeFlowError("too many pending native authorizations from this address")
         _pending[broker_state] = _Pending(
             code_challenge=code_challenge, redirect_uri=redirect_uri, client_state=client_state,
-            client_ip=client_ip, expires_at=now + _PENDING_TTL_SECONDS)
+            client_ip=client_ip, expires_at=now + _PENDING_TTL_SECONDS, client_id=client_id)
     return broker_state
 
 
@@ -138,11 +141,13 @@ def complete_pending(broker_state: str, *, session: Session, now: Optional[int] 
         gw_code = secrets.token_urlsafe(32)
         _issued[gw_code] = _IssuedCode(
             code_challenge=pending.code_challenge, session=session,
-            expires_at=now + _CODE_TTL_SECONDS)
+            expires_at=now + _CODE_TTL_SECONDS, client_id=pending.client_id,
+            redirect_uri=pending.redirect_uri if pending.client_id else "")
     return gw_code
 
 
-def redeem_code(*, code: str, code_verifier: str, now: Optional[int] = None) -> Session:
+def redeem_code(*, code: str, code_verifier: str, client_id: str = "", redirect_uri: str = "",
+                now: Optional[int] = None) -> Session:
     """Verify PKCE + consume a gateway code; return the bound :class:`Session`. The entry is popped
     BEFORE the PKCE check so a wrong verifier cannot be retried (no oracle, no replay)."""
     now = _now(now)
@@ -153,6 +158,8 @@ def redeem_code(*, code: str, code_verifier: str, now: Optional[int] = None) -> 
         raise CodeInvalid("unknown, expired, or already-redeemed code")
     if issued.expires_at < now:
         raise CodeInvalid("code expired")
+    if issued.client_id != client_id or (issued.client_id and issued.redirect_uri != redirect_uri):
+        raise CodeInvalid("native client or callback mismatch")
     if not hmac.compare_digest(issued.code_challenge, _s256(code_verifier)):
         raise CodeInvalid("PKCE verification failed")
     return issued.session

@@ -8,6 +8,7 @@ from .base import JsonValue, Params, Result
 from .common import ProfileParams, TranscriptMessage
 from .canonical import AdmissionStatus, CanonicalSessionRef, PromptResponseResult, SessionInventoryFields
 from .registry import canonical_method
+from .connectors_operation import ConnectionRequestPayload
 
 
 class CanonicalSessionParams(ProfileParams):
@@ -16,7 +17,7 @@ class CanonicalSessionParams(ProfileParams):
 
 class CanonicalCreateParams(ProfileParams):
     request_id: str | None = None
-    source: Literal['cli', 'tui', 'gui', 'acp', 'tool', 'oneshot'] = 'cli'
+    source: Literal['cli', 'tui', 'gui', 'ios', 'acp', 'tool', 'oneshot'] = 'cli'
     cwd: str | None = None
     # The sessions-row ``cwd`` when it differs from the execution ``cwd`` (the classic CLI records
     # main's stamp: the launch dir, ``""`` = none); ``cwd`` stays where the tools run.
@@ -139,6 +140,7 @@ class CanonicalSnapshot(Result):
     pending: list[CanonicalPendingAdmission]
     prompts: list[CanonicalPendingPrompt]
     info: CanonicalSnapshotInfo
+    pending_connection: ConnectionRequestPayload | None = None
 
 
 class CanonicalListParams(ProfileParams):
