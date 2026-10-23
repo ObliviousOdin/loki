@@ -42,6 +42,7 @@ class LiveSession:
     subscribers: dict = field(default_factory=dict)
     event_stream: SessionEvents = field(default_factory=SessionEvents)
     controls: PendingControls = field(init=False)
+    connection_operation: object | None = None  # exact owner/generation binding, never a sidecar session
     # The messaging ingress tells the platform user once per pause episode (unknown head,
     # preflight refusal), not per message; the drain clears it when the FIFO moves again.
     pause_notified: bool = False

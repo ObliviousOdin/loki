@@ -102,6 +102,49 @@ test('runNativeLogin completes the loopback round trip and returns tokens', asyn
   assert.equal(state.closed, true)
 })
 
+test('owner sign-in keeps the configured browser origin and prefix while redeeming only at the local gateway', async () => {
+  const { createServer, state } = makeFakeServerFactory()
+  const localBase = 'http://127.0.0.1:9119'
+  const options = { provider: 'fixture', authorizeBaseUrl: 'https://dashboard.example.test/loki' }
+
+  let openedUrl = '',
+    tokenUrl = ''
+
+  const signingIn = runNativeLogin(
+    localBase,
+    {
+      createServer,
+      openExternal: async url => {
+        openedUrl = url
+      },
+      postJson: async (url, body) => {
+        tokenUrl = url
+        assert.equal((body as { code: string }).code, 'one-use-owner-code')
+
+        return {
+          access_token: 'unusable-owner-access',
+          refresh_token: 'unusable-owner-refresh',
+          expires_at: 2_000_000_000,
+          provider: 'fixture',
+          user_id: 'fixture-owner'
+        }
+      }
+    },
+    options
+  )
+
+  await new Promise(resolve => setTimeout(resolve, 5))
+  const authorize = new URL(openedUrl)
+  state.hitCallback(`code=one-use-owner-code&state=${encodeURIComponent(authorize.searchParams.get('state')!)}`)
+  const tokens = await signingIn
+  assert.equal(authorize.origin, 'https://dashboard.example.test')
+  assert.equal(authorize.pathname, '/loki/auth/native/authorize')
+  assert.equal(authorize.searchParams.get('provider'), 'fixture')
+  assert.equal(tokenUrl, `${localBase}/auth/native/token`)
+  assert.equal(tokens.userId, 'fixture-owner')
+  assert.equal(state.closed, true)
+})
+
 test('runNativeLogin rejects on a state mismatch (CSRF) without redeeming', async () => {
   const { createServer, state } = makeFakeServerFactory()
   let tokenPostCalled = false

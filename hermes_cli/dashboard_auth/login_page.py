@@ -14,7 +14,7 @@ from __future__ import annotations
 import html
 from urllib.parse import quote, urlencode
 
-from hermes_cli.dashboard_auth import list_session_providers
+from hermes_cli.dashboard_auth import list_login_providers
 
 # Single curly braces are ``str.format`` placeholders; CSS curlies are doubled.
 _LOGIN_HTML_TEMPLATE = """\
@@ -459,7 +459,7 @@ def render_login_html(*, next_path: str = "", prefix: str = "") -> str:
     sub-path. Empty string (default) means no prefix — bare-root
     deploys are unaffected.
     """
-    providers = list_session_providers()
+    providers = list_login_providers()
     if not providers:
         return _EMPTY_HTML
     # URL-encode then HTML-escape, matching the gate's ``_safe_next_target``
@@ -508,7 +508,7 @@ def _apply_proxy_prefix(html_out: str, prefix: str) -> str:
 def render_native_provider_choice_html(
         *, providers, authorize_path: str, code_challenge: str,
         code_challenge_method: str, redirect_uri: str, state: str,
-        prefix: str = "") -> str:
+        prefix: str = "", client_id: str = "") -> str:
     """Provider picker for a native authorize request with more than one interactive provider.
 
     Every link re-enters ``/auth/native/authorize`` with the SAME desktop PKCE inputs plus an
@@ -518,6 +518,8 @@ def render_native_provider_choice_html(
     """
     common = {"code_challenge": code_challenge, "code_challenge_method": code_challenge_method,
               "redirect_uri": redirect_uri, "state": state}
+    if client_id:
+        common['client_id'] = client_id
     buttons = []
     for p in providers:
         href = html.escape(f"{authorize_path}?{urlencode({**common, 'provider': p.name})}",

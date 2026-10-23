@@ -313,6 +313,7 @@ class SessionPrune(BaseModel):
     dry_run: bool = False
 
 class CronJobCreate(BaseModel):
+    request_id: Optional[str] = Field(default=None, pattern=r'^[A-Za-z0-9_-]{16,128}$')
     paused: StrictBool = False
     paused_reason: Optional[str] = None
     prompt: str = ""

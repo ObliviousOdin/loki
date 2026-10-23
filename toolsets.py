@@ -130,7 +130,8 @@ TOOLSETS = {
     "context_engine": _ts("Runtime tools exposed by the active context engine"),
     "session_search": _ts("Search and recall past conversations with summarization", ["session_search"]),
     "connections": _ts("Remote connector discovery, execution, and account authorization", ["manage_connections"]),
-    "project": _ts("Desktop Projects — create/switch named workspaces (GUI sessions only)", ["desktop_project"]),
+    "project": _ts("Desktop Projects — create/switch named workspaces (GUI sessions only)", ["desktop_project"],
+                   excluded_platforms=frozenset({"mobile"})),
     "bot_room": _ts("Verified text-only Group Chat turn capabilities"),
 
     # GUI-renderer affordances, enabled per desktop-sourced SESSION by the GUI
@@ -142,14 +143,15 @@ TOOLSETS = {
         ["read_terminal", "close_terminal", "desktop_preview", "drive_preview",
          "annotate_preview", "read_window_below", "focus_pane", "react_to_message",
          "gui_tour", "show_tip", "set_theme"],
+        excluded_platforms=frozenset({"mobile"}),
     ),
     "onboarding": _ts("First-run onboarding cards; folded in only for the onboarding chat (tui_gateway/methods_onboarding.py)",
                       ["setup_beat"], platforms=frozenset({"desktop"})),
     # ``platforms``: the session platforms this toolset exists for (TOOLSET_SESSION_PLATFORMS).
     "catalog": _ts(
-        "Desktop catalog plugin/skill install requests through the approval card (GUI sessions only)",
+        "Catalog plugin/skill install requests through a desktop or native mobile approval card",
         ["manage_catalog"],
-        platforms=frozenset({"desktop"}),
+        platforms=frozenset({"desktop", "mobile"}),
     ),
     "clarify": _ts("Ask the user clarifying questions (multiple-choice or open-ended)", ["clarify"]),
     "code_execution": _ts("Run Python scripts that call tools programmatically (reduces LLM round trips)", ["execute_code"]),
@@ -245,6 +247,8 @@ TOOLSETS = {
 
 # Toolset -> the session platforms it exists for, from the specs that carry ``platforms``.
 TOOLSET_SESSION_PLATFORMS = {name: spec["platforms"] for name, spec in TOOLSETS.items() if "platforms" in spec}
+TOOLSET_SESSION_EXCLUDED_PLATFORMS = {
+    name: spec["excluded_platforms"] for name, spec in TOOLSETS.items() if "excluded_platforms" in spec}
 
 # Captured before create_custom_toolset() can add user-named tools: shared metrics may export only
 # these names, so a plugin, MCP server or custom toolset name never leaves the machine.
@@ -451,16 +455,21 @@ def get_toolset_names() -> list[str]:
 
 def session_platform_tool_drops(platform: Optional[str]) -> frozenset:
     """Tools of every platform-gated toolset that a session on *platform* does not get."""
-    return frozenset(tool for name, platforms in TOOLSET_SESSION_PLATFORMS.items() if platform not in platforms
-                     for tool in resolve_toolset(name))
+    return frozenset(tool for name in _session_gated_toolsets(platform) for tool in resolve_toolset(name))
+
+
+def _session_gated_toolsets(platform: Optional[str]) -> set[str]:
+    """One platform decision shared by direct tools, aliases, refreshes and tool-search."""
+    unavailable = {name for name, platforms in TOOLSET_SESSION_PLATFORMS.items() if platform not in platforms}
+    return unavailable | {name for name, platforms in TOOLSET_SESSION_EXCLUDED_PLATFORMS.items()
+                          if platform in platforms}
 
 
 def session_disabled_toolsets(disabled: Optional[list[str]], platform: Optional[str]) -> Optional[list[str]]:
     """*disabled* plus every platform-gated toolset a session on *platform* does not get. An agent stores
     this as its ``disabled_toolsets``, so the tool list, the tool_search listing and bridge, MCP refreshes
     and delegate children (which inherit it) all subtract the gated tools in ``_select_tool_names``."""
-    gated = [name for name, platforms in TOOLSET_SESSION_PLATFORMS.items()
-             if platform not in platforms and name not in (disabled or ())]
+    gated = sorted(_session_gated_toolsets(platform) - set(disabled or ()))
     return [*(disabled or ()), *gated] if gated else disabled
 
 

@@ -22,9 +22,8 @@ execution stream, and the process sinks route by the process's ``session_key`` t
 session's event stream (a background process outlives the turn that started it). The callbacks
 are installed per turn on the cached agent and restored with the other turn sinks.
 
-Not bridged here: ``connection_callback`` (the manage_connections card). Its card answers through
-the ``connection.respond`` RPC, which the session authority does not serve yet, so installing the
-callback would show a card whose buttons go nowhere; the tool keeps its off-desktop result.
+Connection cards use ``local_connections`` and the authority's session-owned
+connector RPCs; they do not depend on an Electron window bridge.
 """
 from __future__ import annotations
 

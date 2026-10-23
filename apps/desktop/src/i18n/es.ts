@@ -178,7 +178,6 @@ export const esOverrides = {
       advanced: 'Avanzado',
       advancedHint: 'la entrada de mcp.json y los registros'
     },
-
     accounts: esConnectorAccounts,
 
     tools: {
@@ -717,6 +716,7 @@ export const esOverrides = {
       advancedDesktop: 'Escritorio e inicio',
       gatewayConnection: 'Esta ventana',
       gatewayDevices: 'Conexiones guardadas',
+      gatewayPhones: 'Teléfonos',
       gatewayManagedUpdates: 'Actualizaciones remotas',
       gatewayManagedUpdatesUnavailable:
         'Las actualizaciones remotas requieren una versión de escritorio compatible con actualizaciones SSH administradas.',

@@ -7,7 +7,7 @@ def test_login_pages_brand_loki_without_rewriting_provider_or_proxy_values(monke
     from hermes_cli.dashboard_auth import login_page
 
     provider = SimpleNamespace(name="HermesCustom", display_name="Hermes <Account>", supports_password=False)
-    monkeypatch.setattr(login_page, "list_session_providers", lambda: [provider])
+    monkeypatch.setattr(login_page, "list_login_providers", lambda: [provider])
     html = login_page.render_login_html(next_path="/Hermes-user-session", prefix="/Hermes-user-prefix")
     assert "<title>Sign in — Loki</title>" in html
     assert '<div class="brand">Loki</div>' in html
@@ -16,7 +16,7 @@ def test_login_pages_brand_loki_without_rewriting_provider_or_proxy_values(monke
     assert "/Hermes-user-prefix/auth/login?provider=HermesCustom" in html
     assert "next=%2FHermes-user-session" in html
 
-    monkeypatch.setattr(login_page, "list_session_providers", list)
+    monkeypatch.setattr(login_page, "list_login_providers", list)
     assert "<title>Sign-in unavailable — Loki</title>" in login_page.render_login_html()
 
 

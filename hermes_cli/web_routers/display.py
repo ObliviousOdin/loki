@@ -69,6 +69,10 @@ def _consume_display_ticket(ws: WebSocket) -> Optional[dict]:
         return None
     if info.get("provider") != "bot-desktop" or not info.get("hermes_home"):
         return None
+    if info.get('device_link'):
+        from hermes_cli.dashboard_auth.device_links_live import attach_device_channel
+        if not attach_device_channel(ws, info['device_link']):
+            return None
     return info
 
 

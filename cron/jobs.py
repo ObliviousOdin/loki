@@ -305,6 +305,7 @@ def _jobs_lock():
 
     with _jobs_file_lock:
         _jobs_lock_state.depth = 1
+        _jobs_lock_state.cross_process = False
         # jobs.json stamp as of this section's load_jobs(): lets _save_jobs_unlocked skip the
         # shrink-merge parse when the file provably hasn't changed. Reset on entry/exit so stale
         # stamps from unlocked loads or prior sections can never suppress a needed merge.
@@ -316,7 +317,9 @@ def _jobs_lock():
                 ensure_dirs()
                 lock_fd = open(_jobs_lock_file(), "a+", encoding="utf-8-sig")
                 lock_fd.seek(0)
-                if _acquire_flock(lock_fd, _JOBS_LOCK_TIMEOUT_SECONDS) is False:
+                acquired = _acquire_flock(lock_fd, _JOBS_LOCK_TIMEOUT_SECONDS)
+                _jobs_lock_state.cross_process = acquired is True
+                if acquired is False:
                     logger.error(
                         "Timed out after %.0fs waiting for the cron "
                         "jobs lock (%s) — another process is holding "
@@ -338,6 +341,7 @@ def _jobs_lock():
         finally:
             _jobs_lock_state.depth = 0
             _jobs_lock_state.load_stamp = None
+            _jobs_lock_state.cross_process = False
 
 
 @contextlib.contextmanager
@@ -1528,13 +1532,14 @@ def _unlink_quiet(path: Optional[str]) -> None:
             os.unlink(path)
 
 
-def _stage_jobs_payload(jobs_file: Path, jobs: list[dict[str, Any]]) -> str:
+def _stage_jobs_payload(jobs_file: Path, jobs: list[dict[str, Any]], *, creation_receipts=None, replace=False) -> str:
     """Serialize the store payload to a fsynced temp file beside the resolved *jobs_file*; return its path."""
     fd, tmp_path = mkstemp_beside(jobs_file, suffix=".tmp", prefix=".jobs_")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
+            from cron.job_creation_receipts import payload
             json.dump(
-                {"jobs": jobs, "updated_at": _hermes_now().isoformat()},
+                payload(jobs_file, jobs, _hermes_now().isoformat(), proposed=creation_receipts, replace=replace),
                 f, indent=2, ensure_ascii=False)
             f.flush()
             os.fsync(f.fileno())
@@ -1549,7 +1554,7 @@ _SAVE_JOBS_MERGE_ATTEMPTS = 5
 
 def _save_jobs_unlocked(
     jobs: list[dict[str, Any]], *, removed_ids: Optional[Collection[str]] = None,
-    replace: bool = False,
+    replace: bool = False, creation_receipts=None,
 ):
     """Save all jobs; caller must hold _jobs_lock(). ``removed_ids`` = intentional deletes;
     ``replace=True`` skips the shrink-merge guard and the corrupt-store refusal (wholesale
@@ -1569,7 +1574,7 @@ def _save_jobs_unlocked(
         for attempt in range(_SAVE_JOBS_MERGE_ATTEMPTS + 1):
             if not replace:
                 jobs = _merge_unexpected_disk_jobs(jobs, removed_ids=removed_ids)
-            tmp_path = _stage_jobs_payload(jobs_file, jobs)
+            tmp_path = _stage_jobs_payload(jobs_file, jobs, creation_receipts=creation_receipts, replace=replace)
             # Verify-after-stage: a sibling landing during serialization forces another merge round.
             if (
                 not replace
@@ -1597,11 +1602,11 @@ def _save_jobs_unlocked(
 
 def save_jobs(
     jobs: list[dict[str, Any]], *, removed_ids: Optional[Collection[str]] = None,
-    replace: bool = False,
+    replace: bool = False, creation_receipts=None,
 ):
     """Save all jobs under the lock; see ``_save_jobs_unlocked`` for ``removed_ids``/``replace``."""
     with _jobs_lock():
-        _save_jobs_unlocked(jobs, removed_ids=removed_ids, replace=replace)
+        _save_jobs_unlocked(jobs, removed_ids=removed_ids, replace=replace, creation_receipts=creation_receipts)
 
 
 _MISSING = object()
@@ -1811,111 +1816,12 @@ def create_job(
     paused_reason: Optional[str] = None,
     pinned: bool = False,
     interpreter: Optional[str] = None,
+    creation_request: Optional[dict[str, str]] = None,
 ) -> dict[str, Any]:
-    """Create a new cron job and return the stored record.
-
-    deliver defaults to "origin" when ``origin`` is given, else "local"; repeat None = forever.
-    script: stdout is injected as prompt context, or with ``no_agent=True`` IS the job (stdout
-    delivered verbatim, requires ``script``). context_from: job id(s) whose latest output is
-    injected. workdir: absolute cwd for tools/scripts. monitor_script/monitor_url: cheap monitor
-    source run FIRST each tick; unchanged output suppresses the agent run (mutually exclusive,
-    incompatible with ``no_agent``). reasoning_effort: per-job pin; capability NOT validated.
-    interpreter: absolute/``~`` Python for ``.py`` script/monitor_script, validated at run time
-    (a venv can be rebuilt or moved after creation)."""
-    if not isinstance(paused, bool):
-        raise ValueError("paused must be a boolean.")
-    if paused_reason is not None and not isinstance(paused_reason, str):
-        raise ValueError("paused_reason must be a string.")
-    if paused_reason is not None and not paused:
-        raise ValueError("paused_reason requires paused=True.")
-    parsed_schedule = parse_schedule(schedule)
-    # Normalize repeat: treat 0 or negative values as None (infinite). String forms
-    # ('forever'/'once'/numeric) coerce via normalize_repeat_value — the shared chokepoint with update paths
-    # (#66824/#64520/#7142/#71987/#95706).
-    repeat = normalize_repeat_value(repeat)
-    if parsed_schedule["kind"] == "once" and repeat is None:
-        repeat = 1
-    if deliver is None:
-        deliver = "origin" if origin else "local"
-    job_id = uuid.uuid4().hex[:12]
-    now = _hermes_now().isoformat()
-
-    raw = locals()
-    f = {key: norm(raw[key]) for key, norm in _CREATE_FIELD_NORMALIZERS.items()}
-    normalized_skills = _normalize_skill_list(skill, skills)
-    normalized_attach = attach_to_session if isinstance(attach_to_session, bool) else None
-    normalized_reasoning_effort = _normalize_reasoning_effort(reasoning_effort)
-
-    _validate_job_mode_invariants(f["monitor_script"], f["monitor_url"], f["no_agent"], f["script"])
-    prompt_text = _coerce_job_text(prompt).strip()
-    if not prompt_text and not f["script"] and not normalized_skills:
-        raise ValueError(EMPTY_PAYLOAD_ERROR)
-    # Reject gateway-lifecycle commands (respawn loops) here, not just in the CLI: covers the tool.
-    from cron.lifecycle_guard import check_gateway_lifecycle
-    check_gateway_lifecycle(prompt_text, f["script"])
-
-    label_source = (
-        prompt_text
-        or (normalized_skills[0] if normalized_skills else None)
-        or (f["script"] if f["no_agent"] else None)
-        or "cron job"
-    )
-    name = name or label_source[:50].strip()
-    if pinned and not f["model"]:
-        f["provider"], f["model"] = _main_model_pin()
-    next_run_at = _next_run_or_reject_past_oneshot(parsed_schedule, name, schedule, "")
-
-    job = {
-        "id": job_id,
-        "name": name,
-        "prompt": prompt_text,
-        "skills": normalized_skills,
-        "skill": normalized_skills[0] if normalized_skills else None,
-        "model": f["model"],
-        "provider": f["provider"],
-        "base_url": f["base_url"],
-        "script": f["script"],
-        "no_agent": f["no_agent"],
-        "monitor_script": f["monitor_script"],
-        "monitor_url": f["monitor_url"],
-        "monitor_state": None,
-        "context_from": f["context_from"],
-        "schedule": parsed_schedule,
-        "schedule_display": parsed_schedule.get("display", schedule),
-        "repeat": {"times": repeat, "completed": 0},  # times None = forever
-        "enabled": not paused,
-        "state": "paused" if paused else "scheduled",
-        "paused_at": now if paused else None,
-        "paused_reason": ((paused_reason or "").strip() or "Created paused; awaiting operator approval.") if paused else None,
-        "created_at": now,
-        "next_run_at": None if paused else next_run_at,
-        "last_run_at": None,
-        "last_status": None,
-        "last_error": None,
-        "last_delivery_error": None,
-        # Targets acked without message_id/raw_response (accepted but UNVERIFIED).
-        "last_delivery_unverified": None,
-        # Most recent failed run ({at, detail}); NOT cleared by a later success (#118354).
-        "last_failure": None,
-        "failure_streak": 0,
-        "deliver": deliver,
-        "origin": origin,  # Tracks where job was created for "origin" delivery
-        "enabled_toolsets": f["enabled_toolsets"],
-        "workdir": f["workdir"],
-    }
-    # Optional keys are persisted only when explicitly set: an absent key falls back to global
-    # config (attach/reasoning) or to ``deliver`` (failure_deliver), byte-identical to pre-feature
-    # jobs.
-    for key, value in (
-        ("attach_to_session", normalized_attach), ("reasoning_effort", normalized_reasoning_effort),
-        ("failure_deliver", f["failure_deliver"]), ("interpreter", f["interpreter"]),
-    ):
-        if value is not None:
-            job[key] = value
-
-    with _jobs_lock():
-        save_jobs(load_jobs() + [job])
-    return job
+    """Create a job through the shared store and optional durable creation receipt."""
+    options = locals()
+    from cron.jobs_create import create_job as create
+    return create(**options)
 
 
 def get_job(job_id: str) -> Optional[dict[str, Any]]:

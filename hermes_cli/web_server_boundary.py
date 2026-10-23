@@ -27,7 +27,7 @@ _DESKTOP_ATTACHMENT_WS_MAX_BYTES = 384 * 1024 * 1024
 
 
 def _dashboard_public_hosts() -> frozenset[str]:
-    """Return the exact hostname declared by ``dashboard.public_url``.
+    """Return exact operator-declared dashboard and enabled phone hostnames.
 
     One source of truth for OAuth redirects, Host and WS Origin validation.
     Malformed or unset values fail closed as an empty set.
@@ -39,7 +39,24 @@ def _dashboard_public_hosts() -> frozenset[str]:
         hostname = urllib.parse.urlparse(public_url).hostname if public_url else None
     except ValueError:
         hostname = None
-    return frozenset({hostname.lower()}) if hostname else frozenset()
+    hosts = {hostname.lower()} if hostname else set()
+    phone_host = _phone_public_host()
+    if phone_host:
+        hosts.add(phone_host)
+    return frozenset(hosts)
+
+
+def _phone_public_host() -> str:
+    """An enabled phone origin is public even when its tunnel's peer is loopback."""
+    from hermes_cli.config import load_config
+    phone = (load_config().get('dashboard') or {}).get('device_links') or {}
+    if phone.get('enabled') is not True:
+        return ''
+    from hermes_cli.dashboard_auth.device_links_config import https_origin
+    try:
+        return urllib.parse.urlsplit(https_origin(phone.get('gateway_url'))).hostname.lower()
+    except ValueError:
+        return ''
 
 
 def _host_header_hostname(host_header: str) -> str:
@@ -137,6 +154,9 @@ def _desktop_loopback_auth_exempt(
         host in _LOOPBACK_HOST_VALUES
         and os.environ.get("HERMES_DESKTOP") == "1"
         and bool(os.environ.get("HERMES_DASHBOARD_SESSION_TOKEN") or ssh_session_token or ssh_owner_nonce)
+        # This same canonical listener now has an explicitly public phone ingress.
+        # Its native same-user grants still work; its legacy static token must not.
+        and not _phone_public_host()
     )
 
 

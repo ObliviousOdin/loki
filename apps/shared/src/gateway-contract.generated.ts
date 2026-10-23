@@ -4885,7 +4885,7 @@ export interface GroupsDiscardResult {
 export interface CanonicalCreateParams {
   profile?: string | null
   request_id?: string | null
-  source?: 'cli' | 'tui' | 'gui' | 'acp' | 'tool' | 'oneshot'
+  source?: 'cli' | 'tui' | 'gui' | 'ios' | 'acp' | 'tool' | 'oneshot'
   cwd?: string | null
   row_cwd?: string | null
   model?: string | null
@@ -4929,6 +4929,7 @@ export interface CanonicalSnapshot {
   pending: CanonicalPendingAdmission[]
   prompts: CanonicalPendingPrompt[]
   info: CanonicalSnapshotInfo
+  pending_connection?: ConnectionRequestPayload | null
 }
 export interface CanonicalPendingAdmission {
   admission_id: string

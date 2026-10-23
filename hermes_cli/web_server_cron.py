@@ -241,8 +241,10 @@ def _raise_if_cron_registration_error(e: Exception) -> None:
         raise HTTPException(status_code=424, detail=e.to_dict()) from e
 
 
-def _create_cron_job_sync(body: CronJobCreate, profile: Optional[str] = None):
+def _create_cron_job_sync(body: CronJobCreate, profile: Optional[str] = None, creation_request=None):
     try:
+        if body.request_id is not None and (creation_request is None or creation_request['request_id'] != body.request_id):
+            raise HTTPException(status_code=403, detail={'reason': 'verified_session_required'})
         profile_name, profile_home = _cron_profile_home(profile)
         script = _normalize_dashboard_cron_script(body.script, profile_home)
         skills = _cron_string_list(body.skills)
@@ -279,11 +281,14 @@ def _create_cron_job_sync(body: CronJobCreate, profile: Optional[str] = None):
             enabled_toolsets=_cron_string_list(body.enabled_toolsets),
             workdir=_cron_optional_text(body.workdir),
             no_agent=no_agent,
+            **({'creation_request': creation_request} if creation_request is not None else {}),
             **{key: getattr(body, key) for key in ("paused", "paused_reason")
                if key in body.model_fields_set})
     except HTTPException:
         raise
     except Exception as e:
+        from hermes_cli.web_server_cron_creation import creation_error
+        creation_error(e)
         _raise_if_cron_registration_error(e)
         _log.exception("POST /api/cron/jobs failed")
         raise HTTPException(status_code=400, detail=str(e))

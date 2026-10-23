@@ -126,6 +126,10 @@ class WSTransport:
         #: for legacy-token/stdio. RPC params can never populate it: sole identity authority for browser controllers
         #: and for the ``user_id`` the agent is built with (``server._session_auth_user_id``).
         self.auth_identity = auth_identity
+        scope = getattr(ws, 'scope', None)
+        channel = scope.get('loki.device_channel') if isinstance(scope, dict) else None
+        self.credential_context = ({'home': channel.store.home, 'host_id': channel.store.host_id,
+                                    'device_id': channel.device_id} if channel is not None else None)
         #: The served profile home whose skin this peer follows (None = the launch home); see change_watcher.
         self.skin_home: str | None = None
         self._closed = False

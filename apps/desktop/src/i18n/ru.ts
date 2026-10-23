@@ -15,8 +15,7 @@ import { ruSharedMetrics } from './ru_shared_metrics'
 import { ruThemePicker } from './ru_theme_picker'
 import { ruUpdateChannel } from './ru_update_channel'
 
-// RU_PLURAL: (count, one, few, many) — русские формы сущ. падежа
-// RU_NOUN: (count, one, few, many) — формы род. множественного
+// RU_PLURAL: (count, one, few, many) — русские формы сущ. падежа; RU_NOUN — формы род. множественного
 // count может быть number или string (часть подписей en.ts передаёт строки)
 const ruNum = (count: number | string) => (typeof count === 'string' ? Number(count) || 0 : count)
 
@@ -385,6 +384,7 @@ export const ruOverrides = {
       advancedDesktop: 'Приложение и запуск',
       gatewayConnection: 'Это окно',
       gatewayDevices: 'Сохранённые подключения',
+      gatewayPhones: 'Телефоны',
       gatewayManagedUpdates: 'Удалённые обновления',
       gatewayManagedUpdatesUnavailable: 'Нужна версия приложения с поддержкой управляемых обновлений SSH.',
       gatewayManagedUpdatesEmpty: 'Добавьте SSH в сохранённые подключения, чтобы управлять его обновлениями здесь.',

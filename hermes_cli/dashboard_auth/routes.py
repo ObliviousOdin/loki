@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 from starlette.concurrency import run_in_threadpool
 
 from hermes_cli.dashboard_auth import (
-    get_provider, list_providers, list_session_providers, native_flow)
+    get_provider, list_providers, list_login_providers, native_flow)
 from hermes_cli.dashboard_auth import prefix as _prefix_mod
 from hermes_cli.dashboard_auth.audit import AuditEvent, audit_log
 from hermes_cli.dashboard_auth.base import (
@@ -203,13 +203,16 @@ async def login_page(request: Request) -> HTMLResponse:
 @router.get("/api/auth/providers", name="auth_providers")
 async def api_auth_providers() -> Any:
     # Only interactive providers are sign-in options; fail closed on zero.
-    providers = list_session_providers()
+    providers = list_login_providers()
     if not providers:
         return JSONResponse({"detail": "no auth providers registered"}, status_code=503)
+    from hermes_cli.dashboard_auth.native_redirects import registered_native_clients
     return {"providers": [
         {"name": p.name, "display_name": p.display_name,
          "supports_password": bool(getattr(p, "supports_password", False))}
-        for p in providers]}
+        for p in providers],
+        "native_clients": [{"client_id": client_id, "redirect_uris": list(uris)}
+                           for client_id, uris in registered_native_clients().items()]}
 
 
 # --- Public: OAuth round trip ----------------------------------------------
@@ -219,7 +222,7 @@ async def auth_login(request: Request, provider: str, next: str = ""):
     p = get_provider(provider)
     if p is None:
         raise _http(404, f"Unknown provider: {provider!r}")
-    if not getattr(p, "supports_session", True):
+    if not getattr(p, "supports_session", True) or not getattr(p, 'supports_interactive_login', True):
         raise _http(404, f"Provider does not support interactive login: {provider!r}")
     safe_next = _validate_post_login_target(next)
     if getattr(p, "supports_password", False):
@@ -282,14 +285,14 @@ def _select_native_provider(provider: str):
     them via ``/login``); with several the caller renders a chooser instead of guessing."""
     if provider:
         return get_provider(provider)
-    candidates = list_session_providers()
+    candidates = list_login_providers()
     return candidates[0] if len(candidates) == 1 else None
 
 
 @router.get("/auth/native/authorize", name="auth_native_authorize")
 async def auth_native_authorize(
     request: Request, provider: str = "", code_challenge: str = "",
-    code_challenge_method: str = "", redirect_uri: str = "", state: str = ""):
+    code_challenge_method: str = "", redirect_uri: str = "", state: str = "", client_id: str = ""):
     """Begin an RFC 8252 native-app login: stash a pending broker authorization keyed by an
     opaque ``broker_state`` riding in the gateway's own PKCE cookie (the desktop's
     challenge/state never touch it), then run the normal upstream round trip. Password providers
@@ -298,10 +301,14 @@ async def auth_native_authorize(
         raise _http(400, "code_challenge_method must be S256")
     if not code_challenge:
         raise _http(400, "code_challenge required")
-    redirect_uri = _validate_loopback_redirect_uri(redirect_uri)
+    if client_id:
+        from hermes_cli.dashboard_auth.native_redirects import validate_registered_redirect
+        redirect_uri = validate_registered_redirect(client_id, redirect_uri, code_challenge=code_challenge, state=state)
+    else:
+        redirect_uri = _validate_loopback_redirect_uri(redirect_uri)
     p = _select_native_provider(provider)
     if p is None and not provider:
-        candidates = list_session_providers()
+        candidates = list_login_providers()
         if len(candidates) > 1:
             # Render the chooser BEFORE allocating broker state or setting a cookie: every link
             # re-enters this same validated route with an explicit provider.
@@ -311,17 +318,17 @@ async def auth_native_authorize(
                     authorize_path=f"{_prefix(request)}/auth/native/authorize",
                     code_challenge=code_challenge,
                     code_challenge_method=code_challenge_method,
-                    redirect_uri=redirect_uri, state=state,
+                    redirect_uri=redirect_uri, state=state, client_id=client_id,
                     prefix=_prefix(request)),
                 headers=_NO_STORE)
     if p is None:
         raise _http(404, f"Unknown provider: {provider!r}")
-    if not getattr(p, "supports_session", True):
+    if not getattr(p, "supports_session", True) or not getattr(p, 'supports_interactive_login', True):
         raise _http(400, f"Provider does not support native login: {p.name!r}")
     try:
         broker_state = native_flow.register_pending(
             code_challenge=code_challenge, redirect_uri=redirect_uri, client_state=state,
-            client_ip=_client_ip(request))
+            client_ip=_client_ip(request), client_id=client_id)
     except native_flow.NativeFlowError as e:
         raise _http(503, str(e))
     if getattr(p, "supports_password", False):
@@ -559,7 +566,9 @@ async def api_auth_ws_ticket(request: Request):
     ``Authorization`` on the upgrade); one ticket per WS."""
     sess = _require_session(request)
     from hermes_cli.dashboard_auth.ws_tickets import TTL_SECONDS, mint_ticket
-    ticket = mint_ticket(user_id=sess.user_id, provider=sess.provider, issuer=sess.issuer)
+    from hermes_cli.dashboard_auth.device_links_provider import device_ticket_context
+    ticket = mint_ticket(user_id=sess.user_id, provider=sess.provider, issuer=sess.issuer,
+                         extra=device_ticket_context(sess))
     _audit(request, AuditEvent.WS_TICKET_MINTED, provider=sess.provider, user_id=sess.user_id)
     return {"ticket": ticket, "ttl_seconds": TTL_SECONDS}
 
@@ -569,6 +578,8 @@ async def api_auth_ws_ticket(request: Request):
 class _NativeTokenBody(BaseModel):
     code: str
     code_verifier: str
+    client_id: str = ""
+    redirect_uri: str = ""
 
 
 @router.post("/auth/native/token", name="auth_native_token")
@@ -577,7 +588,8 @@ async def auth_native_token(request: Request, body: _NativeTokenBody):
     on every path (no verifier oracle, no replay); any failure is a generic 400. Tokens go in
     the JSON body; no cookie is set."""
     try:
-        session = native_flow.redeem_code(code=body.code, code_verifier=body.code_verifier)
+        session = native_flow.redeem_code(code=body.code, code_verifier=body.code_verifier,
+                                          client_id=body.client_id, redirect_uri=body.redirect_uri)
     except native_flow.CodeInvalid:
         _audit(request, AuditEvent.NATIVE_TOKEN_FAILURE, reason="invalid_code_or_pkce")
         raise _http(400, "Invalid or expired authorization code.")

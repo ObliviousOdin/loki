@@ -1,0 +1,9 @@
+{
+  "name": "loki-phone-link",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-21",
+  "workers_dev": true,
+  "durable_objects": { "bindings": [{ "name": "PAIRINGS", "class_name": "PairingRegistry" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PairingRegistry"] }],
+  "observability": { "enabled": false }
+}

@@ -19,6 +19,9 @@ class Session:
     access_token: str
     refresh_token: str
     issuer: str = ""  # Verified issuer; empty for non-federated providers.
+    device_id: str = ""  # Server-only credential provenance; never changes the account subject.
+    device_host_id: str = ""
+    device_home: str = ""
 
 
 @dataclass(frozen=True)
@@ -112,6 +115,7 @@ class DashboardAuthProvider(ABC):
     supports_password: bool = False
     supports_token: bool = False
     supports_session: bool = True
+    supports_interactive_login: bool = True
 
     @abstractmethod
     def start_login(self, *, redirect_uri: str) -> LoginStart: ...

@@ -1032,13 +1032,15 @@ DEFAULT_CONFIG = {
         # leaves disconnected sessions ``ended_at IS NULL`` forever — phantom "active" rows in /resume and
         # dashboards. See #65194.
         "startup_orphan_sweep": True,
-        # OAuth gate (engaged when --host is set and --insecure is not), read by the Nous Portal
-        # plugin. Env HERMES_DASHBOARD_OAUTH_CLIENT_ID / HERMES_DASHBOARD_PORTAL_URL win when
-        # non-empty. Empty client_id = no provider; empty portal_url = production.
+        # Nous Portal sign-in; HERMES_DASHBOARD_OAUTH_CLIENT_ID / _PORTAL_URL override non-empty values.
+        # Empty client_id = no provider; empty portal_url = production.
         "oauth": {
             "client_id": "",  # agent:{instance_id} — Portal provisions this
             "portal_url": "",
         },
+        "native_auth": {"clients": {}},  # Exact registered app callbacks; desktop loopback stays separate.
+        "device_links": {"enabled": False, "gateway_url": "", "rendezvous_url": "", "host_name": "", "ingress_port": 9450,
+                         "registration_secret_env": "LOKI_PHONE_LINK_REGISTRATION_TOKEN"},
         # Username/password gate (dashboard_auth/basic plugin, no OAuth IDP). Active when username
         # plus password_hash (preferred) or password (hashed in-memory) are set; empty username =
         # no-op. Env HERMES_DASHBOARD_BASIC_AUTH_USERNAME / _PASSWORD_HASH / _PASSWORD / _SECRET /
@@ -1048,8 +1050,7 @@ DEFAULT_CONFIG = {
         "basic_auth": {
             "username": "",
             "password_hash": "",  # scrypt$...
-            "password": "",
-            "secret": "",
+            "password": "", "secret": "",
             "session_ttl_seconds": 0,  # 0 → plugin default (12h)
         },
         # Drain-control token auth (dashboard_auth/drain plugin). The secret is NOT here: env
@@ -1064,10 +1065,7 @@ DEFAULT_CONFIG = {
         # = reconstruct from headers.
         "public_url": "",
     },
-
-    "privacy": {
-        "redact_pii": False,  # hash user IDs and strip phone numbers from LLM context
-    },
+    "privacy": {"redact_pii": False},  # hash user IDs and strip phone numbers from LLM context
     # Text-to-speech. Each provider accepts an optional `max_text_length:` override for the
     # per-request input-character cap; omit to use the provider's documented limit (OpenAI 4096, xAI
     # 15000, MiniMax 10000, ElevenLabs 5k-40k model-aware, Gemini 32000, Edge 5000, Mistral 4000,
@@ -2761,6 +2759,8 @@ def _base_url(name, prompt_name=None):
 # checklists; category: provider|tool|skill|messaging|setting, advanced=True hides from checklists,
 # tools=[...] lists the model tools the key unlocks.
 OPTIONAL_ENV_VARS = {
+    "LOKI_PHONE_LINK_REGISTRATION_TOKEN": _env("Operator secret for the phone-link rendezvous deployment",
+        "Phone-link registration token", password=True, category="setting", advanced=True),
     # ── Provider (handled in provider selection, not shown in checklists) ──
     "NOUS_BASE_URL": _base_url("Nous Portal"),
     "HERMES_ANON_API_SECRET": _env(

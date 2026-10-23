@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import { test } from 'vitest'
 
 import {
+  createNativeJsonPost,
   normalizeAdvertisedAuthProviders,
   oauthGuardMayHardFail,
   oauthSessionIsLive,
@@ -40,6 +41,36 @@ test('resolveJsonBody does not stringify — a string stays a string, an object 
   // If a caller ever passes an already-encoded string (the bug), we return it
   // as-is rather than re-wrapping — the contract is "fetchJson owns encoding".
   assert.equal(typeof resolveJsonBody('{"a":1}'), 'string')
+})
+
+test('the bound native POST leaves one JSON encoding to transport and preserves its timeout', async () => {
+  const url = 'https://native-post-fixture.invalid/auth/native/token'
+
+  const body = {
+    code: 'synthetic-code',
+    code_verifier: 'synthetic-verifier',
+    redirect_uri: 'com.loki.ios://auth/callback'
+  }
+
+  const response = { accepted: true }
+  let calls = 0
+
+  const post = createNativeJsonPost(async (target, token, options) => {
+    calls += 1
+    assert.equal(target, url)
+    assert.equal(token, null)
+    assert.equal(options.method, 'POST')
+    assert.equal(options.timeoutMs, 12_345)
+    assert.equal(options.body, body)
+    const received = JSON.parse(JSON.stringify(options.body))
+    assert.equal(typeof received, 'object')
+    assert.deepEqual(received, body)
+
+    return response
+  })
+
+  assert.equal(await post(url, body, { timeoutMs: 12_345 }), response)
+  assert.equal(calls, 1)
 })
 
 // --- 2. oauth liveness (guards the needsOauthLogin loop) ---

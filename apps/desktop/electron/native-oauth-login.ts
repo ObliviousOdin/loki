@@ -78,7 +78,7 @@ export interface NativeLoginDeps {
 export async function runNativeLogin(
   baseUrl: string,
   deps: NativeLoginDeps,
-  opts: { provider?: string } = {}
+  opts: { provider?: string; authorizeBaseUrl?: string } = {}
 ): Promise<NativeTokenSet> {
   const createServer = deps.createServer || http.createServer
   const timeoutMs = deps.timeoutMs ?? DEFAULT_LOGIN_TIMEOUT_MS
@@ -181,7 +181,7 @@ export async function runNativeLogin(
 
       const redirectUri = `http://127.0.0.1:${addr.port}/callback`
 
-      const authorizeUrl = buildNativeAuthorizeUrl(baseUrl, {
+      const authorizeUrl = buildNativeAuthorizeUrl(opts.authorizeBaseUrl ?? baseUrl, {
         challenge,
         redirectUri,
         state,

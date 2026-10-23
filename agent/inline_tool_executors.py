@@ -216,13 +216,13 @@ def _scope_in_connected_mcp_servers(agent, result: Any) -> None:
 
 
 def _manage_catalog(agent, args: dict, ctx: InlineToolContext) -> Any:
-    # The card callback lives on the agent; only a desktop chat draws catalog rows.
+    # The callback belongs to a desktop/native mobile card, never a worker's registry dispatch.
     from tools.connectors.catalog_tool import manage_catalog
 
     return manage_catalog(
         args, session_id=getattr(agent, "session_id", None), tool_call_id=ctx.tool_call_id,
         connection_callback=getattr(agent, "connection_callback", None),
-        card_surface=getattr(agent, "platform", None) == "desktop",
+        card_surface=getattr(agent, "platform", None) in {"desktop", "mobile"},
     )
 
 

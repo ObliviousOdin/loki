@@ -392,11 +392,11 @@ def _auth_gate_status() -> dict[str, Any]:
     auth_flows: list[str] = []
     try:
         from hermes_cli.dashboard_auth import (
-            list_providers as _list_providers, list_session_providers as _list_session_providers)
+            list_providers as _list_providers, list_login_providers as _list_login_providers)
         auth_providers = [p.name for p in _list_providers()]
         if auth_required:
             auth_flows.append("cookie")
-            if _list_session_providers():
+            if _list_login_providers():
                 auth_flows.append("native_pkce")
     except Exception:
         # Module not importable yet (early startup) — leave as [].

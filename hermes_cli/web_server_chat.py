@@ -252,6 +252,10 @@ def _ws_auth_reason(ws: WebSocket) -> tuple[Optional[str], str]:
                 "user_id": info.get("user_id"), "provider": info.get("provider")}
             if info.get("issuer"):
                 ws._hermes_auth_identity["issuer"] = info["issuer"]
+            if info.get('device_link'):
+                from hermes_cli.dashboard_auth.device_links_live import attach_device_channel
+                if not attach_device_channel(ws, info['device_link']):
+                    raise TicketInvalid('device revoked')
 
         internal = ws.query_params.get("internal", "")
         if internal:
@@ -310,10 +314,13 @@ def _ws_auth_reason(ws: WebSocket) -> tuple[Optional[str], str]:
                 _reject(f"session token verify unavailable: {exc}")
                 return "token_unavailable", "token"
             if session is not None:
-                _stamp_identity({
-                    "user_id": getattr(session, "user_id", None),
-                    "provider": getattr(session, "provider", None),
-                })
+                from hermes_cli.dashboard_auth.device_links_provider import device_ticket_context
+                try:
+                    _stamp_identity({
+                        'user_id': session.user_id, 'provider': session.provider, 'issuer': session.issuer,
+                        **(device_ticket_context(session) or {})})
+                except TicketInvalid:
+                    return 'token_invalid', 'token'
                 audit_log(
                     AuditEvent.TOKEN_AUTH_SUCCESS,
                     provider=getattr(session, "provider", None),

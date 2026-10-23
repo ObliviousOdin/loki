@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Attributes ``wire`` may overwrite on the cached agent for one local-viewer turn.
 _TURN_ATTRS = ("tool_gen_callback", "_print_fn", "thinking_callback", "reaction_callback", "reasoning_callback",
-               *local_desktop_ui.CALLBACK_ATTRS)
+               "connection_callback", *local_desktop_ui.CALLBACK_ATTRS)
 # Private key in ``wire``'s return value: the desktop window bridge registration ``restore`` releases.
 _DESKTOP_UI_TOKEN = "__desktop_ui_token__"
 # MoA facade progress (agent/moa_loop._RELAY_EVENTS) -> the payload tui_gateway/tool_progress emits.
@@ -52,6 +52,8 @@ def wire(turn, agent) -> dict:
         agent.reasoning_callback = lambda text: publish("reasoning.delta", {"text": str(text or "")})
     # The desktop window bridges (preview/terminal/window reads, preview actions, desktop_ui events).
     previous[_DESKTOP_UI_TOKEN] = local_desktop_ui.wire(turn, agent)
+    from gateway.local_connections import wire as wire_connections
+    wire_connections(turn, agent)
     return previous
 
 
