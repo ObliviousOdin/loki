@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from gateway.session_authority import LiveSession
 from gateway.session_contract import SessionRef
 from gateway.session_controls import AuthorityConnection
 
@@ -50,7 +51,7 @@ async def test_session_resume_still_remaps_legacy_cli_source(monkeypatch):
             } if sid == tip_id else None,
             get_compression_tip=lambda sid: tip_id,
         ),
-        sessions={owner_id: SimpleNamespace(source=SimpleNamespace(platform=None))},
+        sessions={owner_id: LiveSession(source=SimpleNamespace(platform=None), route='legacy-cli')},
         authorize=lambda *a, **k: None,
         attach=AsyncMock(return_value=_attach_snapshot(owner_ref)),
     )
@@ -62,3 +63,4 @@ async def test_session_resume_still_remaps_legacy_cli_source(monkeypatch):
     result = await connection.resume(SessionRef('fixture', tip_id), {})
     assert resolved == [tip_id]
     assert result['session_id'] == owner_id
+    assert result['pending_connection'] is None

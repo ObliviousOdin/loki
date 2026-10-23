@@ -154,6 +154,37 @@ rules. A registered callback does not authorize the app to bypass the gateway's
 identity provider or session/profile permissions. Successful native sign-in
 does not establish that voice, connectors or other app capabilities are ready.
 
+## Approved phone pairing
+
+Loki Desktop's **Settings → Gateway → Phones** uses a separate, operator-owned
+HTTPS ingress and rendezvous deployment. A visible Phones page does not provision
+transport. Configure each computer independently; never reuse another host's
+key, tunnel or registration credential.
+
+| Setting | Default | Meaning |
+| --- | --- | --- |
+| `dashboard.device_links.enabled` | `false` | Opt in after configuring this host's transport and dashboard owner sign-in provider. |
+| `dashboard.device_links.gateway_url` | `""` | This host's exact public HTTPS origin, without a path, query or non-default port. |
+| `dashboard.device_links.rendezvous_url` | `""` | Owned HTTPS code-discovery origin, restricted to approved gateway origins. |
+| `dashboard.device_links.host_name` | `""` | Non-empty display name identifying this computer (at most 120 UTF-8 bytes). |
+| `dashboard.device_links.ingress_port` | `9450` | Loopback ingress port, an integer from 1024 through 65535; tunnel to this listener, not the canonical control listener. |
+| `dashboard.device_links.registration_secret_env` | `LOKI_PHONE_LINK_REGISTRATION_TOKEN` | Name of the protected registration secret in the selected launch home's secret scope, not the secret value. |
+
+Keep registration credentials out of YAML, command arguments, Git and phone
+builds. Coordinate a canonical gateway restart after captured configuration
+changes, then start the dedicated ingress with
+`loki --run-module hermes_cli.phone_ingress`. Pairing verifies that the public
+ingress is ready and bound to this host's key before registering a short-lived
+code. Desktop retains the owner's explicit sign-in session only in main-process
+memory; the renderer receives neither dashboard tokens nor native HTTP grants.
+
+Compare the phone's fingerprint and comparison code before approving it. An
+approved phone receives owner-equivalent dashboard access, including served
+profiles, files and tools, not a restricted guest role. Revocation refuses its
+credentials and closes its channels without deleting conversations. This source
+feature does not update an installed iPhone app or establish physical-device,
+Wi-Fi or cellular acceptance.
+
 ## See also
 
 - [OAuth over SSH / Remote Hosts](./oauth-over-ssh.md) — the loopback-callback
