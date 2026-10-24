@@ -24,6 +24,7 @@ import type {
   PhoneLinkStatus
 } from '../../../electron/phone-link-types'
 
+import { PhoneInvitationQR } from './phone-invitation-qr'
 import { ListRow, Pill, SectionHeading, SettingsContent } from './primitives'
 
 interface Review<T> {
@@ -265,6 +266,7 @@ function PhoneInvitationCard({
   return (
     <section className="mb-6 rounded-lg border p-4">
       <h3 className="text-sm font-medium">{copy.codeTitle}</h3>
+      <PhoneInvitationQR code={value.code} expiresAt={value.expiresAt} label={copy.codeTitle} now={now} />
       <p className="my-3 select-text break-all font-mono text-3xl tracking-widest">{value.code}</p>
       <p className="mb-3 text-sm text-(--ui-text-secondary)">
         {value.expiresAt <= now ? copy.codeExpired : `${copy.expiresAt} ${displayTime(value.expiresAt, locale)}`}

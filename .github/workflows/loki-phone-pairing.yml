@@ -70,6 +70,7 @@ jobs:
         run: >-
           npm run test:ui --workspace apps/desktop --
           src/app/settings/phone-link-settings.test.tsx src/store/phone-links.test.ts
+          src/app/settings/phone-invitation-qr.test.tsx src/lib/phone-pairing-qr.test.ts
           src/i18n/phone-links.test.ts
       - name: Exercise rendezvous behavior
         run: node --test apps/phone-link-service/worker.test.mjs
