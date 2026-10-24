@@ -39,6 +39,6 @@ export function PhoneInvitationQR({
   }, [payload])
 
   return payload && image?.payload === payload ? (
-    <img alt={label} className="my-3 rounded bg-white" height={256} src={image.url} width={256} />
+    <img alt={label} className="my-3 rounded" height={256} src={image.url} width={256} />
   ) : null
 }
