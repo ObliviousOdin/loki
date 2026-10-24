@@ -177,8 +177,13 @@ async def test_revoke_closes_live_canonical_socket_rejects_ticket_and_preserves_
 
 
 @pytest.mark.asyncio
-async def test_two_proxy_polling_phones_share_bounded_aggregate_without_direct_peer_starvation(device_api):
+async def test_two_proxy_polling_phones_share_bounded_aggregate_without_direct_peer_starvation(device_api, monkeypatch):
+    from types import SimpleNamespace
+    from hermes_cli.dashboard_auth import device_links_routes
     from hermes_cli.dashboard_auth.device_links_crypto import fingerprint, sign, unb64
+    # Keep this request-count assertion independent of crossing a real minute boundary.
+    rate_clock = [time.time()]
+    monkeypatch.setattr(device_links_routes, 'time', SimpleNamespace(time=lambda: rate_clock[0]))
     client, native, owner, service, _ = device_api
     proxy = {'Origin': service.store.gateway_url}
     pending = []
@@ -212,3 +217,6 @@ async def test_two_proxy_polling_phones_share_bounded_aggregate_without_direct_p
     for _ in range(60):
         assert (await client.post('/auth/device/challenge', json=invalid)).status_code == 400
     assert (await client.post('/auth/device/challenge', json=invalid)).status_code == 429
+    # Only the limiter clock advances: real gateway, key and token expiry remain untouched.
+    rate_clock[0] += 60
+    assert (await client.post('/auth/device/challenge', json=invalid)).status_code == 400

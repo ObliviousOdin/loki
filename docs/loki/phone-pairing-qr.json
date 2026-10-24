@@ -1,0 +1,6 @@
+{
+  "now": 2000000000,
+  "code": "ABCD-2345",
+  "expiresAt": 2000000300,
+  "payload": "loki://pair?v=1&code=ABCD-2345&expires=2000000300"
+}

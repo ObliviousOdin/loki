@@ -78,7 +78,7 @@ function makeInvitation(overrides: Partial<PhoneLinkInvitation> = {}): PhoneLink
   return {
     pairingId: 'pairing_A_1234567890123456',
     code: 'ABCD-EFGH',
-    expiresAt: Math.floor(Date.now() / 1000) + 600,
+    expiresAt: Math.floor(Date.now() / 1000) + 300,
     hostId: 'host_A_1234567890123456',
     hostName: 'Fixture Mac',
     ...overrides
@@ -193,8 +193,11 @@ it('creates a code only after Connect and cancels that exact pairing', async () 
   expect(await screen.findByText(invitation.code)).toBeTruthy()
   expect(api.createPairing).toHaveBeenCalledExactlyOnceWith(firstOwner)
   expect(api.approveClaim).not.toHaveBeenCalled()
+  const qr = await screen.findByRole('img', { name: 'Connection code' })
+  expect(qr.getAttribute('src')).toMatch(/^data:image\/png;base64,/)
   fireEvent.click(screen.getByRole('button', { name: copy.cancelCode }))
   await waitFor(() => expect(api.cancelPairing).toHaveBeenCalledExactlyOnceWith(firstOwner, invitation.pairingId))
+  await waitFor(() => expect(screen.queryByRole('img', { name: 'Connection code' })).toBeNull())
   await waitFor(() => expect(screen.queryByText(invitation.code)).toBeNull())
   expect(api.createPairing).toHaveBeenCalledTimes(1)
 })
