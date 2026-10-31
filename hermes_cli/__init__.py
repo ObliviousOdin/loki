@@ -12,7 +12,7 @@ def __getattr__(name: str) -> str:
 
     tests/compat/old_updater_surface.json freezes that import. In-tree code resolves
     identity through hermes_cli.version_info.get_version_info(); this reads only the
-    install stamp -- never git -- and keeps the pre-stamp placeholder when a checkout
+    install stamp -- never git -- and uses the current product version when a checkout
     has no stamp.
 
     Lazy because ``pm`` is not importable when this package loads: a venv
@@ -22,6 +22,7 @@ def __getattr__(name: str) -> str:
     """
     if name != "__version__":
         raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    from loki_identity import VERSION as product_version
     from hermes_cli.steward import read_install_stamp
     try:
         from pm.paths import repo_root
@@ -33,10 +34,10 @@ def __getattr__(name: str) -> str:
         from pathlib import Path
         try:
             stamp = json.loads((Path(__file__).resolve().parents[1] / "install-stamp.json").read_text(encoding="utf-8-sig"))
-            return str(stamp.get("baseVersion") or "0.1.0a1")
+            return str(stamp.get("baseVersion") or product_version)
         except (OSError, ValueError, AttributeError):
-            return "0.1.0a1"
-    return str(read_install_stamp(repo_root()).get("baseVersion") or "0.1.0a1")
+            return product_version
+    return str(read_install_stamp(repo_root()).get("baseVersion") or product_version)
 
 
 def _ensure_utf8() -> bool:

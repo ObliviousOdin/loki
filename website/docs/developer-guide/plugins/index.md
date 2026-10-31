@@ -805,6 +805,16 @@ def register(ctx):
 
 The dispatched tool goes through the normal approval, redaction, and budget pipelines — it's a real tool invocation, not a shortcut around them.
 
+For a plugin action that must receive fresh human consent on every call, use
+`tools.approval.request_tool_approval(tool_name, reason, require_fresh=True)` inside
+the handler immediately before its write. Check `result["approved"] is True`; otherwise
+return without changing anything. This optional argument is available in Loki
+0.1.0-alpha.2. It accepts only a current approve-once response, bypasses no prompt through
+yolo/off or saved approvals, persists no grant, and refuses an unavailable viewer or
+unattended execution. Do not expose a model-supplied confirmation flag. Bind the prompt
+to the exact operation, revalidate configuration after waiting, and never retry an
+uncertain write. The optional `smart-home` plugin is a concrete consumer.
+
 ### Store settings and runtime state
 
 Use plugin-relative config keys for user-visible behavior. Hermes resolves them

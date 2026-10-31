@@ -15,7 +15,7 @@ from typing import TypeVar
 PRODUCT_NAME = "Loki"
 COMMAND = "loki"
 DISTRIBUTION = "obliviousodin-loki-agent"
-VERSION = "0.1.0a1"
+VERSION = "0.1.0a2"
 UPSTREAM_COMMIT = "18c525b669b6ea4ba62e6967d228af21d89aa9d3"
 # get_version_info().base_version at the exact upstream pin; independent of Loki releases.
 UPSTREAM_SDK_VERSION = "0.22.2"

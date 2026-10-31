@@ -18,7 +18,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scripts.loki.source_assets import stage_pilk_source
-VERSION = "0.1.0-alpha.1"
+from scripts.releases.commit_build import version_at
 BASELINE = "18c525b669b6ea4ba62e6967d228af21d89aa9d3"
 
 
@@ -34,11 +34,12 @@ def package(out: Path, commit: str, *, pilk_source: Path | None = None) -> dict:
     subprocess.run(["git", "merge-base", "--is-ancestor", BASELINE, commit],
                    cwd=ROOT, check=True, timeout=30)
     project = tomllib.loads(git("show", f"{commit}:pyproject.toml"))["project"]
-    if project.get("name") != "obliviousodin-loki-agent" or project.get("version") != "0.1.0a1":
-        raise ValueError("The admitted tree is not this Loki preview version")
+    if project.get("name") != "obliviousodin-loki-agent":
+        raise ValueError("The admitted tree is not Loki")
     pinned = json.loads(git("show", f"{commit}:docs/loki/UPSTREAM.json"))
     if pinned.get("commit") != BASELINE:
         raise ValueError("The admitted tree has a different upstream baseline")
+    version = version_at(ROOT, commit)
     out.mkdir(parents=True, exist_ok=False)
     def source_bytes(path: str) -> bytes:
         return subprocess.check_output(["git", "show", f"{commit}:{path}"], cwd=ROOT, timeout=30)
@@ -48,12 +49,12 @@ def package(out: Path, commit: str, *, pilk_source: Path | None = None) -> dict:
         license_bytes=source_bytes("notices/pilk-0.2.4/LICENSE"),
         codec_notice=source_bytes("notices/pilk-0.2.4/SILK-NOTICES.txt"), source=pilk_source,
     )
-    prefix = f"loki-{VERSION}/"
-    metadata = {"product": "Loki", "version": VERSION, "commit": commit,
+    prefix = f"loki-{version}/"
+    metadata = {"product": "Loki", "version": version, "commit": commit,
                 "upstream_commit": BASELINE, "repository": "ObliviousOdin/loki",
                 "kind": "source-preview", "signed": False,
                 "third_party_sources": [pilk],
-                "required_native_companion_assets": [f"loki-{VERSION}-source.tar.gz",
+                "required_native_companion_assets": [f"loki-{version}-source.tar.gz",
                     pilk["source_asset"], pilk["license_asset"], pilk["codec_notice_asset"],
                     "LOKI-PREVIEW.json", "SHA256SUMS"],
                 "native_qualification": "See separately published native receipts"}
@@ -66,7 +67,7 @@ def package(out: Path, commit: str, *, pilk_source: Path | None = None) -> dict:
         info = tarfile.TarInfo(prefix + "LOKI-PREVIEW.json")
         info.size, info.mtime, info.mode = len(payload), 0, 0o644
         archive.addfile(info, io.BytesIO(payload))
-    artifact = out / f"loki-{VERSION}-source.tar.gz"
+    artifact = out / f"loki-{version}-source.tar.gz"
     with raw_tar.open("rb") as source, artifact.open("wb") as target:
         with gzip.GzipFile(filename="", fileobj=target, mode="wb", mtime=0) as zipped:
             shutil.copyfileobj(source, zipped)

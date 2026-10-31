@@ -21,6 +21,12 @@ Updating this compatibility source and its pin requires a reviewed Loki PR.
 
 ## Retained upstream admission policy
 
+The `smart-home` capability follows the same shipped-pin ownership rule. Its exact
+source lives under `optional-plugins/smart-home`; live upstream catalog refreshes cannot
+replace its entity scope or fresh-confirmation implementation. Updating Loki makes it
+discoverable, but does not install, enable, or connect it. Review and install it through
+Capabilities > Plugins, then configure one profile using the masked settings form.
+
 Presence in this directory **is** the trust signal. The rules that keep it
 meaningful:
 

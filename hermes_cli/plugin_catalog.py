@@ -198,28 +198,32 @@ def _removed_from_list(raw_list: Any) -> list[RemovedEntry]:
 
 # ── In-tree catalog ──────────────────────────────────────────────────────────
 
+_LOKI_CATALOG_SUBDIRS = {"honcho": "optional-plugins/honcho", "smart-home": "optional-plugins/smart-home"}
+
+
 def _loki_catalog_entry_allowed(entry: PluginCatalogEntry) -> bool:
-    """Honcho needs Loki's reviewed state-isolation patch, never an upstream replacement."""
-    if entry.name != "honcho":
+    """Product-owned capability pins cannot be replaced by the upstream live catalog."""
+    if entry.name not in _LOKI_CATALOG_SUBDIRS:
         return True
     owned = (
         entry.repo == "https://github.com/ObliviousOdin/loki"
-        and entry.subdir == "optional-plugins/honcho"
+        and entry.subdir == _LOKI_CATALOG_SUBDIRS[entry.name]
         and _SHA_RE.fullmatch(entry.sha) is not None
     )
     if not owned:
-        logger.warning("Loki's reviewed Honcho catalog pin is unavailable; refusing a foreign replacement")
+        logger.warning("Loki's reviewed %s catalog pin is unavailable; refusing a foreign replacement", entry.name)
     return owned
 
 
 def _with_loki_catalog_pins(entries: list[PluginCatalogEntry], tree: list[PluginCatalogEntry]
                             ) -> list[PluginCatalogEntry]:
-    """Keep remote updates for other plugins; only the shipped catalog may select Honcho."""
-    resolved = [entry for entry in entries if entry.name != "honcho"]
-    owned = next((entry for entry in tree if entry.name == "honcho" and _loki_catalog_entry_allowed(entry)), None)
-    if owned is not None:
-        position = next((i for i, entry in enumerate(entries) if entry.name == "honcho"), len(resolved))
-        resolved.insert(min(position, len(resolved)), owned)
+    """Keep remote freshness while selecting product-owned pins only from the shipped tree."""
+    resolved = [entry for entry in entries if entry.name not in _LOKI_CATALOG_SUBDIRS]
+    for name in _LOKI_CATALOG_SUBDIRS:
+        owned = next((entry for entry in tree if entry.name == name and _loki_catalog_entry_allowed(entry)), None)
+        if owned is not None:
+            position = next((i for i, entry in enumerate(entries) if entry.name == name), len(resolved))
+            resolved.insert(min(position, len(resolved)), owned)
     return resolved
 
 

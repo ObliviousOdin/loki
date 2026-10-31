@@ -1,3 +1,24 @@
+# Loki 0.1.0-alpha.2 — release candidate
+
+This candidate adds the optional `smart-home` Home Assistant capability. It is disabled
+until installed and configured for an individual profile. The existing plugin settings
+form provides a masked token field, exact light/switch allowlist and read-only default.
+Connection checks and device reads happen only on explicit tool calls. On/off changes
+require a fresh approve-once response from a human, including when ordinary approvals
+are off. Unavailable viewers or devices block changes; uncertain writes are not retried.
+Camera streams, locks, arbitrary services and unattended device changes are excluded.
+See the [setup guide](../../optional-plugins/smart-home/README.md).
+
+Python reports `0.1.0a2`; the desktop and other workspace packages report the equivalent
+`0.1.0-alpha.2`. Source preview packaging now derives its version from the exact admitted
+commit, so a new release cannot silently retain the earlier artifact version.
+
+This candidate has no real Home Assistant or camera acceptance yet. No device endpoint
+or credential is supplied. Unsigned preview packaging and signed desktop update delivery
+are separate: no signed/notarized build or authenticated automatic-update feed is claimed.
+Publication, CI and artifact receipts must identify the final admitted commit before
+this candidate is described as released.
+
 # Loki 0.1.0-alpha.1
 
 [Published unsigned source preview](https://github.com/ObliviousOdin/loki/releases/tag/v0.1.0-alpha.1), built from `12690b426de4610916f91fb42f008391df550f27`. Python reports the equivalent `0.1.0a1`; JavaScript and the release tag use `0.1.0-alpha.1`. Packaged native applications are not included.

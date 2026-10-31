@@ -10,5 +10,5 @@
   "commits_ahead_of_release": 1376,
   "release_is_ancestor": true,
   "loki_repository": "https://github.com/ObliviousOdin/loki",
-  "loki_preview": "0.1.0-alpha.1"
+  "loki_preview": "0.1.0-alpha.2"
 }
