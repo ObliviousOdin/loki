@@ -36,7 +36,7 @@ _PUBLIC = frozenset({
     "hermes_cli.config", "hermes_cli.plugin_events", "hermes_cli.plugin_provider_requests",
     "hermes_constants", "hermes_platform", "hermes_state", "plugins.plugin_storage", "plugins.plugin_utils", "pm",
     "providers", "providers.base", "tools.browser_supervisor", "tools.browser_supervisor_capture",
-    "tools.computer_use.backend", "tools.registry",
+    "tools.computer_use.backend", "tools.registry", "tools.approval:request_tool_approval",
     # PluginContext (hermes_cli/plugins.py)
     "agent.context_references", "agent.plugin_llm", "agent.transcription_provider", "agent.tts_provider",
     "cron.execution_identity",

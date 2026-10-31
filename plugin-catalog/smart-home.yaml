@@ -1,0 +1,24 @@
+name: smart-home
+title: Smart home
+repo: https://github.com/ObliviousOdin/loki
+sha: d407fd1f33ace89698e7963f31d61af163cadf43
+subdir: optional-plugins/smart-home
+version: "0.1.0-alpha.2"
+description: "Scoped Home Assistant lights and switches. Starts read-only with an empty entity allowlist. Every on/off change requires a fresh human confirmation; unavailable devices or viewers block writes. No camera streams, locks, arbitrary services, device discovery scans, or automatic connection. Configure your existing Home Assistant address and token privately in this profile's plugin settings. The token's permissions remain broader than this plugin's application allowlist."
+maintainer: ObliviousOdin
+tier: community
+category: automation
+requires_hermes: ">=0.22.2"
+docs_url: https://github.com/ObliviousOdin/loki/blob/d407fd1f33ace89698e7963f31d61af163cadf43/optional-plugins/smart-home/README.md
+known_issues:
+  - "Fresh confirmation requires Loki 0.1.0-alpha.2 or later. Older runtimes and isolated hosts without an approval viewer refuse control."
+  - "Real-device and signed desktop updater acceptance are not included in the mock-based verification."
+capabilities:
+  provides_tools:
+    - smart_home_status
+    - smart_home_check
+    - smart_home_read
+    - smart_home_set_state
+  provides_hooks: []
+  provides_middleware: []
+  requires_env: []

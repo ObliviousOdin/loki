@@ -62,6 +62,7 @@ def test_documented_public_stdlib_and_own_package_imports_are_not_flagged(tmp_pa
         "clean_lib/__init__.py": "",
         "clean_lib/helpers.py": "def local_helper():\n    pass\n",
         "client.py": "class Client:\n    pass\n",
+        "confirmation.py": "from tools.approval import request_tool_approval\n",
     })
 
     [warning] = _private_warnings(validate_plugin_dir(plugin))
