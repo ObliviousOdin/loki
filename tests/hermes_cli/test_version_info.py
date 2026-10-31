@@ -250,7 +250,7 @@ def test_resolve_stamp_file_falls_back_to_code_root_when_env_unset(tmp_path, mon
 def test_old_updater_version_stub_reads_the_same_stamp_as_version_info(tmp_path):
     """``hermes_cli.__version__`` exists only for shipped updaters that import it after the
     checkout swap (tests/compat/old_updater_surface.json). It must report the stamp's base
-    version exactly as get_version_info() does, and the pre-stamp placeholder without one.
+    version exactly as get_version_info() does, and the current product version without one.
     A fresh interpreter, since the stub is evaluated when the package is imported."""
     import os
     import sys
@@ -277,7 +277,8 @@ def test_old_updater_version_stub_reads_the_same_stamp_as_version_info(tmp_path)
 
     unstamped = tmp_path / "unstamped"
     unstamped.mkdir()
-    assert read(unstamped)[0] == "0.1.0a1"
+    from loki_identity import VERSION
+    assert read(unstamped)[0] == VERSION
 
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="the blocking untracked scan uses a FIFO")
