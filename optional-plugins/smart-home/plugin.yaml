@@ -1,0 +1,32 @@
+name: smart-home
+version: 0.1.0-alpha.2
+description: "Scoped Home Assistant lights and switches. Read-only by default; every change needs fresh confirmation."
+manifest_version: 2
+requires_hermes: ">=0.22.2"
+license: MIT
+provides_tools:
+  - smart_home_status
+  - smart_home_check
+  - smart_home_read
+  - smart_home_set_state
+config_schema:
+  url:
+    type: str
+    default: ""
+    label: Home Assistant address
+    description: "Your existing Home Assistant base URL. No connection happens when settings are saved."
+  token:
+    type: secret
+    env: LOKI_SMART_HOME_TOKEN
+    label: Home Assistant access token
+    description: "Enter privately. Stored in this profile's secret store, never in plugin settings."
+  allowed_entities:
+    type: list
+    default: []
+    label: Allowed lights and switches
+    description: 'Exact entity IDs as a JSON list, for example ["light.kitchen"]. Empty allows no device access.'
+  allow_control:
+    type: bool
+    default: false
+    label: Allow confirmed changes
+    description: "Start read-only. When enabled, each on/off action still asks for fresh human confirmation."

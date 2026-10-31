@@ -1118,7 +1118,8 @@ def check_dangerous_command(command: str, env_type: str,
     )
 
 
-def request_tool_approval(tool_name: str, reason: str, *, rule_key: str = "", approval_callback=None) -> dict:
+def request_tool_approval(tool_name: str, reason: str, *, rule_key: str = "", approval_callback=None,
+                          require_fresh: bool = False) -> dict:
     """Escalate an arbitrary tool call to the human-approval gate.
 
     Entry point for a plugin ``pre_tool_call`` hook returning ``{"action": "approve", ...}``:
@@ -1128,7 +1129,12 @@ def request_tool_approval(tool_name: str, reason: str, *, rule_key: str = "", ap
     context without an approval bridge fails CLOSED. ``rule_key`` controls the ``[a]lways``
     allowlist grain; when empty it is ``tool_name`` + a hash of ``reason`` so DISTINCT reasons
     on the same tool persist independently. Returns the ``check_dangerous_command`` result shape.
+    ``require_fresh=True`` instead requires a current once-only human response: no yolo/off,
+    cached, session/permanent, unattended, or model approval can substitute for confirmation.
     """
+    if require_fresh:
+        from tools.approval_fresh import request_fresh_approval
+        return request_fresh_approval(tool_name, reason, approval_callback=approval_callback)
     description = reason or f"Plugin requires approval for {tool_name}"
     if not rule_key:
         rule_key = f"{tool_name}:{hashlib.sha256(description.encode('utf-8')).hexdigest()[:12]}"

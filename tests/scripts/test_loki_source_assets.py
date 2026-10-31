@@ -105,7 +105,9 @@ def _git(repo, *args):
     return subprocess.check_output(["git", *args], cwd=repo, text=True).strip()
 
 
-def test_source_preview_contains_exact_recipes_and_required_native_companions(tmp_path, source_fixture, monkeypatch):
+@pytest.mark.parametrize("python_version,native_version", [("0.1.0a1", "0.1.0-alpha.1"), ("0.1.0a2", "0.1.0-alpha.2")])
+def test_source_preview_contains_exact_recipes_and_required_native_companions(tmp_path, source_fixture, monkeypatch,
+                                                                          python_version, native_version):
     source, lock, license_bytes, notice = source_fixture
     repo = tmp_path / "repository"
     repo.mkdir()
@@ -114,7 +116,7 @@ def test_source_preview_contains_exact_recipes_and_required_native_companions(tm
          "commit", "--allow-empty", "-qm", "fixture baseline")
     baseline = _git(repo, "rev-parse", "HEAD")
     files = {
-        "pyproject.toml": b'[project]\nname="obliviousodin-loki-agent"\nversion="0.1.0a1"\n',
+        "pyproject.toml": f'[project]\nname="obliviousodin-loki-agent"\nversion="{python_version}"\n'.encode(),
         "uv.lock": lock,
         "docs/loki/UPSTREAM.json": json.dumps({"commit": baseline}).encode(),
         "notices/pilk-0.2.4/LICENSE": license_bytes,
@@ -136,13 +138,14 @@ def test_source_preview_contains_exact_recipes_and_required_native_companions(tm
     monkeypatch.setattr(package_preview, "BASELINE", baseline)
     out = tmp_path / "release"
     metadata = package_preview.package(out, "HEAD", pilk_source=source)
+    assert metadata["version"] == native_version
     assert metadata["commit"] == _git(repo, "rev-parse", "HEAD")
     assert set(metadata["required_native_companion_assets"]) <= {p.name for p in out.iterdir()}
     assert metadata["third_party_sources"][0]["sha256"] == hashlib.sha256(source.read_bytes()).hexdigest()
     for line in (out / "SHA256SUMS").read_text().splitlines():
         digest, name = line.split("  ")
         assert hashlib.sha256((out / name).read_bytes()).hexdigest() == digest
-    with gzip.open(out / f"loki-{package_preview.VERSION}-source.tar.gz", "rb") as stream:
+    with gzip.open(out / f"loki-{native_version}-source.tar.gz", "rb") as stream:
         with tarfile.open(fileobj=stream, mode="r:") as archive:
             for name, data in files.items():
-                assert archive.extractfile(f"loki-{package_preview.VERSION}/{name}").read() == data
+                assert archive.extractfile(f"loki-{native_version}/{name}").read() == data
